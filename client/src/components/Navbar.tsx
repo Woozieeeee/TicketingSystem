@@ -16,6 +16,7 @@ export default function Navbar({ user }: NavbarProps) {
   const router = useRouter();
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // Added missing state
+  const [isOpen, setIsOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   // Close notification dropdown when clicking outside
@@ -32,6 +33,30 @@ export default function Navbar({ user }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleNotificationClick = async (
+    notifId: string,
+    ticketGlobalId: string,
+  ) => {
+    try {
+      // 1. Close the dropdown immediately
+      setNotificationOpen(false);
+
+      // 2. Optimistic Update: Use is_read (snake_case) to match your state logic
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n)),
+      );
+
+      // 3. API Call
+      await fetch(`http://localhost:3001/api/notifications/${notifId}/read`, {
+        method: "PATCH",
+      });
+
+      // 4. Navigate
+      router.push(`/tickets?highlight=${ticketGlobalId}`);
+    } catch (error) {
+      console.error("Failed to mark notification as read", error);
+    }
+  };
   // Fetch Notifications
   // Inside Navbar.tsx component
   useEffect(() => {
@@ -141,17 +166,19 @@ export default function Navbar({ user }: NavbarProps) {
                 notifications.map((n) => (
                   <li
                     key={n.id}
-                    className={`p-3 border-b hover:bg-gray-100 cursor-pointer ${!n.is_read ? "bg-blue-50" : ""}`}
-                    onClick={() => {
-                      setNotificationOpen(false);
-                      // Redirect to the main tickets page with a highlight parameter
-                      router.push(`/tickets?highlight=${n.ticketGlobalId}`);
-                    }}
+                    // Note: check if your data uses is_read or isRead and match it here
+                    className={`p-3 border-b hover:bg-gray-100 cursor-pointer ${!n.is_read ? "bg-blue-50 font-semibold" : ""}`}
+                    onClick={() =>
+                      handleNotificationClick(n.id, n.ticketGlobalId)
+                    }
                   >
-                    <p className="text-sm text-gray-800 font-medium">
-                      {n.message}
-                    </p>
-                    <span className="text-[10px] text-gray-800">
+                    <div className="flex justify-between items-start">
+                      <p className="text-sm text-gray-800">{n.message}</p>
+                      {!n.is_read && (
+                        <span className="w-2 h-2 bg-blue-600 rounded-full mt-1.5 shadow-sm" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-gray-500">
                       {new Date(n.created_at).toLocaleString()}
                     </span>
                   </li>

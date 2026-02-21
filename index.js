@@ -119,6 +119,30 @@ app.post("/api/tickets", (req, res) => {
 
 // --- Notifications Routes (MUST BE OUTSIDE THE POST ROUTE) ---
 
+// Express Server Route (app.js or routes/notifications.js)
+app.patch("/api/notifications/:id/read", async (req, res) => {
+  const { id } = req.params;
+  console.log("Attempting to mark as read, ID:", id); // Debug log
+
+  try {
+    // 1. Correct array name: mockNotifications
+    // 2. Use == (double equals) to compare string ID to number ID
+    const notification = mockNotifications.find((n) => n.id == id);
+
+    if (notification) {
+      notification.is_read = true;
+      console.log("Success: Notification updated in backend.");
+      return res.status(200).json({ message: "Updated successfully" });
+    }
+
+    console.log("Fail: Notification ID not found in mockNotifications.");
+    res.status(404).json({ error: "Not found" });
+  } catch (error) {
+    console.error("Server Error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // GET: Fetch for a specific user
 app.get("/api/notifications/:userId", (req, res) => {
   const { userId } = req.params;
