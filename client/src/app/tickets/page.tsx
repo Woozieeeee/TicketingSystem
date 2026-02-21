@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Navbar from "../../components/Navbar";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { getRelativeTime } from "../../lib/utils";
-import Sidebar from "../../components/sidebar";
 
 interface Ticket {
   globalId: string | number;
@@ -26,6 +25,8 @@ interface Ticket {
 export default function TicketsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [activeTab, setActiveTab] = useState("All");
@@ -36,27 +37,6 @@ export default function TicketsPage() {
     key: keyof Ticket;
     direction: "asc" | "desc";
   } | null>({ key: "id", direction: "asc" });
-
-  useEffect(() => {
-    setMounted(true);
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      fetchTickets(parsedUser);
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
-
-  // Lock scrolling when modal is open
-  useEffect(() => {
-    if (selectedTicket) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-  }, [selectedTicket]);
 
   const fetchTickets = async (currentUser: any) => {
     setIsLoading(true);
@@ -86,13 +66,88 @@ export default function TicketsPage() {
     }
   };
 
-  if (!mounted || isLoading || !user) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        Loading...
-      </div>
-    );
-  }
+  const filteredByRole = tickets.filter((ticket) => {
+    if (!user) return false;
+    if (user.role === "Head") return ticket.dept === user.dept;
+    return ticket.createdBy === user.username;
+  });
+
+  const filteredTickets = filteredByRole.filter((ticket) => {
+    const statusMatch = activeTab === "All" || ticket.status === activeTab;
+    const categoryMatch =
+      categoryFilter === "All" || ticket.category === categoryFilter;
+    return statusMatch && categoryMatch;
+  });
+
+  const sortedTickets = [...filteredTickets].sort((a, b) => {
+    if (!sortConfig) return 0;
+
+    const { key, direction } = sortConfig;
+    const valA = a[key as keyof Ticket] ?? "";
+    const valB = b[key as keyof Ticket] ?? "";
+    if (valA < valB) return direction === "asc" ? -1 : 1;
+    if (valA > valB) return direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const handleCloseModal = () => {
+    // 1. Clear the URL first
+    router.push("/tickets", { scroll: false });
+
+    // 2. Use a tiny timeout to let the router update
+    // before we wipe the selectedTicket state
+    setTimeout(() => {
+      setSelectedTicket(null);
+    }, 50);
+  };
+
+  useEffect(() => {
+    // If there is NO highlight ID in the URL, but a ticket is still "selected"
+    // it means the user either clicked 'Back' or we cleared the URL.
+    if (!highlightId && selectedTicket) {
+      setSelectedTicket(null);
+    }
+  }, [highlightId, selectedTicket]);
+
+  useEffect(() => {
+    setMounted(true);
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      fetchTickets(parsedUser);
+    } else {
+      router.push("/login");
+    }
+  }, [router]);
+
+  // Lock scrolling when modal is open
+  useEffect(() => {
+    if (selectedTicket) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [selectedTicket]);
+
+  useEffect(() => {
+    if (highlightId && sortedTickets.length > 0) {
+      // Find the ticket that matches the ID from the notification
+      const ticketToHighlight = sortedTickets.find(
+        (t) => String(t.globalId) === String(highlightId),
+      );
+
+      if (ticketToHighlight) {
+        setSelectedTicket(ticketToHighlight); // 3. Auto-open the modal
+
+        // Optional: Scroll the row into view if the list is long
+        const element = document.getElementById(`ticket-${highlightId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
+  }, [highlightId, sortedTickets]);
 
   const handleStatusChange = (globalId: string | number, newStatus: string) => {
     const updatedTickets = tickets.map((ticket) => {
@@ -144,42 +199,16 @@ export default function TicketsPage() {
     setSortConfig({ key, direction });
   };
 
-  const filteredByRole = tickets.filter((ticket) => {
-    if (!user) return false;
-    if (user.role === "Head") return ticket.dept === user.dept;
-    return ticket.createdBy === user.username;
-  });
-
-  const filteredTickets = filteredByRole.filter((ticket) => {
-    const statusMatch = activeTab === "All" || ticket.status === activeTab;
-    const categoryMatch =
-      categoryFilter === "All" || ticket.category === categoryFilter;
-    return statusMatch && categoryMatch;
-  });
-
-  const sortedTickets = [...filteredTickets].sort((a, b) => {
-    if (!sortConfig) return 0;
-    const { key, direction } = sortConfig;
-    const valA = a[key as keyof Ticket] ?? "";
-    const valB = b[key as keyof Ticket] ?? "";
-    if (valA < valB) return direction === "asc" ? -1 : 1;
-    if (valA > valB) return direction === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  if (!user || isLoading) {
+  if (!mounted || isLoading || !user) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50 text-gray-500">
-        Loading Tickets...
+      <div className="h-screen flex items-center justify-center">
+        Loading...
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      <Navbar user={user} />
-      <Sidebar user={user} />
-
       <main
         style={{
           flex: 1,
@@ -238,6 +267,9 @@ export default function TicketsPage() {
                   <tr>
                     {[
                       { label: "ID", key: "id" },
+                      ...(user.role === "Head"
+                        ? [{ label: "Sender", key: "createdBy" }]
+                        : []),
                       { label: "Category", key: "category" },
                       { label: "Title", key: "title" },
                       { label: "Status", key: "status" },
@@ -264,11 +296,26 @@ export default function TicketsPage() {
                   {sortedTickets.map((ticket) => (
                     <tr
                       key={ticket.globalId}
-                      className="hover:bg-gray-50/50 transition"
+                      id={`ticket-${ticket.globalId}`} // 4. Add ID for scrolling
+                      className={`transition-all duration-500 ${
+                        highlightId === String(ticket.globalId)
+                          ? "bg-blue-50 border-l-4 border-blue-600 shadow-inner" // 5. Add highlight style
+                          : "hover:bg-gray-50/50"
+                      }`}
                     >
                       <td className="px-6 py-4 text-sm text-gray-900">
                         #{ticket.id}
                       </td>
+                      {user.role === "Head" && (
+                        <td className="px-6 py-4 text-sm font-semibold text-blue-700">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] text-blue-600 uppercase">
+                              {String(ticket.createdBy).charAt(0)}
+                            </div>
+                            {ticket.createdBy}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {ticket.category || "General"}
                       </td>
@@ -387,11 +434,12 @@ export default function TicketsPage() {
         selectedTicket &&
         createPortal(
           <div
-            className="fixed inset-0 flex items-center justify-center p-4 z-[999999]"
+            className="fixed inset-0 flex items-center justify-center p-4"
             style={{
               position: "fixed",
               top: 0,
               left: 0,
+              zIndex: 1000,
               width: "100vw", // Force full width for the dim effect
               height: "100vh", // Force full height
               backgroundColor: "rgba(0, 0, 0, 0.4)", // This creates the DIM effect
@@ -413,7 +461,7 @@ export default function TicketsPage() {
                   Ticket Details
                 </h3>
                 <button
-                  onClick={() => setSelectedTicket(null)}
+                  onClick={handleCloseModal} // Use the new function
                   className="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors"
                 >
                   &times;
@@ -454,7 +502,7 @@ export default function TicketsPage() {
               {/* Footer */}
               <div className="px-8 pb-8">
                 <button
-                  onClick={() => setSelectedTicket(null)}
+                  onClick={handleCloseModal} // Use the new function
                   className="w-full py-4 mb-6 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95"
                 >
                   Close Details

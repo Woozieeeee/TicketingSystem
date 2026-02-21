@@ -218,7 +218,6 @@ function EditTicketForm() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar user={user} />
       <main className="max-w-3xl mx-auto py-12 px-4">
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
           <div className="bg-green-600 px-8 py-6">

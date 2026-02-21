@@ -23,6 +23,8 @@ let mockUsers = [
   },
 ];
 
+let mockNotifications = [];
+
 // Track which departments already exist to determine if a new user should be "Head".
 let existingDepartments = ["IT"];
 
@@ -62,8 +64,6 @@ app.get("/api/tickets/:id", (req, res) => {
   res.json(ticket);
 });
 
-// Create Ticket Route
-// POST /api/tickets
 app.post("/api/tickets", (req, res) => {
   const { title, description, priority, category, createdBy, dept } = req.body;
 
@@ -72,7 +72,6 @@ app.post("/api/tickets", (req, res) => {
   }
 
   const userTickets = mockTickets.filter((t) => t.createdBy === createdBy);
-
   const nextUserId =
     userTickets.length > 0 ? Math.max(...userTickets.map((t) => t.id)) + 1 : 1;
 
@@ -82,7 +81,7 @@ app.post("/api/tickets", (req, res) => {
     title,
     description: description || "",
     priority,
-    category: category || "General", // e.g., Concern, Problem, Message
+    category: category || "General",
     status: "Pending",
     createdBy,
     dept,
@@ -92,7 +91,46 @@ app.post("/api/tickets", (req, res) => {
 
   mockTickets.push(newTicket);
 
+  // --- NOTIFICATION LOGIC ---
+  // 1. Find the Heads to notify
+  const headsInDept = mockUsers.filter(
+    (u) => u.role === "Head" && u.dept === dept,
+  );
+  const recipients =
+    headsInDept.length > 0
+      ? headsInDept.map((h) => h.username)
+      : mockUsers.filter((u) => u.role === "Head").map((h) => h.username);
+
+  // 2. Create notification objects
+  recipients.forEach((recipient, i) => {
+    mockNotifications.push({
+      id: Date.now() + i,
+      recipientId: recipient, // This matches the username
+      message: `New ticket from ${createdBy}: "${title}"`,
+      type: "ticket_created",
+      is_read: false,
+      created_at: new Date().toISOString(),
+      ticketGlobalId: newTicket.globalId,
+    });
+  });
+
   res.status(201).json(newTicket);
+});
+
+// --- Notifications Routes (MUST BE OUTSIDE THE POST ROUTE) ---
+
+// GET: Fetch for a specific user
+app.get("/api/notifications/:userId", (req, res) => {
+  const { userId } = req.params;
+  const userNotifications = mockNotifications.filter(
+    (n) => n.recipientId === userId,
+  );
+  res.json(userNotifications);
+});
+
+// GET: Global debug (Optional)
+app.get("/api/notifications", (req, res) => {
+  res.json(mockNotifications);
 });
 
 // Update Ticket Route

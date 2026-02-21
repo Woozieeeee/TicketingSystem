@@ -68,7 +68,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar user={null} />
       <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
           Login
@@ -87,7 +86,8 @@ export default function Login() {
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
-              required
+              required={true}
+              suppressHydrationWarning
             />
           </div>
 

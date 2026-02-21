@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react"; // Added useCallback
 import { useRouter } from "next/navigation";
-import Navbar from "../../components/Navbar";
-import Sidebar from "../../components/sidebar";
 import { getRelativeTime } from "../../lib/utils";
 
 export default function RoleBasedDashboard() {
@@ -101,8 +99,6 @@ export default function RoleBasedDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} />
-      <Sidebar user={user} />
       <main className="max-w-7xl mx-auto py-10 px-8">
         <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
           <div className="p-8">

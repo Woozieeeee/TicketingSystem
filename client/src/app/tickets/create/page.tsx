@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../../../components/Navbar";
 import Swal from "sweetalert2";
 
 export default function CreateTicketPage() {
@@ -81,6 +80,7 @@ export default function CreateTicketPage() {
           timer: 2000,
           showConfirmButton: false,
         });
+
         router.push("/tickets"); // Tapos na! Balik na tayo sa listahan ng tickets
       } else {
         Swal.fire({
@@ -103,8 +103,6 @@ export default function CreateTicketPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar user={user} />
-
       <main className="max-w-3xl mx-auto py-12 px-4 ">
         {/* Progress Indicator */}
         <div className="mb-8 flex items-center justify-center space-x-4 ">

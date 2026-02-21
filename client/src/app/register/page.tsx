@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Navbar from "../../components/Navbar";
 import Swal from "sweetalert2";
 
 export default function Register() {
@@ -70,9 +69,6 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar with null user (hides authenticated links) */}
-      <Navbar user={null} />
-
       {/* Centered Registration Form Container */}
       <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">

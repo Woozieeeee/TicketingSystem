@@ -1,6 +1,5 @@
 /* app/globals.css */
 @import "tailwindcss";
-@plugin "daisyui";
 
 html,
 body {
