@@ -99,7 +99,14 @@ export default function RoleBasedDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto py-10 px-8">
+      <main
+        style={{
+          flex: 1,
+          marginLeft: "260px", // Matches the width of the sidebar
+          backgroundColor: "#f8fafc",
+          padding: "40px",
+        }}
+      >
         <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
           <div className="p-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -123,7 +130,7 @@ export default function RoleBasedDashboard() {
               ) : (
                 <button
                   onClick={() => router.push("/tickets")}
-                  className="bg-indigo-600 text-white font-medium py-2 px-5 rounded-lg hover:bg-indigo-700 transition shadow-md"
+                  className="bg-green-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-md"
                 >
                   Manage Queue
                 </button>
