@@ -173,17 +173,35 @@ app.put("/api/tickets/:id", async (req, res) => {
 
   try {
     const db = getPrisma();
-    // Use raw SQL to update ticket
-    const updateSql = `UPDATE "Ticket" SET title =  $1, description = $2, status = $3, category = $4, "updatedAt" = now() WHERE id = $5 RETURNING *`;
-    const updated = await db.$queryRawUnsafe(
-      updateSql,
-      title,
-      description,
-      status || "PENDING",
-      category,
 
-      id,
-    );
+    // Build dynamic SQL based on provided fields
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramCount++}`);
+      values.push(description);
+    }
+    if (status !== undefined) {
+      updates.push(`status = $${paramCount++}`);
+      values.push(status);
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${paramCount++}`);
+      values.push(category);
+    }
+
+    updates.push(`"updatedAt" = now()`);
+    values.push(id);
+
+    const updateSql = `UPDATE "Ticket" SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`;
+    const updated = await db.$queryRawUnsafe(updateSql, ...values);
+
     if (updated && updated.length > 0) {
       console.log("✓ Ticket updated:", id);
       res.json(updated[0]);

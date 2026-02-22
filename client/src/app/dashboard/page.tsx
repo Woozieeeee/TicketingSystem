@@ -17,22 +17,31 @@ export default function RoleBasedDashboard() {
     const parsedUser = JSON.parse(storedUser);
 
     try {
-      const res = await fetch("http://localhost:3001/api/tickets");
+      const params = new URLSearchParams();
+      if (parsedUser?.role) params.set("role", parsedUser.role);
+      if (parsedUser?.dept) params.set("dept", parsedUser.dept);
+      if (parsedUser?.id) params.set("userId", parsedUser.id);
+
+      const res = await fetch(
+        `http://localhost:3001/api/tickets?${params.toString()}`,
+      );
       if (res.ok) {
         const allTickets = await res.json();
 
-        // Forget localStorage for a second—let's see what the server says
-        const filtered = allTickets.filter((t: any) => {
-          if (parsedUser.role === "Head") return t.dept === parsedUser.dept;
-          return t.createdBy === parsedUser.username;
-        });
+        // Transform status from DB format (PENDING) to UI format (Pending)
+        const transformed = allTickets.map((t: any) => ({
+          ...t,
+          status:
+            t.status === "PENDING"
+              ? "Pending"
+              : t.status === "IN_PROGRESS"
+                ? "In Progress"
+                : t.status === "RESOLVED"
+                  ? "Resolved"
+                  : t.status,
+        }));
 
-        setTickets(filtered);
-        console.log(
-          "DEBUG - Latest Ticket Date:",
-          filtered[0]?.lastUpdated || filtered[0]?.date,
-        );
-        console.log("DEBUG - Current Time:", new Date().toISOString());
+        setTickets(transformed);
       }
     } catch (error) {
       console.error("Error loading tickets:", error);

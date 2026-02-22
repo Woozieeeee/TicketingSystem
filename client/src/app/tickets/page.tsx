@@ -41,13 +41,20 @@ export default function TicketsPage() {
   const fetchTickets = async (currentUser: any) => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:3001/api/tickets/");
+      const params = new URLSearchParams();
+      if (currentUser?.role) params.set("role", currentUser.role);
+      if (currentUser?.dept) params.set("dept", currentUser.dept);
+      if (currentUser?.id) params.set("userId", currentUser.id);
+
+      const res = await fetch(
+        `http://localhost:3001/api/tickets?${params.toString()}`,
+      );
       if (res.ok) {
         const serverTickets = await res.json();
         // Transform API response to match UI expectations
-        const transformed = serverTickets.map((t: any) => ({
+        const transformed = serverTickets.map((t: any, idx: number) => ({
           globalId: t.id, // Map 'id' from API to 'globalId' for UI
-          id: Math.random(), // Generate a numeric id for table display
+          id: idx + 1, // Use sequential index for table display
           title: t.title,
           description: t.description,
           category: t.category || "General",
@@ -171,7 +178,10 @@ export default function TicketsPage() {
     }
   }, [highlightId, sortedTickets]);
 
-  const handleStatusChange = (globalId: string | number, newStatus: string) => {
+  const handleStatusChange = async (
+    globalId: string | number,
+    newStatus: string,
+  ) => {
     const updatedTickets = tickets.map((ticket) => {
       if (ticket.globalId === globalId) {
         const isHead = user?.role === "Head";
@@ -202,6 +212,26 @@ export default function TicketsPage() {
 
     setTickets(updatedTickets);
     localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
+
+    // Persist status change to the server
+    try {
+      const dbStatus =
+        newStatus === "In Progress"
+          ? "IN_PROGRESS"
+          : newStatus === "Resolved"
+            ? "RESOLVED"
+            : "PENDING";
+      const res = await fetch(`http://localhost:3001/api/tickets/${globalId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: dbStatus }),
+      });
+      if (!res.ok) {
+        console.error("Failed to update ticket on server");
+      }
+    } catch (error) {
+      console.error("Error updating ticket on server:", error);
+    }
 
     Swal.fire({
       toast: true,
