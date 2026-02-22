@@ -23,6 +23,7 @@ model User {
 model Ticket {
   id           String   @id @default(cuid())
   title        String
+  category     String
   description  String   @db.Text
   status       Status   @default(PENDING)
 

@@ -44,11 +44,33 @@ export default function TicketsPage() {
       const res = await fetch("http://localhost:3001/api/tickets/");
       if (res.ok) {
         const serverTickets = await res.json();
-        const localData = localStorage.getItem("myTickets");
+        // Transform API response to match UI expectations
+        const transformed = serverTickets.map((t: any) => ({
+          globalId: t.id, // Map 'id' from API to 'globalId' for UI
+          id: Math.random(), // Generate a numeric id for table display
+          title: t.title,
+          description: t.description,
+          category: t.category || "General",
+          status:
+            t.status === "PENDING"
+              ? "Pending"
+              : t.status === "IN_PROGRESS"
+                ? "In Progress"
+                : t.status === "RESOLVED"
+                  ? "Resolved"
+                  : t.status,
+          createdBy: t.createdBy || "Unknown",
+          dept: t.dept,
+          date: t.createdAt || new Date().toISOString(),
+          userMarkedDone: false,
+          headMarkedDone: false,
+          lastUpdated: t.updatedAt,
+        }));
 
+        const localData = localStorage.getItem("myTickets");
         if (localData) {
           const localTickets = JSON.parse(localData);
-          const merged = serverTickets.map((sTicket: Ticket) => {
+          const merged = transformed.map((sTicket: Ticket) => {
             const localMatch = localTickets.find(
               (l: Ticket) => l.globalId === sTicket.globalId,
             );
@@ -56,7 +78,7 @@ export default function TicketsPage() {
           });
           setTickets(merged);
         } else {
-          setTickets(serverTickets);
+          setTickets(transformed);
         }
       }
     } catch (error) {
@@ -266,10 +288,13 @@ export default function TicketsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     {[
-                      { label: "ID", key: "id" },
                       ...(user.role === "Head"
-                        ? [{ label: "Sender", key: "createdBy" }]
+                        ? [
+                            { label: "Sender", key: "createdBy" },
+                            { label: "ID", key: "id" },
+                          ]
                         : []),
+
                       { label: "Category", key: "category" },
                       { label: "Title", key: "title" },
                       { label: "Status", key: "status" },
@@ -303,9 +328,11 @@ export default function TicketsPage() {
                           : "hover:bg-gray-50/50"
                       }`}
                     >
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        #{ticket.id}
-                      </td>
+                      {user.role === "Head" && (
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          #{ticket.id}
+                        </td>
+                      )}
                       {user.role === "Head" && (
                         <td className="px-6 py-4 text-sm font-semibold text-blue-700">
                           <div className="flex items-center gap-2">
@@ -348,6 +375,11 @@ export default function TicketsPage() {
                             onClick={(e) => {
                               e.stopPropagation(); // Prevents row click events
                               setSelectedTicket(ticket);
+                              // Update URL with highlight param to prevent auto-close
+                              router.push(
+                                `/tickets?highlight=${ticket.globalId}`,
+                                { scroll: false },
+                              );
                             }}
                             className="px-2 py-1 bg-green-600 text-white border border-green-700 hover:bg-green-700 rounded-lg shadow-sm transition-all active:scale-95 group"
                             title="View Details"

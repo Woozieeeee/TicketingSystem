@@ -115,21 +115,116 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/tickets", async (req, res) => {
-  const { title, description, userId } = req.body; // authorId expected as userId
+  const { title, description, userId, category, status, dept, date } = req.body;
+  console.log("POST /api/tickets:", { title, userId });
 
   try {
     const db = getPrisma();
-    const ticket = await db.ticket.create({
-      data: {
-        title,
-        description,
-        authorId: userId,
-      },
-    });
-    res.status(200).json(ticket);
+    // Use raw SQL to insert ticket, avoiding Prisma type mismatches
+    const id = `t_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const now = new Date().toISOString();
+    const insertSql = `INSERT INTO "Ticket" (id, title, category, description, status, "userId", "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`;
+    const inserted = await db.$queryRawUnsafe(
+      insertSql,
+      id,
+      title,
+      category,
+      description,
+      status || "PENDING",
+      userId,
+      date || now,
+      now,
+    );
+    console.log("✓ Ticket created:", inserted[0]?.id);
+    res.status(200).json(inserted[0]);
   } catch (err) {
     console.error("✗ Create ticket error:", err?.message || err);
     res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// GET ticket by id
+app.get("/api/tickets/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log("GET /api/tickets/:id", id);
+
+  try {
+    const db = getPrisma();
+    const tickets = await db.$queryRawUnsafe(
+      `SELECT id, title, description, category, status, "userId", "createdAt", "updatedAt" FROM "Ticket" WHERE id = $1 LIMIT 1`,
+      id,
+    );
+    if (tickets && tickets.length > 0) {
+      res.json(tickets[0]);
+    } else {
+      res.status(404).json({ error: "Ticket not found" });
+    }
+  } catch (err) {
+    console.error("✗ Get ticket error:", err?.message || err);
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// PUT ticket by id (update)
+app.put("/api/tickets/:id", async (req, res) => {
+  const { id } = req.params;
+  const { title, description, status, category, priority } = req.body;
+  console.log("PUT /api/tickets/:id", id, { title, status });
+
+  try {
+    const db = getPrisma();
+    // Use raw SQL to update ticket
+    const updateSql = `UPDATE "Ticket" SET title =  $1, description = $2, status = $3, category = $4, "updatedAt" = now() WHERE id = $5 RETURNING *`;
+    const updated = await db.$queryRawUnsafe(
+      updateSql,
+      title,
+      description,
+      status || "PENDING",
+      category,
+
+      id,
+    );
+    if (updated && updated.length > 0) {
+      console.log("✓ Ticket updated:", id);
+      res.json(updated[0]);
+    } else {
+      res.status(404).json({ error: "Ticket not found" });
+    }
+  } catch (err) {
+    console.error("✗ Update ticket error:", err?.message || err);
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// GET all tickets
+app.get("/api/tickets/", async (req, res) => {
+  console.log("GET /api/tickets/");
+  try {
+    const db = getPrisma();
+    const tickets = await db.$queryRawUnsafe(
+      `SELECT t.id, t.title, t.description, t.category, t.status, t."userId", t."createdAt", t."updatedAt", u.username as "createdBy", u.dept FROM "Ticket" t JOIN "User" u ON t."userId" = u.id ORDER BY t."createdAt" DESC`,
+    );
+    res.json(tickets || []);
+  } catch (err) {
+    console.error("✗ Get all tickets error:", err?.message || err);
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// Health check endpoint
+app.get("/health", async (req, res) => {
+  try {
+    const db = getPrisma();
+    const userCount = await db.$queryRawUnsafe(
+      `SELECT COUNT(*) as count FROM "User"`,
+    );
+    res.json({
+      ok: true,
+      message: "Server and database connected",
+      users: userCount?.[0]?.count || 0,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message });
   }
 });
 
