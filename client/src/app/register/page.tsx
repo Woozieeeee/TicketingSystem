@@ -86,10 +86,10 @@ export default function Register() {
             <input
               id="username"
               value={form.username}
-              // Update state on change
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
               required
+              suppressHydrationWarning // Add this to prevent the error in image_e9eddd
             />
           </div>
 

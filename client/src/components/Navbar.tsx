@@ -108,6 +108,7 @@ export default function Navbar({ user }: NavbarProps) {
       {/* Notification Dropdown */}
       <div className="relative" ref={notificationRef}>
         <button
+          suppressHydrationWarning
           onClick={() => setNotificationOpen(!notificationOpen)}
           className="btn btn-ghost btn-circle text-white hover:bg-green-700 transition"
         >
