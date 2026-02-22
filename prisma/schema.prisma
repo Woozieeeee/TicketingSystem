@@ -1,33 +1,46 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 datasource db {
   provider = "postgresql"
+  // If Prisma 7 gives you a 'url' error again, ensure the URL is handled in prisma.config.ts
 }
 
 generator client {
   provider = "prisma-client-js"
+  output   = "./generated"
 }
 
-// This is your blueprint
 model User {
-  id       Int      @id @default(autoincrement())
+  id       String   @id @default(cuid())
   username String   @unique
   password String
   role     String
   dept     String
-  tickets  Ticket[]
+  // This side is named "UserTickets"
+  tickets  Ticket[] @relation("UserTickets")
+  // This side is named "AssignedTickets"
+  assigned Ticket[] @relation("AssignedTickets")
 }
 
 model Ticket {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  status      String   @default("Pending")
-  createdAt   DateTime @default(now())
-  author      User     @relation(fields: [authorId], references: [id])
-  authorId    Int
+  id           String   @id @default(cuid())
+  title        String
+  description  String   @db.Text
+  status       Status   @default(PENDING)
+
+  // Relationship 1: The Creator
+  userId       String   
+  user         User     @relation("UserTickets", fields: [userId], references: [id])
+
+  // Relationship 2: The Assignee
+  assignedToId String?  
+  assignedTo   User?    @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
+
+enum Status {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+} 

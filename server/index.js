@@ -10,8 +10,24 @@ const PORT = process.env.PORT || 3001;
 console.log("Starting server...");
 console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✓ set" : "✗ NOT SET");
 
+// Parse JSON bodies
 app.use(express.json());
 app.use(cors());
+
+// Log raw incoming requests for debugging (remove or lower in prod)
+app.use((req, res, next) => {
+  console.log(`--> ${req.method} ${req.url}`);
+  next();
+});
+
+// JSON body parse error handler (captures invalid JSON sent to server)
+app.use((err, req, res, next) => {
+  if (err && err.type === "entity.parse.failed") {
+    console.error("✗ Body parse error:", err.message);
+    return res.status(400).json({ message: "Invalid JSON body" });
+  }
+  next(err);
+});
 
 let prisma = null;
 
@@ -36,16 +52,37 @@ app.post("/api/register", async (req, res) => {
   console.log("POST /api/register:", { username, department });
   try {
     const db = getPrisma();
-    const headExists = await db.user.findFirst({
-      where: { dept: department, role: "Head" },
-    });
-    const role = headExists ? "User" : "Head";
 
-    const newUser = await db.user.create({
-      data: { username, password, role, dept: department },
-    });
-    console.log("✓ User registered:", newUser.id);
-    res.status(201).json(newUser);
+    // Use raw SQL to check and insert, avoiding Prisma schema conflicts with existing DB
+    const existing = await db.$queryRawUnsafe(
+      `SELECT id FROM "User" WHERE username = $1 LIMIT 1`,
+      username,
+    );
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const headExistsResult = await db.$queryRawUnsafe(
+      `SELECT id FROM "User" WHERE dept = $1 AND role = $2 LIMIT 1`,
+      department,
+      "Head",
+    );
+    const role =
+      headExistsResult && headExistsResult.length > 0 ? "User" : "Head";
+
+    // Generate a unique string id and insert
+    const id = `u_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const insertSql = `INSERT INTO "User" (id, username, password, role, dept) VALUES ($1,$2,$3,$4,$5) RETURNING *`;
+    const inserted = await db.$queryRawUnsafe(
+      insertSql,
+      id,
+      username,
+      password,
+      role,
+      department,
+    );
+    console.log("✓ User registered:", inserted[0]?.id || id);
+    res.status(201).json(inserted[0]);
   } catch (error) {
     console.error("✗ Register error:", error?.message || error);
     res.status(400).json({ message: "Registration failed or user exists" });
@@ -58,7 +95,12 @@ app.post("/api/login", async (req, res) => {
   console.log("POST /api/login:", { username });
   try {
     const db = getPrisma();
-    const user = await db.user.findUnique({ where: { username } });
+    // Use raw SQL to find user
+    const users = await db.$queryRawUnsafe(
+      `SELECT id, username, password, role, dept FROM "User" WHERE username = $1 LIMIT 1`,
+      username,
+    );
+    const user = users && users.length > 0 ? users[0] : null;
     if (user && user.password === password) {
       console.log("✓ Login successful:", username);
       res.json(user);
@@ -72,24 +114,26 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// HEALTH CHECK
-app.get("/health", async (req, res) => {
-  console.log("GET /health");
+app.post("/api/tickets", async (req, res) => {
+  const { title, description, userId } = req.body; // authorId expected as userId
+
   try {
     const db = getPrisma();
-    const count = await db.user.count();
-    console.log("✓ Health check OK, users:", count);
-    res.json({
-      ok: true,
-      message: "Server and database connected",
-      users: count,
+    const ticket = await db.ticket.create({
+      data: {
+        title,
+        description,
+        authorId: userId,
+      },
     });
+    res.status(200).json(ticket);
   } catch (err) {
-    console.error("✗ Health check error:", err?.message);
-    res.status(500).json({ ok: false, error: err?.message });
+    console.error("✗ Create ticket error:", err?.message || err);
+    res.status(500).json({ error: err?.message || String(err) });
   }
 });
 
+// Start server (ensure `server` exists before using it)
 const server = app.listen(PORT, () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);

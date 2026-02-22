@@ -22,32 +22,27 @@ export default function CreateTicketPage() {
     category: "",
     title: "",
     description: "",
-    priority: "High",
+    // Priority is no longer in the form state as it's automatic
   });
 
-  // Pag-load ng page, set muna natin 'yung mga kailangan
   useEffect(() => {
     setMounted(true);
-    // Check natin 'yung user info para malaman kung anong department siya
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      // Auto-select natin 'yung category base sa department niya
       const defaultCat =
         departmentCategories[
           parsedUser.dept as keyof typeof departmentCategories
         ]?.[0] || "Other";
       setFormData((prev) => ({ ...prev, category: defaultCat }));
     } else {
-      // Pag walang user, balik muna natin sa login page
       router.push("/login");
     }
   }, [router]);
 
   if (!mounted || !user) return <div className="min-h-screen bg-gray-50" />;
 
-  // Dito natin mina-manage 'yung bawat input na binabago ni user
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -57,7 +52,6 @@ export default function CreateTicketPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Dito na natin isesend 'yung ticket sa database
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -66,29 +60,24 @@ export default function CreateTicketPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          status: "Pending",
-          createdBy: user.username,
+          status: "PENDING",
+          userId: user.id,
           dept: user.dept,
           date: new Date().toISOString(),
         }),
       });
+
       if (res.ok) {
         await Swal.fire({
           icon: "success",
           title: "Success!",
-          text: "Ticket created successfully!",
+          text: "Ticket created successfully.",
           timer: 2000,
           showConfirmButton: false,
         });
-
-        router.push("/tickets"); // Tapos na! Balik na tayo sa listahan ng tickets
+        router.push("/tickets");
       } else {
-        Swal.fire({
-          icon: "error",
-          title: "Failed",
-          text: "Failed to create ticket",
-        });
-        setIsSubmitting(false);
+        throw new Error("Failed to create ticket");
       }
     } catch (error) {
       console.error(error);
