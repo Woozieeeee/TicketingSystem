@@ -77,6 +77,12 @@ export default function Sidebar({ user }: { user: any }) {
         >
           Tickets
         </button>
+        <button
+          onClick={() => router.push("/monitoring")}
+          style={getButtonStyle("/monitoring")}
+        >
+          Monitoring
+        </button>
       </nav>
 
       {/* User Profile Section */}

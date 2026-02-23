@@ -92,7 +92,7 @@ export default function Navbar({ user }: NavbarProps) {
 
   return (
     <nav
-      className="z-[999] text-white shadow-md border-b border-gray-200 px-6 py-3 flex justify-between items-center relative"
+      className="sticky top-0 z-[999] text-white shadow-md border-b border-gray-200 px-6 py-3 flex justify-between items-center"
       style={{ backgroundColor: "#15803d" }}
     >
       {/* LEFT SIDE: Logo */}
