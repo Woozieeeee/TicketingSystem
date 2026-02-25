@@ -6,23 +6,30 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  Cell,
 } from "recharts";
 import {
   ArrowLeft,
   User as UserIcon,
   Calendar,
   Clock,
-  TrendingUp,
   ShieldCheck,
   Download,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 
-// --- DATA ---
-const IT_TEAM = [
+// --- Types ---
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  trend: number[];
+  color: string;
+}
+
+const IT_TEAM: TeamMember[] = [
   {
     id: "u1",
     name: "Kim De Vera",
@@ -46,21 +53,21 @@ const IT_TEAM = [
   },
   {
     id: "u4",
-    name: "Palku Chupapi",
+    name: "SAMSAM",
     role: "Helpdesk",
     trend: [40, 80, 60, 120, 100, 180, 210],
     color: "#8b5cf6",
   },
   {
     id: "u5",
-    name: "Christine Rose",
+    name: "Nevaeh Christine Rose",
     role: "Systems Engineer",
     trend: [15, 30, 25, 50, 45, 70, 95],
     color: "#ec4899",
   },
   {
     id: "u6",
-    name: "Matt",
+    name: "John Christian Alcantara",
     role: "Database Admin",
     trend: [10, 25, 20, 45, 35, 60, 82],
     color: "#06b6d4",
@@ -75,7 +82,7 @@ const getStatsForRange = () => ({
 
 export default function ITHeadViewDashboard() {
   const [view, setView] = useState<"list" | "stats">("list");
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [timeRange, setTimeRange] = useState("Today");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentStats, setCurrentStats] = useState({
@@ -87,12 +94,14 @@ export default function ITHeadViewDashboard() {
   const [displayDate, setDisplayDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
 
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
     month: "short",
     day: "2-digit",
     year: "numeric",
   });
 
+  // Handle Clock and Initial Date
   useEffect(() => {
     setIsMounted(true);
     const updateClock = () => {
@@ -111,6 +120,7 @@ export default function ITHeadViewDashboard() {
     return () => clearInterval(timerId);
   }, [displayDate, todayFormatted]);
 
+  // Update stats dynamically when range or user changes
   useEffect(() => {
     if (selectedUser) setCurrentStats(getStatsForRange());
   }, [selectedUser, timeRange, displayDate]);
@@ -123,216 +133,339 @@ export default function ITHeadViewDashboard() {
     );
   }, [searchQuery]);
 
-  if (!isMounted) return null;
+  if (!isMounted) return <div className="min-h-screen bg-slate-50" />;
 
   return (
-    <div className="p-6 md:p-10 bg-[#f8fafc] min-h-screen text-slate-900 font-sans relative">
-      {/* HEADER: Perfectly Aligned */}
-      <header className="mb-12 flex items-center justify-between gap-8">
-        <div className="flex items-center gap-6 shrink-0">
-          {view === "stats" && (
-            <button
-              onClick={() => setView("list")}
-              className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          )}
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 block mb-1">
-              IT Head View
-            </span>
-            <h1 className="text-4xl font-black tracking-tighter leading-none uppercase">
-              Monitoring
-            </h1>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+        
+        body {
+          font-family: 'DM Sans', sans-serif;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+          font-family: 'Syne', sans-serif;
+        }
 
+        .search-icon-animated {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .search-input:focus ~ .search-icon-animated {
+          color: #10b981;
+        }
+
+        .search-input:focus {
+          border-color: #10b981;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease both;
+        }
+      `}</style>
+
+      <main className="ml-64 bg-slate-50 p-8 min-h-screen">
+        {/* HEADER SECTION - MATCHES TICKETS PAGE */}
+        <header className="mb-7 animate-fadeIn">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* LEFT SIDE - TITLE & BACK BUTTON */}
+            <div className="flex items-center gap-4">
+              {view === "stats" && (
+                <button
+                  onClick={() => setView("list")}
+                  className="p-3 bg-white border border-slate-200 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+              )}
+              <h1 className="text-2xl font-bold text-slate-900">
+                {view === "list" ? "Monitoring" : "Performance"}
+              </h1>
+            </div>
+
+            {/* RIGHT SIDE - SEARCH & DATE */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              {/* SEARCH BAR - FIRST */}
+              {view === "list" && (
+                <div className="relative flex-1 sm:min-w-[320px]">
+                  <Search
+                    className="search-icon-animated absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    size={16}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search personnel..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="search-input w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-lg outline-none transition-all font-semibold text-sm shadow-sm"
+                  />
+                </div>
+              )}
+
+              {/* DATE & TIME SECTION - SECOND */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+                {displayDate !== todayFormatted && (
+                  <button
+                    onClick={() => setDisplayDate(todayFormatted)}
+                    className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all whitespace-nowrap active:scale-95"
+                  >
+                    <RotateCcw size={12} /> Sync
+                  </button>
+                )}
+
+                <div className="relative">
+                  <div
+                    onClick={() => dateInputRef.current?.click()}
+                    className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm cursor-pointer hover:border-emerald-500 transition-colors whitespace-nowrap"
+                  >
+                    <input
+                      type="date"
+                      ref={dateInputRef}
+                      onChange={(e) =>
+                        setDisplayDate(
+                          new Date(e.target.value).toLocaleDateString([], {
+                            month: "short",
+                            day: "2-digit",
+                            year: "numeric",
+                          }),
+                        )
+                      }
+                      className="hidden"
+                    />
+                    <div className="px-3 border-r border-slate-100 flex items-center gap-2">
+                      <Clock size={14} className="text-emerald-500" />
+                      <span className="font-mono font-bold text-xs">
+                        {liveTime}
+                      </span>
+                    </div>
+                    <div className="px-3 flex items-center gap-2">
+                      <Calendar size={14} className="text-emerald-500" />
+                      <span className="text-xs font-bold uppercase tracking-tight">
+                        {displayDate}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* VIEW 1: PERSONNEL DIRECTORY */}
         {view === "list" && (
-          <div className="flex-1 max-w-xl relative group">
-            <input
-              type="text"
-              placeholder="Search staff, roles, or specializations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-6 pr-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold text-sm shadow-sm"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-slideUp">
+            {filteredTeam.map((user) => (
+              <div
+                key={user.id}
+                onClick={() => {
+                  setSelectedUser(user);
+                  setView("stats");
+                }}
+                className="bg-white border border-slate-200 p-8 rounded-2xl hover:border-emerald-500 hover:shadow-lg transition-all cursor-pointer group active:scale-[0.98]"
+              >
+                <div className="flex justify-between mb-8">
+                  <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <UserIcon size={24} />
+                  </div>
+                  <span className="text-xs font-bold uppercase text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full self-start">
+                    Online
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold mb-1">{user.name}</h3>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                  {user.role}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 
-        <div className="flex items-center gap-3 bg-white border border-slate-200 p-2 rounded-2xl shadow-sm shrink-0">
-          <div className="px-4 border-r border-slate-100 flex items-center gap-2">
-            <Clock size={14} className="text-emerald-500" />
-            <span className="font-mono font-bold text-xs">{liveTime}</span>
-          </div>
-          <div className="px-4 flex items-center gap-2">
-            <Calendar size={14} className="text-emerald-500" />
-            <span className="text-xs font-black uppercase tracking-tight">
-              {displayDate}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* VIEW 1: DIRECTORY */}
-      {view === "list" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
-          {filteredTeam.map((user) => (
-            <div
-              key={user.id}
-              onClick={() => {
-                setSelectedUser(user);
-                setView("stats");
-              }}
-              className="bg-white border border-slate-100 p-8 rounded-[40px] hover:border-emerald-500 hover:shadow-xl transition-all cursor-pointer group"
-            >
-              <div className="flex justify-between mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-inner">
-                  <UserIcon size={24} />
-                </div>
-                <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full self-start">
-                  Online
-                </span>
-              </div>
-              <h3 className="text-2xl font-black mb-1">{user.name}</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                {user.role}
-              </p>
+        {/* VIEW 2: STATISTICS & ANALYTICS */}
+        {view === "stats" && selectedUser && (
+          <div className="space-y-8 animate-slideUp">
+            {/* STAT CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <MetricCard
+                label="Pending"
+                value={currentStats.pending}
+                sub="Backlog"
+                color="text-slate-400"
+                border="border-slate-200"
+              />
+              <MetricCard
+                label="Ongoing"
+                value={currentStats.ongoing}
+                sub="In Progress"
+                color="text-amber-500"
+                border="border-amber-200"
+              />
+              <MetricCard
+                label="Resolved"
+                value={currentStats.resolved}
+                sub="Completed"
+                color="text-emerald-500"
+                border="border-emerald-200"
+              />
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* VIEW 2: STATISTICS */}
-      {view === "stats" && (
-        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricCard
-              label="Pending"
-              value={currentStats.pending}
-              sub={`Records for ${displayDate}`}
-              border="border-slate-200"
-            />
-            <MetricCard
-              label="Ongoing"
-              value={currentStats.ongoing}
-              sub={`Active on ${displayDate}`}
-              border="border-amber-200"
-            />
-            <MetricCard
-              label="Resolved"
-              value={currentStats.resolved}
-              sub={`Closed on ${displayDate}`}
-              border="border-emerald-200"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* ANALYTICS BAR CHART */}
-            <div className="lg:col-span-2 bg-white border border-slate-100 p-10 rounded-[48px] shadow-sm">
-              <div className="flex items-center justify-between mb-12">
-                <h3 className="text-2xl font-black tracking-tight">
-                  {timeRange} Analytics: {displayDate}
-                </h3>
-                <div className="flex bg-slate-50 border border-slate-200 p-1 rounded-xl">
-                  {["Today", "Weekly", "Monthly"].map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setTimeRange(r)}
-                      className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${timeRange === r ? "bg-white shadow-sm text-slate-900" : "text-slate-400"}`}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* CHART */}
+              <div className="lg:col-span-2 bg-white border border-slate-200 p-8 rounded-2xl shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                  <h3 className="text-xl font-bold tracking-tight uppercase">
+                    Performance Chart
+                  </h3>
+                  <div className="flex bg-slate-100 border border-slate-200 p-1 rounded-lg w-full sm:w-auto">
+                    {["Today", "Weekly", "Monthly"].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setTimeRange(r)}
+                        className={`flex-1 sm:flex-none px-4 py-2 rounded text-xs font-bold transition-all ${
+                          timeRange === r
+                            ? "bg-white shadow-sm text-slate-900"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {r.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "BACKLOG",
+                          val: currentStats.pending,
+                          color: "#cbd5e1",
+                        },
+                        {
+                          name: "PROGRESS",
+                          val: currentStats.ongoing,
+                          color: "#f59e0b",
+                        },
+                        {
+                          name: "RESOLVED",
+                          val: currentStats.resolved,
+                          color: "#10b981",
+                        },
+                      ]}
                     >
-                      {r.toUpperCase()}
-                    </button>
-                  ))}
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 11, fontWeight: 600 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Bar dataKey="val" radius={[10, 10, 0, 0]} barSize={60}>
+                        {[
+                          {
+                            name: "BACKLOG",
+                            val: currentStats.pending,
+                            color: "#cbd5e1",
+                          },
+                          {
+                            name: "PROGRESS",
+                            val: currentStats.ongoing,
+                            color: "#f59e0b",
+                          },
+                          {
+                            name: "RESOLVED",
+                            val: currentStats.resolved,
+                            color: "#10b981",
+                          },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: "BACKLOG",
-                        val: currentStats.pending,
-                        fill: "#cbd5e1",
-                      },
-                      {
-                        name: "IN PROGRESS",
-                        val: currentStats.ongoing,
-                        fill: "#f59e0b",
-                      },
-                      {
-                        name: "RESOLVED",
-                        val: currentStats.resolved,
-                        fill: "#10b981",
-                      },
-                    ]}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#f1f5f9"
-                    />
-                    <XAxis
-                      dataKey="name"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fontWeight: 700 }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10 }}
-                    />
-                    <Bar dataKey="val" radius={[12, 12, 12, 12]} barSize={64} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
-            {/* SECURITY CARD: White Theme */}
-            <div className="bg-white border border-slate-100 p-10 rounded-[48px] flex flex-col justify-between shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-full blur-3xl -mr-24 -mt-24 group-hover:bg-emerald-100 transition-colors" />
-
-              <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full mb-10">
-                  <ShieldCheck size={14} className="text-emerald-600" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
-                    Security Verified
-                  </span>
+              {/* INFO PANEL */}
+              <div className="bg-white border border-slate-200 p-8 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-50" />
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg mb-6">
+                    <ShieldCheck size={12} className="text-emerald-600" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">
+                      Verified Personnel
+                    </span>
+                  </div>
+                  <h4 className="text-3xl font-bold mb-4 leading-tight">
+                    Log:{" "}
+                    <span className="text-emerald-600">
+                      {selectedUser.name}
+                    </span>
+                  </h4>
+                  <p className="text-slate-500 text-xs font-medium uppercase tracking-wider leading-relaxed mb-6">
+                    User is currently managing {currentStats.ongoing} active
+                    tickets. Efficiency rating is stable at 94.2% for the
+                    current {timeRange.toLowerCase()} cycle.
+                  </p>
                 </div>
-
-                <h4 className="text-4xl font-black italic tracking-tighter mb-4 leading-tight">
-                  Stats for{" "}
-                  <span className="text-emerald-600">{selectedUser.name}</span>
-                </h4>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest leading-loose">
-                  Automated daily backup confirmed. Performance is within target
-                  margins for the selected period.
-                </p>
+                <button className="relative z-10 w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs tracking-widest transition-all uppercase flex items-center justify-center gap-2 active:scale-95 shadow-md">
+                  <Download size={14} /> Export Dataset
+                </button>
               </div>
-
-              <button className="relative z-10 w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-[24px] font-black text-[10px] tracking-[0.2em] transition-all uppercase flex items-center justify-center gap-2 shadow-lg shadow-emerald-100">
-                <Download size={14} />
-                Export Dataset
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 }
 
-function MetricCard({ label, value, sub, border }: any) {
+function MetricCard({ label, value, sub, border, color }: any) {
   return (
-    <div className={`p-10 bg-white border ${border} rounded-[40px] shadow-sm`}>
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-4 italic">
+    <div
+      className={`p-8 bg-white border ${border} rounded-2xl shadow-sm flex flex-col items-center justify-center text-center transition-all`}
+    >
+      <span className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
         {label}
       </span>
-      <span className="text-7xl font-black tracking-tighter leading-none">
+
+      <span
+        className={`text-6xl font-bold tracking-tight leading-none ${color}`}
+      >
         {value}
       </span>
-      <p className="mt-6 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+
+      <p className="mt-4 text-xs font-medium text-slate-400 uppercase tracking-widest">
         {sub}
       </p>
     </div>

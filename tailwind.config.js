@@ -13,4 +13,7 @@ module.exports = {
     },
   },
   plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["light"], // Forces the clean, white/gray theme
+  },
 };

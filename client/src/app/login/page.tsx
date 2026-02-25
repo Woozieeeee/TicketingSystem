@@ -1,68 +1,65 @@
-"use client"; // Marks as Client Component
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Navbar from "../../components/Navbar";
 import Swal from "sweetalert2";
 
 export default function Login() {
-  // State: Login credentials
   const [form, setForm] = useState({ username: "", password: "" });
-  // State: Loading status
   const [loading, setLoading] = useState(false);
-
   const router = useRouter();
 
-  // Function para sa pag-login
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // Huwag muna nating i-refresh 'yung page
-    setLoading(true); // Pakita muna nating naglo-load na
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      // Send natin 'yung login details sa server
-      const res = await fetch("http://localhost:3001/api/login", {
+      const res = await fetch("http://localhost:3001/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
+      const data = await res.json().catch(() => ({ message: "Server error" }));
+
       if (res.ok) {
-        // Pag pumasok, kunin natin 'yung user data
-        const user = await res.json();
+        localStorage.setItem("user", JSON.stringify(data));
 
-        // I-save muna natin sa browser para hindi na kailangan mag-login ulit
-        localStorage.setItem("user", JSON.stringify(user));
+        // 1. Determine if it's "Welcome" or "Welcome back"
+        const isFirstTime = data.login_count === 1;
+        const greetingBase = isFirstTime ? "Welcome to" : "Welcome back to";
 
-        // Magpakita ng success message gamit ang SweetAlert2
-        await Swal.fire({
+        // 2. Add Role prefix if the user is a Head
+        const userDisplay =
+          data.role === "Head" ? `Head ${data.username}` : data.username;
+
+        // 3. Construct the full message: "Welcome [back] to $dept, $userDisplay"
+        const finalMessage = `${greetingBase} ${data.dept}, ${userDisplay}!`;
+
+        Swal.fire({
+          toast: true,
+          position: "top-end",
           icon: "success",
           title: "Login Successful!",
-          text: `Welcome back, ${user.username}!`,
-          timer: 2000,
+          text: finalMessage,
+          timer: 3000,
           showConfirmButton: false,
         });
 
-        // Lipat na tayo sa Dashboard!
         router.push("/dashboard");
       } else {
-        // Pag mali 'yung info, sabihan natin si user
-        const data = await res.json().catch(() => ({}));
-        Swal.fire({
-          icon: "error",
-          title: "Oops...",
-          text: data.message || "Invalid credentials",
-        });
+        throw new Error(data.message || "Invalid username or password");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
       Swal.fire({
         icon: "error",
-        title: "Connection Error",
-        text: "Failed to connect to server",
+        title: "Login Failed",
+        text: error.message || "Failed to connect to server",
       });
     } finally {
-      setLoading(false); // Tapos na 'yung loading, pwede na ulit mag-click
+      setLoading(false);
     }
   };
 
@@ -73,7 +70,6 @@ export default function Login() {
           Login
         </h1>
         <form onSubmit={handleLogin} className="space-y-6">
-          {/* Username Field */}
           <div>
             <label
               htmlFor="username"
@@ -91,7 +87,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Password Field */}
           <div>
             <label
               htmlFor="password"
@@ -110,7 +105,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
@@ -123,7 +117,6 @@ export default function Login() {
             {loading ? "Logging in..." : "Login"}
           </button>
 
-          {/* Register Link */}
           <Link
             href="/register"
             className="block w-full py-3 text-center text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"

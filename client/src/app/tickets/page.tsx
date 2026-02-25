@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
-import { getRelativeTime } from "../../lib/utils";
+import { Bell, X, CheckCircle, AlertTriangle, PlayCircle } from "lucide-react";
+import CreateTicketModal from "../../components/createTicketModal";
+import EditTicketModal from "../../components/editTicketModal";
 
 interface Ticket {
   globalId: string | number;
@@ -20,38 +22,54 @@ interface Ticket {
   userMarkedDone?: boolean;
   headMarkedDone?: boolean;
   lastUpdated?: string;
+  reminder_flag?: boolean;
+  last_reminded_at?: string;
 }
 
 export default function TicketsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const searchParams = useSearchParams();
-  const highlightId = searchParams.get("highlight");
+  const highlightParam = searchParams ? searchParams.get("highlight") : null;
+
+  const [user, setUser] = useState<any>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("All");
   const [mounted, setMounted] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [isLoading, setIsLoading] = useState(true);
+  const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Ticket;
     direction: "asc" | "desc";
   } | null>({ key: "id", direction: "asc" });
 
   const fetchTickets = async (currentUser: any) => {
-    setIsLoading(true);
+    const localData = localStorage.getItem("myTickets");
+    if (localData) {
+      setTickets(JSON.parse(localData));
+      setIsLoading(false);
+    } else setIsLoading(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       const params = new URLSearchParams();
       if (currentUser?.role) params.set("role", currentUser.role);
       if (currentUser?.dept) params.set("dept", currentUser.dept);
-      if (currentUser?.id) params.set("userId", currentUser.id);
+      if (currentUser?.username) params.set("username", currentUser.username);
 
       const res = await fetch(
         `http://localhost:3001/api/tickets?${params.toString()}`,
+        { signal: controller.signal },
       );
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const serverTickets = await res.json();
-        // Transform API response to match UI expectations
         const transformed = serverTickets.map((t: any, idx: number) => ({
           globalId: t.id,
           id: idx + 1,
@@ -65,33 +83,60 @@ export default function TicketsPage() {
                 ? "In Progress"
                 : t.status === "RESOLVED"
                   ? "Resolved"
-                  : t.status,
+                  : t.status === "FINISHED"
+                    ? "Finished"
+                    : t.status,
           createdBy: t.createdBy || "Unknown",
           dept: t.dept,
           date: t.createdAt || new Date().toISOString(),
-          userMarkedDone: false,
-          headMarkedDone: false,
+          userMarkedDone: Boolean(t.userMarkedDone),
+          headMarkedDone: Boolean(t.headMarkedDone),
           lastUpdated: t.updatedAt,
+          reminder_flag: Boolean(t.reminder_flag),
+          last_reminded_at: t.last_reminded_at,
         }));
 
-        const localData = localStorage.getItem("myTickets");
-        if (localData) {
-          const localTickets = JSON.parse(localData);
-          const merged = transformed.map((sTicket: Ticket) => {
-            const localMatch = localTickets.find(
-              (l: Ticket) => l.globalId === sTicket.globalId,
-            );
-            return localMatch ? { ...sTicket, ...localMatch } : sTicket;
-          });
-          setTickets(merged);
-        } else {
-          setTickets(transformed);
-        }
+        setTickets(transformed);
+        localStorage.setItem("myTickets", JSON.stringify(transformed));
       }
-    } catch (error) {
-      console.error("Error fetching tickets:", error);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError")
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "error",
+          title: "Connection Failed",
+          showConfirmButton: false,
+          timer: 4000,
+        });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendReminder = async (globalId: string | number) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.globalId === globalId ? { ...t, reminder_flag: true } : t,
+      ),
+    );
+    try {
+      const res = await fetch(
+        `http://localhost:3001/api/tickets/${globalId}/remind`,
+        { method: "PUT" },
+      );
+      if (res.ok)
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: "Head Notified!",
+          showConfirmButton: false,
+          timer: 2000,
+        });
+    } catch (error) {
+      console.error("Failed to send reminder");
     }
   };
 
@@ -102,6 +147,15 @@ export default function TicketsPage() {
   });
 
   const filteredTickets = filteredByRole.filter((ticket) => {
+    if (activeTab === "Reminders") {
+      const hoursSinceCreated =
+        (new Date().getTime() - new Date(ticket.date).getTime()) /
+        (1000 * 60 * 60);
+      return (
+        ticket.reminder_flag ||
+        (ticket.status === "Pending" && hoursSinceCreated >= 24)
+      );
+    }
     const statusMatch = activeTab === "All" || ticket.status === activeTab;
     const categoryMatch =
       categoryFilter === "All" || ticket.category === categoryFilter;
@@ -110,7 +164,6 @@ export default function TicketsPage() {
 
   const sortedTickets = [...filteredTickets].sort((a, b) => {
     if (!sortConfig) return 0;
-
     const { key, direction } = sortConfig;
     const valA = a[key as keyof Ticket] ?? "";
     const valB = b[key as keyof Ticket] ?? "";
@@ -120,17 +173,9 @@ export default function TicketsPage() {
   });
 
   const handleCloseModal = () => {
-    router.push("/tickets", { scroll: false });
-    setTimeout(() => {
-      setSelectedTicket(null);
-    }, 50);
+    setSelectedTicket(null);
+    window.history.replaceState(null, "", "/tickets");
   };
-
-  useEffect(() => {
-    if (!highlightId && selectedTicket) {
-      setSelectedTicket(null);
-    }
-  }, [highlightId, selectedTicket]);
 
   useEffect(() => {
     setMounted(true);
@@ -139,63 +184,63 @@ export default function TicketsPage() {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
       fetchTickets(parsedUser);
-    } else {
-      router.push("/login");
-    }
+    } else router.push("/login");
   }, [router]);
 
   useEffect(() => {
-    if (selectedTicket) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    if (selectedTicket) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "unset";
   }, [selectedTicket]);
 
   useEffect(() => {
-    if (highlightId && sortedTickets.length > 0) {
-      const ticketToHighlight = sortedTickets.find(
-        (t) => String(t.globalId) === String(highlightId),
-      );
-
-      if (ticketToHighlight) {
-        setSelectedTicket(ticketToHighlight);
-        const element = document.getElementById(`ticket-${highlightId}`);
-        if (element) {
+    if (highlightParam && tickets.length > 0) {
+      setHighlightId(highlightParam);
+      setTimeout(() => {
+        const element = document.getElementById(`ticket-${highlightParam}`);
+        if (element)
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-    }
-  }, [highlightId, sortedTickets]);
+      }, 100);
 
-  const handleStatusChange = async (
+      const autoOpenTimer = setTimeout(() => {
+        const target = tickets.find(
+          (t) => String(t.globalId) === highlightParam,
+        );
+        if (target && !selectedTicket) setSelectedTicket(target);
+      }, 1000);
+
+      const resetTimer = setTimeout(() => {
+        setHighlightId(null);
+        window.history.replaceState(null, "", "/tickets");
+      }, 3500);
+
+      return () => {
+        clearTimeout(autoOpenTimer);
+        clearTimeout(resetTimer);
+      };
+    }
+  }, [highlightParam, tickets.length]);
+
+  const handleTicketAction = async (
     globalId: string | number,
-    newStatus: string,
+    payload: any,
   ) => {
     const updatedTickets = tickets.map((ticket) => {
       if (ticket.globalId === globalId) {
-        const isHead = user?.role === "Head";
-        const isUser = user?.role === "User";
-
-        if (newStatus === "In Progress") {
-          return {
-            ...ticket,
-            status: "In Progress",
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-
-        const updatedTicket = {
+        const t = {
           ...ticket,
-          headMarkedDone: isHead ? true : ticket.headMarkedDone || false,
-          userMarkedDone: isUser ? true : ticket.userMarkedDone || false,
+          ...payload,
           lastUpdated: new Date().toISOString(),
         };
 
-        if (updatedTicket.headMarkedDone && updatedTicket.userMarkedDone) {
-          updatedTicket.status = "Resolved";
+        if (t.userMarkedDone && t.headMarkedDone && t.status !== "Finished") {
+          t.status = "Finished";
         }
-        return updatedTicket;
+
+        if (payload.status === "Pending") {
+          t.userMarkedDone = false;
+          t.headMarkedDone = false;
+        }
+        return t;
       }
       return ticket;
     });
@@ -203,40 +248,48 @@ export default function TicketsPage() {
     setTickets(updatedTickets);
     localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
 
+    const dbPayload = { ...payload };
+    if (dbPayload.status) {
+      if (dbPayload.status === "In Progress") dbPayload.status = "IN_PROGRESS";
+      else if (dbPayload.status === "Pending") dbPayload.status = "PENDING";
+    }
+
     try {
-      const dbStatus =
-        newStatus === "In Progress"
-          ? "IN_PROGRESS"
-          : newStatus === "Resolved"
-            ? "RESOLVED"
-            : "PENDING";
-      const res = await fetch(`http://localhost:3001/api/tickets/${globalId}`, {
+      await fetch(`http://localhost:3001/api/tickets/${globalId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: dbStatus }),
+        body: JSON.stringify(dbPayload),
       });
-      if (!res.ok) {
-        console.error("Failed to update ticket on server");
+
+      handleCloseModal();
+
+      let toastTitle = "Ticket Updated";
+      let toastIcon: "success" | "info" | "warning" = "success";
+      if (payload.status === "In Progress") toastTitle = "Ticket Accepted";
+      if (payload.userMarkedDone || payload.headMarkedDone)
+        toastTitle = "Resolution Confirmed";
+      if (payload.status === "Pending") {
+        toastTitle = "Ticket Re-opened";
+        toastIcon = "warning";
       }
+
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: toastIcon,
+        title: toastTitle,
+        showConfirmButton: false,
+        timer: 2000,
+      });
     } catch (error) {
       console.error("Error updating ticket on server:", error);
     }
-
-    Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title: "Status Updated",
-      showConfirmButton: false,
-      timer: 1500,
-    });
   };
 
   const handleSort = (key: keyof Ticket) => {
     let direction: "asc" | "desc" = "asc";
-    if (sortConfig?.key === key && sortConfig.direction === "asc") {
+    if (sortConfig?.key === key && sortConfig.direction === "asc")
       direction = "desc";
-    }
     setSortConfig({ key, direction });
   };
 
@@ -244,30 +297,37 @@ export default function TicketsPage() {
     switch (status) {
       case "Pending":
         return {
-          bg: "rgba(245, 158, 11, 0.1)",
-          border: "#fbbf24",
-          text: "#92400e",
+          bg: "bg-amber-50",
+          border: "border-amber-200",
+          text: "text-amber-900",
           dot: "#f59e0b",
         };
       case "In Progress":
         return {
-          bg: "rgba(99, 102, 241, 0.1)",
-          border: "#a5b4fc",
-          text: "#3730a3",
+          bg: "bg-indigo-50",
+          border: "border-indigo-200",
+          text: "text-indigo-900",
           dot: "#6366f1",
         };
       case "Resolved":
         return {
-          bg: "rgba(16, 185, 129, 0.1)",
-          border: "#6ee7b7",
-          text: "#065f46",
+          bg: "bg-emerald-50",
+          border: "border-emerald-200",
+          text: "text-emerald-900",
           dot: "#10b981",
+        };
+      case "Finished":
+        return {
+          bg: "bg-cyan-50",
+          border: "border-cyan-200",
+          text: "text-cyan-900",
+          dot: "#06b6d4",
         };
       default:
         return {
-          bg: "#f3f4f6",
-          border: "#e5e7eb",
-          text: "#4b5563",
+          bg: "bg-gray-50",
+          border: "border-gray-200",
+          text: "text-gray-700",
           dot: "#9ca3af",
         };
     }
@@ -275,675 +335,291 @@ export default function TicketsPage() {
 
   const deptAccent =
     user?.dept === "Nursing"
-      ? { color: "#e11d48", bg: "#fff1f2", border: "#fecdd3", text: "#9f1239" }
-      : user?.dept === "IT"
-        ? {
-            color: "#2563eb",
-            bg: "#eff6ff",
-            border: "#bfdbfe",
-            text: "#1e40af",
-          }
-        : {
-            color: "#059669",
-            bg: "#ecfdf5",
-            border: "#a7f3d0",
-            text: "#065f46",
-          };
+      ? { color: "#e11d48", bgTw: "bg-rose-50", colorTw: "text-rose-500" }
+      : { color: "#16a34a", bgTw: "bg-green-50", colorTw: "text-green-500" };
 
-  if (!mounted || isLoading || !user) {
+  if (!mounted || isLoading || !user)
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          backgroundColor: "#f0f4f8",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              border: "3px solid #e2e8f0",
-              borderTopColor: deptAccent.color,
-              margin: "0 auto 16px",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <p style={{ color: "#64748b", fontSize: "14px", margin: 0 }}>
-            Loading tickets…
-          </p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-slate-100">
+        <div
+          className="w-12 h-12 border-4 border-slate-200 rounded-full mx-auto animate-spin"
+          style={{ borderTopColor: deptAccent.color }}
+        />
       </div>
     );
-  }
+
+  const availableTabs =
+    user.role === "Head"
+      ? ["All", "Reminders", "Pending", "In Progress", "Finished"]
+      : ["All", "Pending", "In Progress", "Finished"];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#fafbfc" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
-
-        * { box-sizing: border-box; }
-
-        .ticket-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-family: 'DM Sans', sans-serif;
-        }
-
-        .ticket-table thead tr {
-          background: #ffffff;
-          border-bottom: 1px solid #e8eef5;
-        }
-
-        .ticket-table th {
-          padding: 14px 18px;
-          text-align: left;
-          font-size: 11px;
-          font-weight: 700;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          cursor: pointer;
-          user-select: none;
-          transition: all 0.2s ease;
-        }
-
-        .ticket-table th:hover {
-          color: #334155;
-          background: #fafbfc;
-        }
-
-        .ticket-table tbody tr {
-          border-bottom: 1px solid #f5f6f9;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .ticket-table tbody tr:hover {
-          background: #fafbfc;
-          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03);
-        }
-
-        .ticket-table tbody tr.highlight {
-          background: rgba(37, 99, 235, 0.04);
-          border-left: 3px solid #2563eb;
-        }
-
-        .ticket-table td {
-          padding: 14px 18px;
-          font-size: 13px;
-          color: #334155;
-        }
-
-        .tab-nav {
-          display: flex;
-          gap: 20px;
-          border-bottom: 1px solid #e8eef5;
-          overflow-x: auto;
-          padding-bottom: 0;
-        }
-
-        .tab-btn {
-          padding: 12px 0;
-          border: none;
-          background: none;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          color: #94a3b8;
-          cursor: pointer;
-          position: relative;
-          transition: all 0.2s ease;
-          white-space: nowrap;
-        }
-
-        .tab-btn:hover {
-          color: #64748b;
-        }
-
-        .tab-btn.active {
-          color: #2563eb;
-        }
-
-        .tab-btn.active::after {
-          content: '';
-          position: absolute;
-          bottom: -1px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: #2563eb;
-          border-radius: 1px;
-        }
-
-        .tab-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 22px;
-          height: 22px;
-          padding: 0 6px;
-          margin-left: 6px;
-          border-radius: 5px;
-          font-size: 10px;
-          font-weight: 700;
-          background: #e0e7ff;
-          color: #3730a3;
-        }
-
-        .tab-btn.active .tab-badge {
-          background: #2563eb;
-          color: #ffffff;
-        }
-
-        .btn-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 10px 18px;
-          border: none;
-          border-radius: 9px;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          white-space: nowrap;
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-        }
-
-        .btn-primary:active {
-          transform: translateY(0);
-        }
-
-        .btn-icon {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          padding: 0;
-          border: 1px solid #e8eef5;
-          background: #ffffff;
-          border-radius: 7px;
-          cursor: pointer;
-          color: #64748b;
-          transition: all 0.2s ease;
-        }
-
-        .btn-icon:hover {
-          border-color: #d8dfe8;
-          background: #fafbfc;
-          color: #334155;
-        }
-
-        .btn-icon svg {
-          width: 14px;
-          height: 14px;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 5px 10px;
-          border-radius: 7px;
-          font-size: 11px;
-          font-weight: 600;
-          border: 1px solid;
-        }
-
-        .status-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .user-avatar {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          font-size: 11px;
-          font-weight: 700;
-          margin-right: 6px;
-          flex-shrink: 0;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(0.5px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal-content {
-          background: #ffffff;
-          border-radius: 16px;
-          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
-          width: 480px;
-          max-height: 88vh;
-          display: flex;
-          flex-direction: column;
-          animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(16px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .modal-header {
-          padding: 20px 24px;
-          border-bottom: 1px solid #f5f6f9;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .modal-header h3 {
-          font-family: 'Syne', sans-serif;
-          font-size: 18px;
-          font-weight: 700;
-          color: #0f172a;
-          margin: 0;
-        }
-
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 24px;
-          color: #cbd5e1;
-          cursor: pointer;
-          transition: color 0.2s ease;
-          padding: 0;
-          width: 28px;
-          height: 28px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .modal-close:hover {
-          color: #64748b;
-        }
-
-        .modal-body {
-          padding: 24px;
-          overflow-y: auto;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-
-        .modal-section {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .modal-label {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          color: #64748b;
-          letter-spacing: 0.04em;
-        }
-
-        .modal-field {
-          padding: 12px;
-          background: #fafbfc;
-          border: 1px solid #e8eef5;
-          border-radius: 9px;
-          font-size: 13px;
-          color: #334155;
-          font-family: 'DM Sans', sans-serif;
-          word-break: break-word;
-          white-space: pre-wrap;
-        }
-
-        .modal-footer {
-          padding: 20px 24px;
-          border-top: 1px solid #f5f6f9;
-          display: flex;
-          gap: 12px;
-        }
-
-        .modal-footer button {
-          flex: 1;
-          padding: 11px 18px;
-          border: none;
-          border-radius: 9px;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 13px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .modal-footer .btn-close {
-          background: #2563eb;
-          color: #ffffff;
-        }
-
-        .modal-footer .btn-close:hover {
-          background: #1d4ed8;
-        }
-
-        .fade-in {
-          animation: fadeIn 0.4s ease both;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
-
-      <main
-        style={{
-          marginLeft: "260px",
-          backgroundColor: "#fafbfc",
-          padding: "32px 32px",
-          minHeight: "100vh",
-          fontFamily: "'DM Sans', sans-serif",
-        }}
-      >
-        {/* Header */}
-        <div
-          className="fade-in"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "28px",
-          }}
-        >
-          <h1
-            style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#0f172a",
-              margin: 0,
-            }}
-          >
+    <div className="min-h-screen bg-slate-50">
+      <main className="ml-64 bg-slate-50 p-8 min-h-screen">
+        <div className="flex items-center justify-between mb-7 animate-fadeIn">
+          <h1 className="text-2xl font-bold text-slate-900">
             Ticket Management
           </h1>
           {user.role !== "Head" && (
             <button
-              onClick={() => router.push("/tickets/create")}
-              className="btn-primary"
-              style={{ background: deptAccent.color, color: "#ffffff" }}
+              onClick={() => setIsCreateModalOpen(true)}
+              className="inline-flex items-center justify-center cursor-pointer gap-2 px-5 py-2 rounded-lg text-white font-semibold text-sm transition-all hover:shadow-lg hover:-translate-y-0.5"
+              style={{ backgroundColor: deptAccent.color }}
             >
-              <svg
-                width="12"
-                height="12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 4v16m8-8H4" />
-              </svg>
               Create New Ticket
             </button>
           )}
         </div>
 
-        {/* Main Card */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "14px",
-            border: "1px solid #e8eef5",
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-            overflow: "hidden",
-          }}
-        >
-          {/* Tab Navigation */}
-          <div
-            style={{ padding: "16px 18px", borderBottom: "1px solid #f5f6f9" }}
-          >
-            <div className="tab-nav">
-              {["All", "Pending", "In Progress", "Resolved"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`tab-btn ${activeTab === tab ? "active" : ""}`}
-                >
-                  {tab}
-                  <span className="tab-badge">
-                    {tab === "All"
-                      ? filteredByRole.length
-                      : filteredByRole.filter((t) => t.status === tab).length}
-                  </span>
-                </button>
-              ))}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 pt-4 border-b border-slate-200">
+            <div className="flex gap-5 overflow-x-auto pb-0">
+              {availableTabs.map((tab) => {
+                let count = 0;
+                if (tab === "All") count = filteredByRole.length;
+                else if (tab === "Reminders")
+                  count = filteredByRole.filter(
+                    (t) =>
+                      t.reminder_flag ||
+                      (t.status === "Pending" &&
+                        (new Date().getTime() - new Date(t.date).getTime()) /
+                          3600000 >=
+                          24),
+                  ).length;
+                else
+                  count = filteredByRole.filter((t) => t.status === tab).length;
+
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`pb-3 text-sm font-semibold whitespace-nowrap transition-colors relative ${activeTab === tab ? (tab === "Reminders" ? "text-rose-600" : "text-blue-600") : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    {tab}
+                    <span
+                      className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded text-xs font-bold ${activeTab === tab ? (tab === "Reminders" ? "bg-rose-600 text-white" : "bg-blue-600 text-white") : tab === "Reminders" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-900"}`}
+                    >
+                      {count}
+                    </span>
+                    {activeTab === tab && (
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${tab === "Reminders" ? "bg-rose-600" : "bg-blue-600"}`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Table Container */}
-          <div style={{ overflowX: "auto" }}>
-            <table className="ticket-table">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
               <thead>
-                <tr>
+                <tr className="bg-white border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-widest">
                   {user.role === "Head" && (
                     <>
-                      <th onClick={() => handleSort("createdBy")}>
-                        Sender{" "}
-                        {sortConfig?.key === "createdBy" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th onClick={() => handleSort("id")}>
-                        ID{" "}
-                        {sortConfig?.key === "id" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
+                      <th className="px-4.5 py-3.5 text-left">Sender</th>
+                      <th className="px-4.5 py-3.5 text-left">ID</th>
                     </>
                   )}
-                  <th onClick={() => handleSort("category")}>
-                    Category{" "}
-                    {sortConfig?.key === "category" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("title")}>
-                    Title{" "}
-                    {sortConfig?.key === "title" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("status")}>
-                    Status{" "}
-                    {sortConfig?.key === "status" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("date")}>
-                    Date{" "}
-                    {sortConfig?.key === "date" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th>Actions</th>
+                  <th className="px-4.5 py-3.5 text-left">Category</th>
+                  <th className="px-4.5 py-3.5 text-left">Title</th>
+                  <th className="px-4.5 py-3.5 text-left">Status</th>
+                  <th className="px-4.5 py-3.5 text-left">Date</th>
+                  <th className="px-4.5 py-3.5 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTickets.map((ticket) => {
                   const statusColor = getStatusColor(ticket.status);
+                  const hoursPast =
+                    (new Date().getTime() - new Date(ticket.date).getTime()) /
+                    (1000 * 60 * 60);
+                  const isUrgent =
+                    ticket.status === "Pending" &&
+                    (ticket.reminder_flag || hoursPast >= 24);
+                  const isHighlighted = highlightId === String(ticket.globalId);
+
                   return (
                     <tr
                       key={ticket.globalId}
                       id={`ticket-${ticket.globalId}`}
-                      className={
-                        highlightId === String(ticket.globalId)
-                          ? "highlight"
-                          : ""
-                      }
+                      onClick={() => setSelectedTicket(ticket)}
+                      className={`border-b border-slate-100 transition-colors duration-[1500ms] cursor-pointer border-l-4 ${isHighlighted ? "bg-slate-100 border-l-slate-300" : isUrgent ? "bg-rose-50/50 hover:bg-rose-50 border-l-rose-500" : "bg-white hover:bg-slate-50 border-l-transparent"}`}
                     >
                       {user.role === "Head" && (
-                        <td>
-                          <div
-                            style={{ display: "flex", alignItems: "center" }}
-                          >
+                        <td className="px-4.5 py-3.5 text-sm">
+                          <div className="flex items-center">
                             <div
-                              className="user-avatar"
-                              style={{
-                                background: deptAccent.bg,
-                                color: deptAccent.color,
-                              }}
+                              className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mr-1.5 flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw}`}
                             >
                               {String(ticket.createdBy).charAt(0).toUpperCase()}
                             </div>
-                            <span style={{ fontWeight: 500 }}>
+                            <span className="font-medium">
                               {ticket.createdBy}
                             </span>
                           </div>
                         </td>
                       )}
                       {user.role === "Head" && (
-                        <td style={{ color: "#64748b" }}>#{ticket.id}</td>
+                        <td className="px-4.5 py-3.5 text-sm text-slate-600">
+                          #{ticket.id}
+                        </td>
                       )}
-                      <td style={{ color: "#64748b", fontSize: "13px" }}>
+                      <td className="px-4.5 py-3.5 text-sm text-slate-600">
                         {ticket.category}
                       </td>
-                      <td style={{ fontWeight: 500 }}>{ticket.title}</td>
-                      <td>
+                      <td className="px-4.5 py-3.5 text-sm font-medium">
+                        {ticket.title}
+                        {ticket.reminder_flag &&
+                          ticket.status === "Pending" && (
+                            <span className="ml-2 inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600 uppercase tracking-wider">
+                              Nudged
+                            </span>
+                          )}
+                      </td>
+                      <td className="px-4.5 py-3.5">
                         <span
-                          className="status-badge"
-                          style={{
-                            background: statusColor.bg,
-                            borderColor: statusColor.border,
-                            color: statusColor.text,
-                          }}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-semibold ${statusColor.bg} ${statusColor.border} ${statusColor.text}`}
                         >
                           <span
-                            className="status-dot"
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                             style={{ background: statusColor.dot }}
                           />
                           {ticket.status}
                         </span>
                       </td>
-                      <td style={{ color: "#64748b", fontSize: "13px" }}>
-                        {new Date(ticket.date).toLocaleDateString()} at{" "}
-                        {new Date(ticket.date).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                      <td className="px-4.5 py-3.5 text-sm text-slate-600">
+                        {new Date(ticket.date).toLocaleDateString()}
                       </td>
-                      <td>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                          }}
-                        >
-                          <button
-                            className="btn-icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTicket(ticket);
-                              router.push(
-                                `/tickets?highlight=${ticket.globalId}`,
-                                { scroll: false },
-                              );
-                            }}
-                            title="View Details"
-                          >
-                            <svg
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M2.036 12.322a1.012 1.012 0 010-.644C3.412 8.086 7.21 5 12 5c4.79 0 8.588 3.086 9.964 6.678.331.646.331 1.356 0 2.002C20.588 15.914 16.79 19 12 19c-4.79 0-8.588-3.086-9.964-6.678z" />
-                              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </button>
+                      <td className="px-4.5 py-3.5">
+                        <div className="flex gap-2 items-center">
+                          {/* ── TABLE ROW ACTIONS ── */}
 
-                          {user?.role !== "Head" &&
-                            ticket.status?.toLowerCase() === "pending" &&
-                            String(ticket.createdBy).toLowerCase().trim() ===
-                              String(user?.username).toLowerCase().trim() && (
-                              <button
-                                className="btn-icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(
-                                    `/tickets/edit?id=${ticket.globalId}`,
-                                  );
-                                }}
-                                title="Edit Ticket"
-                              >
-                                <svg
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                </svg>
-                              </button>
+                          {/* 1. USER ACTIONS */}
+                          {user?.role === "User" &&
+                            String(ticket.createdBy) ===
+                              String(user?.username) && (
+                              <>
+                                {/* Pending: Edit & Remind */}
+                                {ticket.status === "Pending" && (
+                                  <>
+                                    <button
+                                      className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTicketToEdit(ticket);
+                                      }}
+                                    >
+                                      <svg
+                                        width="16"
+                                        height="16"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                      </svg>
+                                    </button>
+                                    {ticket.reminder_flag ? (
+                                      <span
+                                        className="text-[10px] text-rose-500 font-bold px-2 py-1 bg-rose-50 rounded-md border border-rose-200"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        Notified
+                                      </span>
+                                    ) : hoursPast >= 4 ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSendReminder(ticket.globalId);
+                                        }}
+                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200"
+                                      >
+                                        <Bell size={16} />
+                                      </button>
+                                    ) : (
+                                      <span
+                                        className="text-[10px] text-slate-400 font-medium italic"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        Nudge in {Math.ceil(4 - hoursPast)}h
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+
+                                {/* In Progress: User Confirm Resolve */}
+                                {ticket.status === "In Progress" &&
+                                  (!ticket.userMarkedDone ? (
+                                    <button
+                                      className="inline-flex items-center gap-1.5 p-2 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleTicketAction(ticket.globalId, {
+                                          userMarkedDone: true,
+                                        });
+                                      }}
+                                      title="Confirm Resolution"
+                                    >
+                                      <CheckCircle size={16} />
+                                    </button>
+                                  ) : !ticket.headMarkedDone ? (
+                                    <span
+                                      className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      Awaiting Head
+                                    </span>
+                                  ) : null)}
+                              </>
                             )}
 
-                          {user.role === "Head" &&
-                            ticket.status === "Pending" && (
-                              <button
-                                className="btn-icon"
-                                style={{
-                                  background: deptAccent.color,
-                                  color: "#ffffff",
-                                  border: "none",
-                                }}
-                                onClick={() =>
-                                  handleStatusChange(
-                                    ticket.globalId,
-                                    "In Progress",
-                                  )
-                                }
-                                title="Accept Ticket"
-                              >
-                                <svg
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  viewBox="0 0 24 24"
+                          {/* 2. HEAD ACTIONS */}
+                          {user?.role === "Head" && (
+                            <>
+                              {/* Pending: Accept Ticket */}
+                              {ticket.status === "Pending" && (
+                                <button
+                                  className="inline-flex items-center justify-center p-2 rounded-lg text-white hover:shadow-md"
+                                  style={{ backgroundColor: deptAccent.color }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleTicketAction(ticket.globalId, {
+                                      status: "In Progress",
+                                    });
+                                  }}
                                 >
-                                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </button>
-                            )}
+                                  <PlayCircle size={18} />
+                                </button>
+                              )}
+
+                              {/* In Progress: Head Confirm Resolve */}
+                              {ticket.status === "In Progress" &&
+                                (!ticket.headMarkedDone ? (
+                                  <button
+                                    className="inline-flex items-center gap-1.5 p-2 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTicketAction(ticket.globalId, {
+                                        headMarkedDone: true,
+                                      });
+                                    }}
+                                    title="Mark as Resolved"
+                                  >
+                                    <CheckCircle size={16} />
+                                  </button>
+                                ) : !ticket.userMarkedDone ? (
+                                  <span
+                                    className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Awaiting User
+                                  </span>
+                                ) : null)}
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -952,104 +628,190 @@ export default function TicketsPage() {
               </tbody>
             </table>
           </div>
-
           {sortedTickets.length === 0 && (
-            <div
-              style={{
-                padding: "60px 24px",
-                textAlign: "center",
-                color: "#94a3b8",
-              }}
-            >
-              <p style={{ fontSize: "14px", margin: 0 }}>
-                No tickets found for the selected filter.
-              </p>
+            <div className="py-16 text-center text-slate-400">
+              <p className="text-sm">No tickets found.</p>
             </div>
           )}
         </div>
+
+        <CreateTicketModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => fetchTickets(user)}
+        />
+        <EditTicketModal
+          isOpen={!!ticketToEdit}
+          ticket={ticketToEdit}
+          onClose={() => setTicketToEdit(null)}
+          onSuccess={() => {
+            fetchTickets(user);
+            setTicketToEdit(null);
+          }}
+        />
       </main>
 
-      {/* Modal */}
+      {/* ── DETAILS MODAL ── */}
       {mounted &&
         selectedTicket &&
         createPortal(
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h3>Ticket Details</h3>
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
+            onClick={handleCloseModal}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slideUp"
+              style={{ width: "100%", maxWidth: "1000px" }}
+            >
+              <div
+                className="px-8 py-6 flex items-center justify-between w-full"
+                style={{ backgroundColor: "#15803d" }}
+              >
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                    Ticket Description
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold border border-white/40 ${selectedTicket.status === "Finished" ? "bg-cyan-500" : "bg-white/20"}`}
+                    >
+                      {selectedTicket.status}
+                    </span>
+                  </h3>
+                  <span className="text-xs font-semibold text-white uppercase tracking-widest">
+                    ID: {selectedTicket.globalId}
+                  </span>
+                </div>
                 <button
-                  className="modal-close"
+                  className="p-2 hover:bg-green-800 rounded-lg text-white"
                   onClick={handleCloseModal}
-                  title="Close"
                 >
-                  ×
+                  <X size={24}></X>
                 </button>
               </div>
 
-              <div className="modal-body">
-                <div className="modal-section">
-                  <label className="modal-label">Title</label>
-                  <div className="modal-field">{selectedTicket.title}</div>
-                </div>
-
-                <div className="modal-section">
-                  <label className="modal-label">Description</label>
-                  <div
-                    className="modal-field"
-                    style={{
-                      minHeight: "120px",
-                      maxHeight: "240px",
-                      overflowY: "auto",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    "{selectedTicket.description || "No description provided."}"
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                  }}
-                >
-                  <div className="modal-section">
-                    <label className="modal-label">Status</label>
-                    <div
-                      className="modal-field"
-                      style={{ padding: "10px 14px" }}
-                    >
-                      <span
-                        className="status-badge"
-                        style={{
-                          background: getStatusColor(selectedTicket.status).bg,
-                          borderColor: getStatusColor(selectedTicket.status)
-                            .border,
-                          color: getStatusColor(selectedTicket.status).text,
-                        }}
-                      >
-                        <span
-                          className="status-dot"
-                          style={{
-                            background: getStatusColor(selectedTicket.status)
-                              .dot,
-                          }}
-                        />
-                        {selectedTicket.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="modal-section">
-                    <label className="modal-label">Category</label>
-                    <div className="modal-field">{selectedTicket.category}</div>
+              <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex flex-col gap-4">
+                  <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                    Full Request Details
+                  </label>
+                  <div className="p-8 bg-slate-50 border border-slate-200 rounded-2xl text-lg text-slate-800 leading-relaxed whitespace-pre-wrap break-words min-h-[400px] shadow-inner">
+                    {selectedTicket.description ||
+                      "No additional details provided."}
                   </div>
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button className="btn-close" onClick={handleCloseModal}>
+              {/* 🟢 MODAL FOOTER ACTION BUTTONS */}
+              <div className="w-full border-t border-slate-200 bg-slate-50 px-8 py-5 flex items-center justify-between">
+                <div className="flex gap-3">
+                  {/* ── HEAD ACTIONS IN MODAL ── */}
+                  {user?.role === "Head" &&
+                    selectedTicket.status === "Pending" && (
+                      <button
+                        onClick={() =>
+                          handleTicketAction(selectedTicket.globalId, {
+                            status: "In Progress",
+                          })
+                        }
+                        className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+                        style={{ backgroundColor: deptAccent.color }}
+                      >
+                        <PlayCircle size={18} /> Accept & Start Progress
+                      </button>
+                    )}
+
+                  {user?.role === "Head" &&
+                    selectedTicket.status === "In Progress" &&
+                    (!selectedTicket.headMarkedDone ? (
+                      <>
+                        <button
+                          onClick={() =>
+                            handleTicketAction(selectedTicket.globalId, {
+                              headMarkedDone: true,
+                            })
+                          }
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+                        >
+                          <CheckCircle size={18} /> Mark as Resolved
+                        </button>
+                        {selectedTicket.userMarkedDone && (
+                          <button
+                            onClick={() => {
+                              Swal.fire({
+                                title: "Reject Resolution?",
+                                text: "This will reopen the ticket.",
+                                icon: "warning",
+                                showCancelButton: true,
+                                confirmButtonText: "Yes, reject it",
+                              }).then((r) => {
+                                if (r.isConfirmed)
+                                  handleTicketAction(selectedTicket.globalId, {
+                                    status: "Pending",
+                                  });
+                              });
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
+                          >
+                            <AlertTriangle size={18} /> Reject User's Fix
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center px-4 py-2.5 bg-slate-200 text-slate-500 rounded-xl text-sm font-bold border border-slate-300">
+                        Awaiting User's Confirmation...
+                      </span>
+                    ))}
+
+                  {/* ── USER ACTIONS IN MODAL ── */}
+                  {user?.role === "User" &&
+                    selectedTicket.status === "In Progress" &&
+                    String(selectedTicket.createdBy) ===
+                      String(user?.username) &&
+                    (!selectedTicket.userMarkedDone ? (
+                      <>
+                        <button
+                          onClick={() =>
+                            handleTicketAction(selectedTicket.globalId, {
+                              userMarkedDone: true,
+                            })
+                          }
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+                        >
+                          <CheckCircle size={18} /> Mark as Resolved
+                        </button>
+                        {selectedTicket.headMarkedDone && (
+                          <button
+                            onClick={() => {
+                              Swal.fire({
+                                title: "Re-open Ticket?",
+                                text: "Send this back to the department queue?",
+                                icon: "warning",
+                                showCancelButton: true,
+                                confirmButtonText: "Yes, still broken",
+                              }).then((r) => {
+                                if (r.isConfirmed)
+                                  handleTicketAction(selectedTicket.globalId, {
+                                    status: "Pending",
+                                  });
+                              });
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
+                          >
+                            <AlertTriangle size={18} /> Disagree & Re-open
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center px-4 py-2.5 bg-slate-200 text-slate-500 rounded-xl text-sm font-bold border border-slate-300">
+                        Awaiting Head's Confirmation...
+                      </span>
+                    ))}
+                </div>
+
+                <button
+                  className="min-w-[160px] gap-2 px-6 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-300 active:scale-95"
+                  onClick={handleCloseModal}
+                >
                   Close Details
                 </button>
               </div>
@@ -1057,6 +819,15 @@ export default function TicketsPage() {
           </div>,
           document.body,
         )}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+        body { font-family: 'DM Sans', sans-serif; }
+        h1, h2, h3 { font-family: 'Syne', sans-serif; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slideUp { animation: slideUp 0.3s ease; }
+        .animate-fadeIn { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      `}</style>
     </div>
   );
 }
