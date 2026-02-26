@@ -36,10 +36,10 @@ export default function RoleBasedDashboard() {
 
   // ANALYTICS DASHBOARD STATE
   const [time, setTime] = useState(new Date());
-  const [timeFilter, setTimeFilter] = useState("All Time");
+  const [timeFilter, setTimeFilter] = useState("Custom date");
 
   // INTERACTIVE CALENDAR STATE
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   // LIVE CLOCK HOOK
@@ -279,34 +279,69 @@ export default function RoleBasedDashboard() {
     <div className="min-h-screen bg-slate-50">
       <main
         className="transition-all duration-300 ease-in-out bg-slate-50 p-4 sm:p-6 lg:p-8 min-h-screen font-sans"
-        style={{ marginLeft: "var(--sidebar-width, 256px)" }}
+        style={{
+          /* 🟢 Only apply sidebar margin on Large screens (lg: 1024px and up) */
+          marginLeft:
+            typeof window !== "undefined" && window.innerWidth >= 1024
+              ? "var(--sidebar-width, 256px)"
+              : "0px",
+        }}
       >
+        {/* ── HEADER ── */}
         {/* ── HEADER ── */}
         <div
           className="mb-8 animate-slideUpFade"
           style={{ animationDelay: "0s", animationFillMode: "both" }}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-end gap-3.5">
-              <div
-                className={`w-12 h-12 rounded-xl border-1.5 flex items-center justify-center font-black text-lg flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw} ${deptAccent.borderTw}`}
+            {/* 🟢 Profile & Mobile Refresh Group */}
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`w-12 h-12 rounded-xl border-1.5 flex items-center justify-center font-black text-lg flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw} ${deptAccent.borderTw}`}
+                >
+                  {user?.username?.charAt(0)?.toUpperCase()}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+                    {user?.dept}{" "}
+                    <span style={{ color: deptAccent.color }}>
+                      {user?.role}
+                    </span>
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Last activity {getRelativeTime(displayDate)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Mobile Refresh Button (Aligns right of profile on small screens) */}
+              <button
+                className="sm:hidden inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-all flex-shrink-0"
+                onClick={handleRefresh}
+                title="Refresh dashboard"
               >
-                {user.username?.charAt(0)?.toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 leading-tight">
-                  {user.dept}{" "}
-                  <span style={{ color: deptAccent.color }}>{user.role}</span>
-                </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Last activity {getRelativeTime(displayDate)}
-                </p>
-              </div>
+                <svg
+                  className={isRefreshing ? "animate-spin" : ""}
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            {/* 🟢 Action Buttons & Desktop Refresh Group */}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {/* Desktop Refresh Button (Hidden on mobile to prevent duplicates) */}
               <button
-                className="inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-all"
+                className="hidden sm:inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-all flex-shrink-0"
                 onClick={handleRefresh}
                 title="Refresh dashboard"
               >
@@ -325,7 +360,7 @@ export default function RoleBasedDashboard() {
                 </svg>
               </button>
 
-              {user.role === "User" ? (
+              {user?.role === "User" ? (
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-white font-semibold text-sm transition-all hover:shadow-lg hover:-translate-y-0.5 w-full sm:w-auto"
@@ -859,27 +894,96 @@ export default function RoleBasedDashboard() {
                       <div key={`blank-${i}`} />
                     ))}
                     {days.map((day) => {
+                      const d = new Date(
+                        calendarMonth.getFullYear(),
+                        calendarMonth.getMonth(),
+                        day,
+                      );
+                      const dString = d.toDateString();
+                      const dMidnight = new Date(
+                        d.getFullYear(),
+                        d.getMonth(),
+                        d.getDate(),
+                      ).getTime();
+                      const now = new Date();
+                      const todayMidnight = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        now.getDate(),
+                      ).getTime();
+
                       const isToday =
-                        day === time.getDate() &&
-                        calendarMonth.getMonth() === time.getMonth() &&
-                        calendarMonth.getFullYear() === time.getFullYear();
+                        d.toDateString() === new Date().toDateString();
                       const isSelected =
-                        selectedDate?.getDate() === day &&
-                        selectedDate?.getMonth() === calendarMonth.getMonth() &&
-                        selectedDate?.getFullYear() ===
-                          calendarMonth.getFullYear();
+                        selectedDate?.toDateString() === dString;
+                      const isFuture = dMidnight > todayMidnight;
+
+                      // 1. Count tickets for this specific day to determine heat intensity
+                      const dayTickets = tickets.filter(
+                        (t) => new Date(t.date).toDateString() === dString,
+                      );
+                      const hasTickets = dayTickets.length > 0;
+                      const isBusyDay = dayTickets.length >= 5; // Darker green if 5 or more tickets
+
+                      let isInFilterRange = false;
+
+                      if (!isFuture) {
+                        if (timeFilter === "Last 7 Days") {
+                          isInFilterRange =
+                            dMidnight >=
+                            todayMidnight - 6 * 24 * 60 * 60 * 1000;
+                        } else if (timeFilter === "Last 30 Days") {
+                          isInFilterRange =
+                            dMidnight >=
+                            todayMidnight - 29 * 24 * 60 * 60 * 1000;
+                        } else if (timeFilter === "This Year") {
+                          isInFilterRange =
+                            d.getFullYear() === now.getFullYear();
+                        } else if (timeFilter === "All Time") {
+                          // For All Time, we only highlight days that actually have tickets
+                          isInFilterRange = hasTickets;
+                        } else if (timeFilter === "Custom Date") {
+                          isInFilterRange = isSelected;
+                        }
+                      }
+
+                      let bgColor = "transparent";
+                      let textColor = "text-slate-400";
+                      let border = "border-transparent";
+
+                      if (isSelected) {
+                        bgColor = ""; // Handled by style object using deptAccent.color
+                        textColor =
+                          "text-white font-bold shadow-md z-10 scale-110";
+                      } else if (isToday) {
+                        // 🟢 Current Day: Faint green but distinguishable
+                        bgColor = "bg-green-100/60";
+                        textColor = "text-green-800 font-bold";
+                        border = "border border-green-200";
+                      } else if (isFuture) {
+                        textColor = "text-slate-200 cursor-not-allowed";
+                      } else if (isInFilterRange) {
+                        if (hasTickets) {
+                          // 🟢 Filtered AND has tickets (Heat Map)
+                          bgColor = isBusyDay
+                            ? "bg-green-600/40"
+                            : "bg-green-500/20";
+                          textColor = isBusyDay
+                            ? "text-green-900 font-black"
+                            : "text-green-700 font-bold";
+                        } else {
+                          // 🟢 Filtered but NO tickets (Gray filter)
+                          bgColor = "bg-slate-100/80";
+                          textColor = "text-slate-400";
+                        }
+                      }
 
                       return (
                         <button
                           key={day}
-                          onClick={() => handleDayClick(day)}
-                          className={`p-1 rounded-md aspect-square flex items-center justify-center transition-all cursor-pointer transform hover:scale-110 active:scale-95 ${
-                            isSelected
-                              ? "text-white font-bold shadow-md hover:opacity-90"
-                              : isToday
-                                ? "bg-slate-100 font-bold border border-slate-300 text-slate-800"
-                                : "text-slate-600 hover:bg-slate-100"
-                          }`}
+                          onClick={() => !isFuture && handleDayClick(day)}
+                          disabled={isFuture}
+                          className={`p-1 rounded-md aspect-square flex items-center justify-center transition-all transform relative text-xs ${bgColor} ${textColor} ${border} ${!isFuture && !isSelected && "hover:bg-slate-200 cursor-pointer hover:scale-110 active:scale-95"}`}
                           style={
                             isSelected
                               ? { backgroundColor: deptAccent.color }
@@ -887,6 +991,13 @@ export default function RoleBasedDashboard() {
                           }
                         >
                           {day}
+
+                          {/* Visual indicator dot: Only for non-selected past days with tickets */}
+                          {hasTickets && !isSelected && !isToday && (
+                            <span
+                              className={`absolute bottom-1 w-1 h-1 rounded-full ${isBusyDay ? "bg-green-800" : "bg-green-500"}`}
+                            />
+                          )}
                         </button>
                       );
                     })}

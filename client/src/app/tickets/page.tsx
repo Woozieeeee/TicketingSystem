@@ -5,7 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
-import { Bell, X, CheckCircle, AlertTriangle, PlayCircle } from "lucide-react";
+import {
+  Bell,
+  X,
+  CheckCircle,
+  AlertTriangle,
+  PlayCircle,
+  Ticket as TicketIcon,
+} from "lucide-react";
 import CreateTicketModal from "../../components/createTicketModal";
 import EditTicketModal from "../../components/editTicketModal";
 
@@ -231,11 +238,9 @@ export default function TicketsPage() {
           ...payload,
           lastUpdated: new Date().toISOString(),
         };
-
         if (t.userMarkedDone && t.headMarkedDone && t.status !== "Finished") {
           t.status = "Finished";
         }
-
         if (payload.status === "Pending") {
           t.userMarkedDone = false;
           t.headMarkedDone = false;
@@ -284,13 +289,6 @@ export default function TicketsPage() {
     } catch (error) {
       console.error("Error updating ticket on server:", error);
     }
-  };
-
-  const handleSort = (key: keyof Ticket) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig?.key === key && sortConfig.direction === "asc")
-      direction = "desc";
-    setSortConfig({ key, direction });
   };
 
   const getStatusColor = (status: string) => {
@@ -354,16 +352,18 @@ export default function TicketsPage() {
       : ["All", "Pending", "In Progress", "Finished"];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="ml-64 bg-slate-50 p-8 min-h-screen">
-        <div className="flex items-center justify-between mb-7 animate-fadeIn">
+    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
+      {/* 🟢 CSS DRIVEN RESPONSIVE MARGIN */}
+      <main className="responsive-main transition-all duration-300 ease-in-out bg-slate-50 p-4 sm:p-6 lg:p-8 min-h-screen font-sans">
+        {/* HEADER */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 animate-fadeIn">
           <h1 className="text-2xl font-bold text-slate-900">
             Ticket Management
           </h1>
           {user.role !== "Head" && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center justify-center cursor-pointer gap-2 px-5 py-2 rounded-lg text-white font-semibold text-sm transition-all hover:shadow-lg hover:-translate-y-0.5"
+              className="inline-flex items-center justify-center cursor-pointer gap-2 px-5 py-2.5 rounded-lg text-white font-semibold text-sm transition-all hover:shadow-lg hover:-translate-y-0.5 w-full sm:w-auto"
               style={{ backgroundColor: deptAccent.color }}
             >
               Create New Ticket
@@ -371,9 +371,10 @@ export default function TicketsPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 pt-4 border-b border-slate-200">
-            <div className="flex gap-5 overflow-x-auto pb-0">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          {/* TABS */}
+          <div className="px-4 sm:px-6 pt-4 border-b border-slate-200">
+            <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-0 smooth-scroll">
               {availableTabs.map((tab) => {
                 let count = 0;
                 if (tab === "All") count = filteredByRole.length;
@@ -393,11 +394,11 @@ export default function TicketsPage() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`pb-3 text-sm font-semibold whitespace-nowrap transition-colors relative ${activeTab === tab ? (tab === "Reminders" ? "text-rose-600" : "text-blue-600") : "text-slate-500 hover:text-slate-700"}`}
+                    className={`pb-3 text-sm font-semibold whitespace-nowrap transition-colors relative flex items-center gap-1.5 ${activeTab === tab ? (tab === "Reminders" ? "text-rose-600" : "text-blue-600") : "text-slate-500 hover:text-slate-700"}`}
                   >
                     {tab}
                     <span
-                      className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded text-xs font-bold ${activeTab === tab ? (tab === "Reminders" ? "bg-rose-600 text-white" : "bg-blue-600 text-white") : tab === "Reminders" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-900"}`}
+                      className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded text-[10px] font-bold ${activeTab === tab ? (tab === "Reminders" ? "bg-rose-600 text-white" : "bg-blue-600 text-white") : tab === "Reminders" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-900"}`}
                     >
                       {count}
                     </span>
@@ -412,75 +413,76 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          {/* 🟢 UNIFIED SMOOTH SCROLLING TABLE (Works on Mobile & Desktop) */}
+          <div className="overflow-x-auto smooth-scroll w-full">
+            <table className="w-full border-collapse min-w-[800px] whitespace-nowrap">
               <thead>
-                <tr className="bg-white border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                <tr className="bg-slate-50/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-widest">
                   {user.role === "Head" && (
                     <>
-                      <th className="px-4.5 py-3.5 text-left">Sender</th>
-                      <th className="px-4.5 py-3.5 text-left">ID</th>
+                      <th className="px-6 py-4 text-left">Sender</th>
+                      <th className="px-6 py-4 text-left">ID</th>
                     </>
                   )}
-                  <th className="px-4.5 py-3.5 text-left">Category</th>
-                  <th className="px-4.5 py-3.5 text-left">Title</th>
-                  <th className="px-4.5 py-3.5 text-left">Status</th>
-                  <th className="px-4.5 py-3.5 text-left">Date</th>
-                  <th className="px-4.5 py-3.5 text-left">Actions</th>
+                  <th className="px-6 py-4 text-left">Category</th>
+                  <th className="px-6 py-4 text-left">Title</th>
+                  <th className="px-6 py-4 text-left">Status</th>
+                  <th className="px-6 py-4 text-left">Date</th>
+                  <th className="px-6 py-4 text-left min-w-[150px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTickets.map((ticket) => {
                   const statusColor = getStatusColor(ticket.status);
+                  const isHighlighted = highlightId === String(ticket.globalId);
                   const hoursPast =
                     (new Date().getTime() - new Date(ticket.date).getTime()) /
-                    (1000 * 60 * 60);
+                    3600000;
                   const isUrgent =
                     ticket.status === "Pending" &&
                     (ticket.reminder_flag || hoursPast >= 24);
-                  const isHighlighted = highlightId === String(ticket.globalId);
 
                   return (
                     <tr
                       key={ticket.globalId}
                       id={`ticket-${ticket.globalId}`}
                       onClick={() => setSelectedTicket(ticket)}
-                      className={`border-b border-slate-100 transition-colors duration-[1500ms] cursor-pointer border-l-4 ${isHighlighted ? "bg-slate-100 border-l-slate-300" : isUrgent ? "bg-rose-50/50 hover:bg-rose-50 border-l-rose-500" : "bg-white hover:bg-slate-50 border-l-transparent"}`}
+                      className={`border-b border-slate-100 transition-colors duration-500 cursor-pointer border-l-4 ${isHighlighted ? "bg-slate-100 border-l-slate-300" : isUrgent ? "bg-rose-50/50 hover:bg-rose-50 border-l-rose-500" : "bg-white hover:bg-slate-50 border-l-transparent"}`}
                     >
                       {user.role === "Head" && (
-                        <td className="px-4.5 py-3.5 text-sm">
-                          <div className="flex items-center">
+                        <td className="px-6 py-4 text-sm">
+                          <div className="flex items-center gap-2">
                             <div
-                              className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mr-1.5 flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw}`}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${deptAccent.bgTw} ${deptAccent.colorTw}`}
                             >
                               {String(ticket.createdBy).charAt(0).toUpperCase()}
                             </div>
-                            <span className="font-medium">
+                            <span className="font-medium text-slate-700">
                               {ticket.createdBy}
                             </span>
                           </div>
                         </td>
                       )}
                       {user.role === "Head" && (
-                        <td className="px-4.5 py-3.5 text-sm text-slate-600">
+                        <td className="px-6 py-4 text-sm text-slate-500">
                           #{ticket.id}
                         </td>
                       )}
-                      <td className="px-4.5 py-3.5 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-600">
                         {ticket.category}
                       </td>
-                      <td className="px-4.5 py-3.5 text-sm font-medium">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-800">
                         {ticket.title}
                         {ticket.reminder_flag &&
                           ticket.status === "Pending" && (
-                            <span className="ml-2 inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600 uppercase tracking-wider">
+                            <span className="ml-2 px-2 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-600 uppercase tracking-wider">
                               Nudged
                             </span>
                           )}
                       </td>
-                      <td className="px-4.5 py-3.5">
+                      <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-semibold ${statusColor.bg} ${statusColor.border} ${statusColor.text}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${statusColor.bg} ${statusColor.border} ${statusColor.text}`}
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -489,150 +491,38 @@ export default function TicketsPage() {
                           {ticket.status}
                         </span>
                       </td>
-                      <td className="px-4.5 py-3.5 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-500">
                         {new Date(ticket.date).toLocaleDateString()}
                       </td>
-                      <td className="px-4.5 py-3.5">
-                        <div className="flex gap-2 items-center">
-                          {/* ── TABLE ROW ACTIONS ── */}
-
-                          {/* 1. USER ACTIONS */}
-                          {user?.role === "User" &&
-                            String(ticket.createdBy) ===
-                              String(user?.username) && (
-                              <>
-                                {/* Pending: Edit & Remind */}
-                                {ticket.status === "Pending" && (
-                                  <>
-                                    <button
-                                      className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setTicketToEdit(ticket);
-                                      }}
-                                    >
-                                      <svg
-                                        width="16"
-                                        height="16"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                      </svg>
-                                    </button>
-                                    {ticket.reminder_flag ? (
-                                      <span
-                                        className="text-[10px] text-rose-500 font-bold px-2 py-1 bg-rose-50 rounded-md border border-rose-200"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        Notified
-                                      </span>
-                                    ) : hoursPast >= 4 ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleSendReminder(ticket.globalId);
-                                        }}
-                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200"
-                                      >
-                                        <Bell size={16} />
-                                      </button>
-                                    ) : (
-                                      <span
-                                        className="text-[10px] text-slate-400 font-medium italic"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        Nudge in {Math.ceil(4 - hoursPast)}h
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-
-                                {/* In Progress: User Confirm Resolve */}
-                                {ticket.status === "In Progress" &&
-                                  (!ticket.userMarkedDone ? (
-                                    <button
-                                      className="inline-flex items-center gap-1.5 p-2 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm transition-colors"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleTicketAction(ticket.globalId, {
-                                          userMarkedDone: true,
-                                        });
-                                      }}
-                                      title="Confirm Resolution"
-                                    >
-                                      <CheckCircle size={16} />
-                                    </button>
-                                  ) : !ticket.headMarkedDone ? (
-                                    <span
-                                      className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      Awaiting Head
-                                    </span>
-                                  ) : null)}
-                              </>
-                            )}
-
-                          {/* 2. HEAD ACTIONS */}
-                          {user?.role === "Head" && (
-                            <>
-                              {/* Pending: Accept Ticket */}
-                              {ticket.status === "Pending" && (
-                                <button
-                                  className="inline-flex items-center justify-center p-2 rounded-lg text-white hover:shadow-md"
-                                  style={{ backgroundColor: deptAccent.color }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTicketAction(ticket.globalId, {
-                                      status: "In Progress",
-                                    });
-                                  }}
-                                >
-                                  <PlayCircle size={18} />
-                                </button>
-                              )}
-
-                              {/* In Progress: Head Confirm Resolve */}
-                              {ticket.status === "In Progress" &&
-                                (!ticket.headMarkedDone ? (
-                                  <button
-                                    className="inline-flex items-center gap-1.5 p-2 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTicketAction(ticket.globalId, {
-                                        headMarkedDone: true,
-                                      });
-                                    }}
-                                    title="Mark as Resolved"
-                                  >
-                                    <CheckCircle size={16} />
-                                  </button>
-                                ) : !ticket.userMarkedDone ? (
-                                  <span
-                                    className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    Awaiting User
-                                  </span>
-                                ) : null)}
-                            </>
-                          )}
-                        </div>
+                      <td
+                        className="px-6 py-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ActionButtons
+                          ticket={ticket}
+                          user={user}
+                          onAction={handleTicketAction}
+                          onEdit={setTicketToEdit}
+                          onRemind={handleSendReminder}
+                          deptAccent={deptAccent}
+                        />
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {/* Empty State */}
+            {sortedTickets.length === 0 && (
+              <div className="py-20 text-center text-slate-400 flex flex-col items-center w-full min-w-[800px]">
+                <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mb-3">
+                  <TicketIcon size={24} className="text-slate-300" />
+                </div>
+                <p className="text-sm font-medium">No tickets found.</p>
+              </div>
+            )}
           </div>
-          {sortedTickets.length === 0 && (
-            <div className="py-16 text-center text-slate-400">
-              <p className="text-sm">No tickets found.</p>
-            </div>
-          )}
         </div>
 
         <CreateTicketModal
@@ -651,165 +541,67 @@ export default function TicketsPage() {
         />
       </main>
 
-      {/* ── DETAILS MODAL ── */}
+      {/* ── RESPONSIVE DETAILS MODAL ── */}
       {mounted &&
         selectedTicket &&
         createPortal(
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[9999] p-0 sm:p-4"
             onClick={handleCloseModal}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slideUp"
-              style={{ width: "100%", maxWidth: "1000px" }}
+              className="bg-white w-full sm:max-w-3xl lg:max-w-4xl rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-slideUp"
             >
               <div
-                className="px-8 py-6 flex items-center justify-between w-full"
+                className="px-5 sm:px-8 py-4 sm:py-6 flex items-center justify-between w-full"
                 style={{ backgroundColor: "#15803d" }}
               >
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-2xl font-extrabold text-white flex items-center gap-2">
-                    Ticket Description
+                <div className="flex flex-col gap-1 min-w-0">
+                  <h3 className="text-lg sm:text-2xl font-extrabold text-white flex items-center gap-2 truncate">
+                    <span className="truncate">Ticket Details</span>
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold border border-white/40 ${selectedTicket.status === "Finished" ? "bg-cyan-500" : "bg-white/20"}`}
+                      className={`text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold border border-white/40 flex-shrink-0 ${selectedTicket.status === "Finished" ? "bg-cyan-500" : "bg-white/20"}`}
                     >
                       {selectedTicket.status}
                     </span>
                   </h3>
-                  <span className="text-xs font-semibold text-white uppercase tracking-widest">
-                    ID: {selectedTicket.globalId}
+                  <span className="text-[10px] sm:text-xs font-semibold text-green-100 uppercase tracking-widest">
+                    ID: {selectedTicket.globalId} • Sender:{" "}
+                    {selectedTicket.createdBy}
                   </span>
                 </div>
                 <button
-                  className="p-2 hover:bg-green-800 rounded-lg text-white"
+                  className="p-2 hover:bg-black/10 rounded-full text-white transition-colors flex-shrink-0"
                   onClick={handleCloseModal}
                 >
-                  <X size={24}></X>
+                  <X size={20} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-slate-50/50 smooth-scroll">
                 <div className="flex flex-col gap-4">
-                  <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                  <label className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wide">
                     Full Request Details
                   </label>
-                  <div className="p-8 bg-slate-50 border border-slate-200 rounded-2xl text-lg text-slate-800 leading-relaxed whitespace-pre-wrap break-words min-h-[400px] shadow-inner">
+                  <div className="p-5 sm:p-8 bg-white border border-slate-200 rounded-xl sm:rounded-2xl text-base sm:text-lg text-slate-800 leading-relaxed whitespace-pre-wrap break-words min-h-[250px] sm:min-h-[300px] shadow-sm">
                     {selectedTicket.description ||
                       "No additional details provided."}
                   </div>
                 </div>
               </div>
 
-              {/* 🟢 MODAL FOOTER ACTION BUTTONS */}
-              <div className="w-full border-t border-slate-200 bg-slate-50 px-8 py-5 flex items-center justify-between">
-                <div className="flex gap-3">
-                  {/* ── HEAD ACTIONS IN MODAL ── */}
-                  {user?.role === "Head" &&
-                    selectedTicket.status === "Pending" && (
-                      <button
-                        onClick={() =>
-                          handleTicketAction(selectedTicket.globalId, {
-                            status: "In Progress",
-                          })
-                        }
-                        className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
-                        style={{ backgroundColor: deptAccent.color }}
-                      >
-                        <PlayCircle size={18} /> Accept & Start Progress
-                      </button>
-                    )}
-
-                  {user?.role === "Head" &&
-                    selectedTicket.status === "In Progress" &&
-                    (!selectedTicket.headMarkedDone ? (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleTicketAction(selectedTicket.globalId, {
-                              headMarkedDone: true,
-                            })
-                          }
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
-                        >
-                          <CheckCircle size={18} /> Mark as Resolved
-                        </button>
-                        {selectedTicket.userMarkedDone && (
-                          <button
-                            onClick={() => {
-                              Swal.fire({
-                                title: "Reject Resolution?",
-                                text: "This will reopen the ticket.",
-                                icon: "warning",
-                                showCancelButton: true,
-                                confirmButtonText: "Yes, reject it",
-                              }).then((r) => {
-                                if (r.isConfirmed)
-                                  handleTicketAction(selectedTicket.globalId, {
-                                    status: "Pending",
-                                  });
-                              });
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
-                          >
-                            <AlertTriangle size={18} /> Reject User's Fix
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <span className="inline-flex items-center px-4 py-2.5 bg-slate-200 text-slate-500 rounded-xl text-sm font-bold border border-slate-300">
-                        Awaiting User's Confirmation...
-                      </span>
-                    ))}
-
-                  {/* ── USER ACTIONS IN MODAL ── */}
-                  {user?.role === "User" &&
-                    selectedTicket.status === "In Progress" &&
-                    String(selectedTicket.createdBy) ===
-                      String(user?.username) &&
-                    (!selectedTicket.userMarkedDone ? (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleTicketAction(selectedTicket.globalId, {
-                              userMarkedDone: true,
-                            })
-                          }
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
-                        >
-                          <CheckCircle size={18} /> Mark as Resolved
-                        </button>
-                        {selectedTicket.headMarkedDone && (
-                          <button
-                            onClick={() => {
-                              Swal.fire({
-                                title: "Re-open Ticket?",
-                                text: "Send this back to the department queue?",
-                                icon: "warning",
-                                showCancelButton: true,
-                                confirmButtonText: "Yes, still broken",
-                              }).then((r) => {
-                                if (r.isConfirmed)
-                                  handleTicketAction(selectedTicket.globalId, {
-                                    status: "Pending",
-                                  });
-                              });
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
-                          >
-                            <AlertTriangle size={18} /> Disagree & Re-open
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <span className="inline-flex items-center px-4 py-2.5 bg-slate-200 text-slate-500 rounded-xl text-sm font-bold border border-slate-300">
-                        Awaiting Head's Confirmation...
-                      </span>
-                    ))}
+              <div className="w-full border-t border-slate-200 bg-white px-5 sm:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                  <ModalActionButtons
+                    ticket={selectedTicket}
+                    user={user}
+                    onAction={handleTicketAction}
+                    deptAccent={deptAccent}
+                  />
                 </div>
-
                 <button
-                  className="min-w-[160px] gap-2 px-6 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-300 active:scale-95"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 active:scale-95 transition-all"
                   onClick={handleCloseModal}
                 >
                   Close Details
@@ -819,15 +611,262 @@ export default function TicketsPage() {
           </div>,
           document.body,
         )}
+
+      {/* 🟢 CSS DRIVEN RESPONSIVENESS & SMOOTH SCROLLING */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+        
         body { font-family: 'DM Sans', sans-serif; }
         h1, h2, h3 { font-family: 'Syne', sans-serif; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slideUp { animation: slideUp 0.3s ease; }
+        
+        /* Smooth Scrollbar for Table and Tabs */
+        .smooth-scroll {
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+        .smooth-scroll::-webkit-scrollbar {
+          height: 6px;
+        }
+        .smooth-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .smooth-scroll::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1;
+          border-radius: 10px;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Dynamic Sidebar Margin */
+        .responsive-main {
+          margin-left: 0px;
+        }
+        
+        @media (min-width: 1024px) {
+          .responsive-main {
+            margin-left: var(--sidebar-width, 256px);
+          }
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .animate-fadeIn { animation: fadeIn 0.4s ease both; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>
   );
+}
+
+// ── REUSABLE ACTION COMPONENTS ──
+
+function ActionButtons({
+  ticket,
+  user,
+  onAction,
+  onEdit,
+  onRemind,
+  deptAccent,
+}: any) {
+  const hoursPast =
+    (new Date().getTime() - new Date(ticket.date).getTime()) / 3600000;
+
+  return (
+    <div className="flex gap-2 items-center">
+      {user?.role === "User" &&
+        String(ticket.createdBy) === String(user?.username) && (
+          <>
+            {ticket.status === "Pending" && (
+              <>
+                <button
+                  className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-100 active:scale-95 transition-all"
+                  onClick={() => onEdit(ticket)}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                  </svg>
+                </button>
+                {ticket.reminder_flag ? (
+                  <span className="text-[10px] text-rose-500 font-bold px-2 py-1 bg-rose-50 rounded-md border border-rose-200">
+                    Notified
+                  </span>
+                ) : hoursPast >= 4 ? (
+                  <button
+                    onClick={() => onRemind(ticket.globalId)}
+                    className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200 active:scale-95 transition-all"
+                  >
+                    <Bell size={14} />
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-medium italic">
+                    Nudge in {Math.ceil(4 - hoursPast)}h
+                  </span>
+                )}
+              </>
+            )}
+            {ticket.status === "In Progress" && !ticket.userMarkedDone && (
+              <button
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm active:scale-95 transition-all"
+                onClick={() =>
+                  onAction(ticket.globalId, { userMarkedDone: true })
+                }
+                title="Confirm Resolution"
+              >
+                <CheckCircle size={14} />{" "}
+                <span className="text-xs font-bold">Resolve</span>
+              </button>
+            )}
+            {ticket.status === "In Progress" &&
+              !ticket.headMarkedDone &&
+              ticket.userMarkedDone && (
+                <span className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded">
+                  Awaiting Head
+                </span>
+              )}
+          </>
+        )}
+
+      {user?.role === "Head" && (
+        <>
+          {ticket.status === "Pending" && (
+            <button
+              className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-white shadow-sm active:scale-95 transition-all"
+              style={{ backgroundColor: deptAccent.color }}
+              onClick={() =>
+                onAction(ticket.globalId, { status: "In Progress" })
+              }
+            >
+              <PlayCircle size={14} />{" "}
+              <span className="text-xs font-bold ml-1.5">Accept</span>
+            </button>
+          )}
+          {ticket.status === "In Progress" && !ticket.headMarkedDone && (
+            <button
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-600 border border-emerald-200 hover:bg-emerald-50 bg-white shadow-sm active:scale-95 transition-all"
+              onClick={() =>
+                onAction(ticket.globalId, { headMarkedDone: true })
+              }
+              title="Mark as Resolved"
+            >
+              <CheckCircle size={14} />{" "}
+              <span className="text-xs font-bold">Resolve</span>
+            </button>
+          )}
+          {ticket.status === "In Progress" &&
+            !ticket.userMarkedDone &&
+            ticket.headMarkedDone && (
+              <span className="text-[10px] italic text-slate-400 font-medium border border-slate-200 bg-slate-50 px-2 py-1 rounded">
+                Awaiting User
+              </span>
+            )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ModalActionButtons({ ticket, user, onAction, deptAccent }: any) {
+  if (user?.role === "Head") {
+    if (ticket.status === "Pending")
+      return (
+        <button
+          onClick={() => onAction(ticket.globalId, { status: "In Progress" })}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+          style={{ backgroundColor: deptAccent.color }}
+        >
+          <PlayCircle size={18} /> Accept & Start
+        </button>
+      );
+    if (ticket.status === "In Progress" && !ticket.headMarkedDone)
+      return (
+        <>
+          <button
+            onClick={() => onAction(ticket.globalId, { headMarkedDone: true })}
+            className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+          >
+            <CheckCircle size={18} /> Mark as Resolved
+          </button>
+          {ticket.userMarkedDone && (
+            <button
+              onClick={() => {
+                Swal.fire({
+                  title: "Reject Fix?",
+                  text: "This will reopen the ticket.",
+                  icon: "warning",
+                  showCancelButton: true,
+                  confirmButtonText: "Yes",
+                }).then((r) => {
+                  if (r.isConfirmed)
+                    onAction(ticket.globalId, { status: "Pending" });
+                });
+              }}
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
+            >
+              <AlertTriangle size={18} /> Reject User's Fix
+            </button>
+          )}
+        </>
+      );
+    if (
+      ticket.status === "In Progress" &&
+      ticket.headMarkedDone &&
+      !ticket.userMarkedDone
+    )
+      return (
+        <span className="w-full sm:w-auto text-center inline-flex items-center justify-center px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-sm font-bold border border-slate-200">
+          Awaiting User Confirmation
+        </span>
+      );
+  }
+
+  if (
+    user?.role === "User" &&
+    ticket.status === "In Progress" &&
+    String(ticket.createdBy) === String(user?.username)
+  ) {
+    if (!ticket.userMarkedDone)
+      return (
+        <>
+          <button
+            onClick={() => onAction(ticket.globalId, { userMarkedDone: true })}
+            className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95"
+          >
+            <CheckCircle size={18} /> Confirm Resolution
+          </button>
+          {ticket.headMarkedDone && (
+            <button
+              onClick={() => {
+                Swal.fire({
+                  title: "Re-open Ticket?",
+                  text: "Send back to queue?",
+                  icon: "warning",
+                  showCancelButton: true,
+                  confirmButtonText: "Yes",
+                }).then((r) => {
+                  if (r.isConfirmed)
+                    onAction(ticket.globalId, { status: "Pending" });
+                });
+              }}
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold text-sm active:scale-95"
+            >
+              <AlertTriangle size={18} /> Disagree & Re-open
+            </button>
+          )}
+        </>
+      );
+    if (ticket.userMarkedDone && !ticket.headMarkedDone)
+      return (
+        <span className="w-full sm:w-auto text-center inline-flex items-center justify-center px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-sm font-bold border border-slate-200">
+          Awaiting Head Confirmation
+        </span>
+      );
+  }
+  return null;
 }
