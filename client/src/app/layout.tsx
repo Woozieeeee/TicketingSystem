@@ -12,75 +12,72 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
-  // Get user data from localStorage on mount
   useEffect(() => {
+    setMounted(true);
     try {
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+        setUser(JSON.parse(storedUser));
       }
     } catch (error) {
       console.error("Failed to parse stored user:", error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
-  // Re-sync user whenever pathname changes
   useEffect(() => {
+    if (!mounted) return;
     try {
       const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } else {
-        setUser(null);
-      }
+      setUser(storedUser ? JSON.parse(storedUser) : null);
     } catch (error) {
-      console.error("Failed to parse stored user:", error);
       setUser(null);
     }
-  }, [pathname]);
+  }, [pathname, mounted]);
 
-  // Determine layout type
   const isAuthPage = pathname === "/login" || pathname === "/register";
   const noSidebarPages = ["/tickets/create", "/tickets/edit"];
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
   const showSidebar = !isAuthPage && !isNoSidebar;
 
   return (
-    <html lang="en">
-      <body>
-        {/* LAYOUT A: Auth Pages & Create/Edit Pages (Navbar only) */}
-        {(isAuthPage || isNoSidebar) && (
-          <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
-            <Navbar user={user} />
-            <div className="flex-1 overflow-y-auto w-full">
-              <main className="p-6 w-full max-w-[1600px] mx-auto">
-                {children}
-              </main>
-            </div>
-          </div>
-        )}
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300"
+        suppressHydrationWarning
+      >
+        {mounted && (
+          <>
+            {(isAuthPage || isNoSidebar) && (
+              <div className="flex h-screen flex-col overflow-hidden">
+                <Navbar user={user} />
+                <div className="flex-1 overflow-y-auto w-full">
+                  {/* 🟢 FIXED: p-0 on mobile */}
+                  <main className="p-0 sm:p-6 w-full max-w-[1600px] mx-auto overflow-x-hidden">
+                    {children}
+                  </main>
+                </div>
+              </div>
+            )}
 
-        {/* LAYOUT B: Dashboard Pages (Sidebar + Navbar) */}
-        {showSidebar && (
-          <div className="flex h-screen overflow-hidden bg-gray-50">
-            <Sidebar user={user} />
-            <div className="flex flex-col flex-1 w-full overflow-y-auto">
-              <Navbar user={user} />
-              <main className="p-6 w-full">{children}</main>
-            </div>
-          </div>
-        )}
+            {showSidebar && (
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar user={user} />
+                <div className="flex flex-col flex-1 w-full overflow-y-auto">
+                  <Navbar user={user} />
+                  {/* 🟢 FIXED: Changed p-3 to p-0 to remove the green gap in your screenshot */}
+                  <main className="p-0 sm:p-6 w-full overflow-x-hidden">
+                    {children}
+                  </main>
+                </div>
+              </div>
+            )}
 
-        {/* Modal root for portals */}
-        <div id="modal-root" />
+            <div id="modal-root" />
+          </>
+        )}
       </body>
     </html>
   );
