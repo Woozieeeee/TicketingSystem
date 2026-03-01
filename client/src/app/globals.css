@@ -18,10 +18,6 @@ body {
   box-sizing: border-box;
 }
 
-main {
-  padding: 24px;
-}
-
 /* ===== NEW: SMART BADGE HIGHLIGHT (HEARTBEAT) ===== */
 @keyframes highlight-pulse {
   0% {

@@ -38,7 +38,8 @@ export default function AdminChatPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // 🟢 Changed to chat container ref for top-scrolling
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -155,9 +156,10 @@ export default function AdminChatPage() {
     return () => clearInterval(typingInterval);
   }, [selectedTicket]);
 
+  // 🟢 FIXED: Auto-scroll to TOP
   useEffect(() => {
     if (chatHistory.length > lastMessageCount) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      chatContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       setLastMessageCount(chatHistory.length);
     } else if (chatHistory.length < lastMessageCount) {
       setLastMessageCount(chatHistory.length);
@@ -340,7 +342,10 @@ export default function AdminChatPage() {
 
   return (
     <>
-      <div className="responsive-chat flex flex-col h-[calc(100dvh-60px)] lg:h-[calc(100vh-72px)] bg-white lg:rounded-xl border-t lg:border border-slate-200 shadow-sm overflow-hidden text-slate-900 w-full max-w-[100vw]">
+      <div
+        className="responsive-chat flex flex-col h-[calc(100dvh-60px)] lg:h-[calc(100vh-72px)] bg-white lg:rounded-xl border-t lg:border border-slate-200 shadow-sm overflow-hidden text-slate-900 w-full max-w-[100vw]"
+        style={{ padding: "32px" }}
+      >
         <div className="flex flex-1 overflow-hidden relative w-full h-full max-w-full">
           {/* 1. LEFT SIDEBAR */}
           <div
@@ -504,8 +509,12 @@ export default function AdminChatPage() {
                   </button>
                 </div>
 
-                <div className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 space-y-4 smooth-scroll w-full">
-                  {chatHistory.map((msg) => {
+                {/* 🟢 FIXED: Reversed Mapping and ref assigned to the container */}
+                <div
+                  ref={chatContainerRef}
+                  className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
+                >
+                  {[...chatHistory].reverse().map((msg) => {
                     if (msg.sender === "System") {
                       let displayMessage = msg.message;
                       let isReminder = false;
@@ -515,7 +524,10 @@ export default function AdminChatPage() {
                         displayMessage = `⚠️ URGENT: The user (${reminderUser}) has sent a reminder that this ticket is not yet done.`;
                       }
                       return (
-                        <div key={msg.id} className="flex justify-center my-4">
+                        <div
+                          key={msg.id}
+                          className="flex justify-center my-4 w-full"
+                        >
                           <span
                             className={`text-[9px] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm border text-center max-w-[90%] leading-relaxed ${isReminder ? "bg-red-50 text-red-600 border-red-200 animate-pulse" : "bg-slate-100 text-slate-500 border-slate-200"}`}
                           >
@@ -527,7 +539,7 @@ export default function AdminChatPage() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex group items-end ${msg.sender === "Support Admin" ? "justify-end gap-1.5" : "justify-start"}`}
+                        className={`flex group items-end ${msg.sender === "Support Admin" ? "justify-end gap-1.5" : "justify-start"} w-full mt-4`}
                       >
                         {msg.sender === "Support Admin" &&
                           selectedTicket.status !== "Finished" && (
@@ -549,11 +561,12 @@ export default function AdminChatPage() {
                                 ? "You (Admin)"
                                 : selectedTicket.user}
                             </p>
+                            {/* 🟢 FIXED: Img styling logic matched with the modal */}
                             {msg.attachment && (
                               <img
                                 src={msg.attachment}
                                 alt="Attachment"
-                                className="max-w-full h-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50"
+                                className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
                                 onClick={() =>
                                   setFullScreenImage(msg.attachment)
                                 }
@@ -569,7 +582,7 @@ export default function AdminChatPage() {
                   })}
 
                   {isOpponentTyping && (
-                    <div className="flex justify-start items-end gap-2 mt-2 animate-fadeIn">
+                    <div className="flex justify-start items-end gap-2 mt-2 animate-fadeIn w-full">
                       <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 font-black flex items-center justify-center text-[10px] border border-slate-200 flex-shrink-0 shadow-sm">
                         {selectedTicket.user.charAt(0).toUpperCase()}
                       </div>
@@ -594,7 +607,6 @@ export default function AdminChatPage() {
                       </div>
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="p-2 md:p-3 border-t border-slate-200 bg-white flex-shrink-0 z-50 w-full box-border">
@@ -686,10 +698,11 @@ export default function AdminChatPage() {
                           className="custom-input-text flex-1 w-full min-w-0 bg-transparent px-2 py-2 text-[13px] md:text-sm focus:outline-none relative z-10 text-slate-800 placeholder-slate-400"
                         />
 
+                        {/* 🟢 FIXED: bg-green-600 instead of indigo */}
                         <button
                           onClick={handleSend}
                           disabled={!messageInput.trim() && !filePreview}
-                          className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${messageInput.trim() || filePreview ? "bg-indigo-600 text-white shadow-md active:scale-95" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
+                          className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${messageInput.trim() || filePreview ? "bg-green-600 text-white shadow-md active:scale-95" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
                           title="Send message"
                         >
                           <Send size={14} className="custom-send-icon ml-0.5" />
@@ -820,7 +833,7 @@ export default function AdminChatPage() {
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* 📱 Extremely Small Phones (e.g., older Androids, iPhone SE) */
+        /* 📱 Extremely Small Phones */
         @media (max-width: 360px) { 
           .custom-input-pill { padding: 4px !important; gap: 2px !important; }
           .custom-input-text { font-size: 11px !important; padding-left: 4px !important; padding-right: 4px !important; }
@@ -830,17 +843,10 @@ export default function AdminChatPage() {
           .custom-header-title { font-size: 12px !important; }
           .custom-ticket-item { padding: 8px !important; }
         }
-
-        /* 📱 Standard Small Androids (like Infinix) */
         @media (max-width: 390px) { 
           .custom-input-pill { padding: 6px !important; }
           .custom-input-text { font-size: 12px !important; }
           .custom-message-text { font-size: 13px !important; }
-        }
-
-        /* 📱 Large Phones */
-        @media (max-width: 430px) { 
-          /* Base mobile classes apply naturally */
         }
       `}</style>
     </>

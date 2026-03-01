@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+// 🟢 IMPORT THE CHAT HEAD COMPONENT
+import ChatHeadModal from "../components/chatHeadModal";
 
 interface RootLayoutProps {
   children: React.ReactNode;
@@ -42,6 +44,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
   const showSidebar = !isAuthPage && !isNoSidebar;
 
+  // 🟢 FIXED: Expanded the check to catch singular/plural or different route names
+  // If your actual URL is different (e.g., "/admin/messages"), add it to this list!
+  const isMessagingPage =
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/message") ||
+    pathname.startsWith("/chat");
+
+  // Only show the chat head if logged in, NOT on auth pages, and NOT on the messages page
+  const showChatHead = user && !isAuthPage && !isMessagingPage;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -49,35 +61,22 @@ export default function RootLayout({ children }: RootLayoutProps) {
         suppressHydrationWarning
       >
         {mounted && (
-          <>
-            {(isAuthPage || isNoSidebar) && (
-              <div className="flex h-screen flex-col overflow-hidden">
-                <Navbar user={user} />
-                <div className="flex-1 overflow-y-auto w-full">
-                  {/* 🟢 FIXED: p-0 on mobile */}
-                  <main className="p-0 sm:p-6 w-full max-w-[1600px] mx-auto overflow-x-hidden">
-                    {children}
-                  </main>
-                </div>
-              </div>
-            )}
+          <div className="flex h-screen overflow-hidden">
+            {showSidebar && <Sidebar user={user} />}
 
-            {showSidebar && (
-              <div className="flex h-screen overflow-hidden">
-                <Sidebar user={user} />
-                <div className="flex flex-col flex-1 w-full overflow-y-auto">
-                  <Navbar user={user} />
-                  {/* 🟢 FIXED: Changed p-3 to p-0 to remove the green gap in your screenshot */}
-                  <main className="p-0 sm:p-6 w-full overflow-x-hidden">
-                    {children}
-                  </main>
-                </div>
-              </div>
-            )}
+            <div className="flex flex-col flex-1 w-full overflow-hidden">
+              {!isAuthPage && <Navbar user={user} />}
 
-            <div id="modal-root" />
-          </>
+              <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+                <div className="w-full h-full">{children}</div>
+              </main>
+            </div>
+
+            {/* 🟢 Render ChatHead ONLY when showChatHead is true */}
+            {showChatHead && <ChatHeadModal />}
+          </div>
         )}
+        <div id="modal-root" />
       </body>
     </html>
   );

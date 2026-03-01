@@ -11,9 +11,7 @@ import {
   Bell,
   X,
   CheckCircle,
-  AlertTriangle,
   PlayCircle,
-  Clock,
   Search,
   RotateCcw,
   ChevronLeft,
@@ -41,21 +39,17 @@ interface Ticket {
   last_reminded_at?: string;
 }
 
-const getPageNumbers = (current: number, total: number) => {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  if (current <= 3) return [1, 2, 3, "...", total];
-  if (current >= total - 2) return [1, "...", total - 2, total - 1, total];
-  return [1, "...", current, "...", total];
-};
-
 export default function TicketsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightParam = searchParams ? searchParams.get("highlight") : null;
   const filterParam = searchParams ? searchParams.get("filter") : null;
+  const glowParam = searchParams ? searchParams.get("glow") : null;
 
   const [user, setUser] = useState<any>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [isGroupGlowing, setIsGroupGlowing] = useState(false);
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -67,10 +61,8 @@ export default function TicketsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [ticketsPerPage, setTicketsPerPage] = useState(10);
-
   const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
   const [sortConfig] = useState<{
     key: keyof Ticket;
@@ -92,6 +84,18 @@ export default function TicketsPage() {
       }
     }
   }, [filterParam]);
+
+  useEffect(() => {
+    if (glowParam === "true") {
+      setIsGroupGlowing(true);
+      const timer = setTimeout(() => setIsGroupGlowing(false), 2500);
+      const newUrl = filterParam
+        ? `/tickets?filter=${filterParam}`
+        : "/tickets";
+      window.history.replaceState(null, "", newUrl);
+      return () => clearTimeout(timer);
+    }
+  }, [glowParam, filterParam]);
 
   const fetchTickets = useCallback(async (currentUser: any) => {
     try {
@@ -192,14 +196,12 @@ export default function TicketsPage() {
 
   const filteredTickets = filteredByRole.filter((ticket) => {
     let tabMatch = false;
-    const minutesSinceCreated =
-      (new Date().getTime() - new Date(ticket.date).getTime()) / 60000;
 
     if (activeTab === "Reminders") {
-      tabMatch = Boolean(
-        ticket.status === "Pending" &&
-        (ticket.reminder_flag || minutesSinceCreated >= 5),
-      );
+      tabMatch = Boolean(ticket.status === "Pending" && ticket.reminder_flag);
+    } else if (activeTab === "Pending") {
+      // 🟢 FIXED: Pending tab now ONLY shows tickets that are NOT reminders
+      tabMatch = Boolean(ticket.status === "Pending" && !ticket.reminder_flag);
     } else if (activeTab === "In Progress") {
       tabMatch =
         ticket.status === "In Progress" || ticket.status === "Resolved";
@@ -210,6 +212,7 @@ export default function TicketsPage() {
     } else {
       tabMatch = ticket.status === activeTab;
     }
+
     const categoryMatch =
       categoryFilter === "All" || ticket.category === categoryFilter;
     const q = searchQuery.toLowerCase();
@@ -253,9 +256,7 @@ export default function TicketsPage() {
     setMounted(true);
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-
+      setUser(JSON.parse(storedUser));
       const localData = localStorage.getItem("myTickets");
       if (localData) {
         setTickets(JSON.parse(localData));
@@ -351,32 +352,22 @@ export default function TicketsPage() {
         body: JSON.stringify(dbPayload),
       });
       handleCloseModal();
-      let toastTitle = "Ticket Updated";
-      let toastIcon: "success" | "info" | "warning" = "success";
-      if (payload.status === "In Progress") toastTitle = "Ticket Accepted";
-      if (payload.userMarkedDone || payload.headMarkedDone)
-        toastTitle = "Resolution Confirmed";
-      if (payload.status === "Pending") {
-        toastTitle = "Ticket Re-opened";
-        toastIcon = "warning";
-      }
-      Swal.fire({
-        toast: true,
-        position: "top-end",
-        icon: toastIcon,
-        title: toastTitle,
-        showConfirmButton: false,
-        timer: 2000,
-      });
-
       fetchTickets(user);
     } catch (error) {
       console.error("Error updating ticket on server:", error);
     }
   };
 
+  // 🟢 FIXED: Added styling for the new "Reminded" badge state
   const getStatusData = (status: string) => {
     switch (status) {
+      case "Reminded":
+        return {
+          bg: "bg-rose-50",
+          border: "border-rose-200",
+          text: "text-rose-600",
+          dot: "#e11d48",
+        };
       case "Pending":
         return {
           bg: "bg-amber-50",
@@ -420,15 +411,7 @@ export default function TicketsPage() {
       ? { color: "#e11d48", bgTw: "bg-rose-50", colorTw: "text-rose-500" }
       : { color: "#16a34a", bgTw: "bg-green-50", colorTw: "text-green-500" };
 
-  if (!mounted || isLoading || !user)
-    return (
-      <div className="flex items-center justify-center h-[100dvh] bg-slate-100">
-        <div
-          className="w-10 h-10 border-4 border-slate-200 rounded-full mx-auto animate-spin"
-          style={{ borderTopColor: deptAccent.color }}
-        />
-      </div>
-    );
+  if (!mounted || isLoading || !user) return null;
 
   const availableTabs =
     user.role === "Head"
@@ -437,12 +420,9 @@ export default function TicketsPage() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 w-full overflow-x-hidden">
-      <main className="responsive-main transition-all duration-300 ease-in-out bg-slate-50 p-2 sm:p-5 lg:p-8 min-h-[100dvh] font-sans box-border pb-24 sm:pb-8">
-        {/* ── 🟢 FIXED HEADER: Unclumped & Fully Visible Title ── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6 mb-4 lg:mb-7 animate-fadeIn w-full">
-          {/* Top Row (Mobile): Title & Back button */}
-          <div className="flex items-center gap-1.5 lg:gap-3 w-full md:w-auto">
-            {/* 🟢 FIXED: Shrunk back button slightly */}
+      <main className="responsive-main transition-all duration-300 ease-in-out bg-slate-50 p-0 sm:p-5 lg:p-8 min-h-[100dvh] font-sans box-border pb-24 sm:pb-8">
+        <div className="px-4 pt-4 sm:px-0 sm:pt-0 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6 mb-3 sm:mb-5 lg:mb-7 animate-fadeIn w-full">
+          <div className="flex items-center gap-2 lg:gap-3 w-full md:w-auto">
             <button
               onClick={() => router.push("/dashboard")}
               className="p-1 sm:p-1.5 border border-slate-200 bg-white rounded-lg hover:bg-slate-100 text-slate-500 transition-all active:scale-95 shadow-sm flex-shrink-0"
@@ -450,16 +430,14 @@ export default function TicketsPage() {
             >
               <ArrowLeft size={14} className="sm:w-5 sm:h-5" />
             </button>
-            {/* 🟢 FIXED: Removed truncation, reduced text size to fit one line cleanly */}
             <h1
               className="text-[15px] sm:text-xl lg:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap"
               style={{ fontFamily: "Syne, sans-serif" }}
             >
-              Tickets
+              Ticket Management
             </h1>
           </div>
 
-          {/* Bottom Row (Mobile): Search & Actions */}
           <div className="flex flex-row items-center gap-1.5 sm:gap-2 w-full md:w-auto mt-1 md:mt-0">
             <div className="relative flex-1 min-w-[120px] sm:min-w-[200px] lg:min-w-[320px]">
               <Search
@@ -474,32 +452,27 @@ export default function TicketsPage() {
                 className="w-full pl-7 pr-2 sm:pl-8 sm:pr-3 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-slate-400 transition-all font-semibold text-[11px] sm:text-sm shadow-sm"
               />
             </div>
-
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={handleRefresh}
                 className="p-1.5 sm:p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm active:scale-95 flex items-center justify-center h-[30px] w-[30px] sm:w-auto sm:h-auto"
-                title="Refresh"
               >
                 <RotateCcw
                   size={14}
                   className={`text-slate-600 sm:w-[16px] sm:h-[16px] ${isRefreshing ? "animate-spin" : ""}`}
                 />
               </button>
-
               {user.role !== "Head" && (
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-0 sm:px-4 py-0 sm:py-2 rounded-lg text-white font-bold transition-all shadow-sm active:scale-95 h-[30px] w-[30px] sm:w-auto sm:h-auto"
+                  className="flex items-center justify-center gap-1.5 px-0 sm:px-4 py-0 sm:py-2 rounded-lg text-white font-bold transition-all shadow-sm h-[30px] w-[30px] sm:w-auto sm:h-auto"
                   style={{ backgroundColor: deptAccent.color }}
-                  title="Create New Ticket"
                 >
                   <Plus
                     size={16}
                     className="sm:w-[16px] sm:h-[16px]"
                     strokeWidth={3}
                   />
-                  {/* Text is hidden on mobile, leaving just the Plus icon */}
                   <span className="hidden sm:inline text-sm ml-1.5">
                     New Ticket
                   </span>
@@ -509,27 +482,26 @@ export default function TicketsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col w-full max-w-full">
-          {/* ── TABS ── */}
-          <div className="px-2 sm:px-6 pt-2 sm:pt-5 border-b border-slate-200 w-full overflow-hidden">
+        <div className="bg-white rounded-none sm:rounded-xl border-x-0 sm:border-x border-y sm:border-y border-slate-200 shadow-sm overflow-hidden flex flex-col w-full max-w-full">
+          <div className="px-3 sm:px-6 pt-2 sm:pt-5 border-b border-slate-200 w-full overflow-hidden">
             <div
               className="flex gap-3 sm:gap-6 overflow-x-auto pb-0 smooth-scroll w-full"
               role="tablist"
             >
               {availableTabs.map((tab) => {
                 let count = 0;
+                // 🟢 FIXED: Tab counter logic strictly separates Pending from Reminders
                 if (tab === "All")
                   count = filteredByRole.filter(
                     (t) => t.status !== "Finished",
                   ).length;
                 else if (tab === "Reminders")
                   count = filteredByRole.filter(
-                    (t) =>
-                      t.status === "Pending" &&
-                      (t.reminder_flag ||
-                        (new Date().getTime() - new Date(t.date).getTime()) /
-                          60000 >=
-                          5),
+                    (t) => t.status === "Pending" && t.reminder_flag,
+                  ).length;
+                else if (tab === "Pending")
+                  count = filteredByRole.filter(
+                    (t) => t.status === "Pending" && !t.reminder_flag,
                   ).length;
                 else if (tab === "In Progress")
                   count = filteredByRole.filter(
@@ -540,12 +512,10 @@ export default function TicketsPage() {
                   count = filteredByRole.filter((t) => t.status === tab).length;
 
                 const isActive = activeTab === tab;
-
                 return (
                   <button
                     key={tab}
                     role="tab"
-                    aria-selected={isActive}
                     onClick={() => setActiveTab(tab)}
                     className={`pb-2 sm:pb-3 flex items-center gap-1 sm:gap-2 border-b-2 sm:border-b-4 transition-all whitespace-nowrap ${isActive ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}
                   >
@@ -563,9 +533,7 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          {/* ── 🟢 FIXED TABLE CONTAINER: Removed Forced Minimum Height ── */}
-          {/* By removing min-h classes, the table container will perfectly wrap your rows without extra blank space below. */}
-          <div className="overflow-x-auto w-full smooth-scroll">
+          <div className="overflow-x-auto w-full smooth-scroll min-h-[480px] lg:min-h-[550px] flex flex-col justify-between">
             <table className="w-full text-left whitespace-nowrap min-w-full sm:min-w-[550px]">
               <thead>
                 <tr className="text-[7.5px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
@@ -583,7 +551,6 @@ export default function TicketsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {currentTickets.map((ticket) => {
-                  const statusData = getStatusData(ticket.status);
                   const isHighlighted = highlightId === String(ticket.globalId);
                   const hasIConfirmed =
                     (user.role === "User" && ticket.userMarkedDone) ||
@@ -591,12 +558,46 @@ export default function TicketsPage() {
                   const isReminded =
                     ticket.status === "Pending" && ticket.reminder_flag;
 
+                  // 🟢 FIXED: Dynamically update the status badge text to literally say "REMINDED"
+                  const displayStatus = isReminded ? "Reminded" : ticket.status;
+                  const statusData = getStatusData(displayStatus);
+
+                  let rowAnimationClass = "";
+                  let borderClass = "border-l-transparent";
+
+                  if (isHighlighted) {
+                    rowAnimationClass = "animate-highlightPulse";
+                    borderClass = "border-l-teal-500";
+                  } else if (isGroupGlowing) {
+                    if (activeTab === "Reminders") {
+                      rowAnimationClass = "animate-glowRose";
+                      borderClass = "border-l-rose-500";
+                    } else if (activeTab === "Pending") {
+                      rowAnimationClass = "animate-glowAmber";
+                      borderClass = "border-l-amber-500";
+                    } else if (activeTab === "In Progress") {
+                      rowAnimationClass = "animate-glowIndigo";
+                      borderClass = "border-l-indigo-500";
+                    } else if (activeTab === "Resolved") {
+                      rowAnimationClass = "animate-glowGreen";
+                      borderClass = "border-l-emerald-500";
+                    } else if (activeTab === "Finished") {
+                      rowAnimationClass = "animate-glowCyan";
+                      borderClass = "border-l-cyan-500";
+                    } else {
+                      rowAnimationClass = "animate-glowSlate";
+                      borderClass = "border-l-slate-400";
+                    }
+                  } else if (isReminded) {
+                    borderClass = "border-l-rose-500";
+                  }
+
                   return (
                     <tr
                       key={ticket.globalId}
                       id={`ticket-${ticket.globalId}`}
                       onClick={() => setSelectedTicket(ticket)}
-                      className={`group transition-all duration-300 cursor-pointer border-l-[3px] hover:bg-slate-50 ${isHighlighted ? "bg-slate-100 border-l-slate-300" : isReminded ? "border-l-rose-500" : "border-l-transparent"} ${hasIConfirmed && ticket.status === "Resolved" ? "opacity-60 bg-slate-50/50" : ""}`}
+                      className={`group transition-all duration-300 cursor-pointer border-l-[3px] hover:bg-slate-50 ${borderClass} ${rowAnimationClass} ${hasIConfirmed && ticket.status === "Resolved" ? "opacity-60 bg-slate-50/50" : ""}`}
                     >
                       {user.role === "Head" && (
                         <td className="px-2 sm:px-6 py-2.5 sm:py-3">
@@ -639,8 +640,9 @@ export default function TicketsPage() {
                               className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0"
                               style={{ background: statusData.dot }}
                             />
+                            {/* 🟢 FIXED: Status Badge now explicitly says "Reminded" if flagged */}
                             <span className="truncate max-w-[45px] sm:max-w-none">
-                              {ticket.status}
+                              {displayStatus}
                             </span>
                           </span>
                         </div>
@@ -668,62 +670,52 @@ export default function TicketsPage() {
             </table>
           </div>
 
-          {/* ── 🟢 FIXED: ULTRA COMPACT 1-LINE PAGINATION (Shows Only Current Page Number) ── */}
-          {sortedTickets.length > 0 && (
-            <div className="px-3 py-2 sm:px-6 sm:py-4 border-t border-slate-200 flex flex-row items-center justify-between gap-1 bg-slate-50/50 w-full box-border rounded-b-xl overflow-hidden">
-              {/* Range text */}
-              <div className="text-[9px] sm:text-xs font-semibold text-slate-500 whitespace-nowrap flex-shrink-0">
-                {indexOfFirstTicket + 1}-
-                {Math.min(indexOfLastTicket, sortedTickets.length)}{" "}
-                <span className="hidden sm:inline">
-                  of {sortedTickets.length}
-                </span>
-              </div>
-
-              {/* Controls - Shows ONLY Current Page Number (< 1 >) */}
-              <div className="flex items-center justify-center bg-white border border-slate-200 shadow-sm rounded-full p-0.5 sm:p-1 flex-shrink-0 mx-1">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="p-1 sm:px-2 text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                >
-                  <ChevronLeft size={14} strokeWidth={3} />
-                </button>
-
-                <div className="flex items-center px-1">
-                  <button className="w-5 h-5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-[12px] font-bold bg-teal-500 text-white shadow-sm">
-                    {currentPage}
-                  </button>
-                </div>
-
-                <button
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  className="p-1 sm:px-2 text-teal-600 hover:text-teal-700 disabled:opacity-40"
-                >
-                  <ChevronRight size={14} strokeWidth={3} />
-                </button>
-              </div>
-
-              {/* Dropdown - compact */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <span className="text-[9px] sm:text-xs font-bold text-slate-500 hidden sm:inline">
-                  Rows:
-                </span>
-                <select
-                  value={ticketsPerPage}
-                  onChange={(e) => setTicketsPerPage(Number(e.target.value))}
-                  className="p-0.5 sm:p-1 border border-slate-200 rounded bg-white text-[9px] sm:text-xs font-bold text-slate-600 outline-none cursor-pointer shadow-sm"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                </select>
-              </div>
+          <div className="px-3 py-2 sm:px-6 sm:py-4 border-t border-slate-200 flex flex-row items-center justify-between gap-1 bg-slate-50/50 w-full box-border rounded-none sm:rounded-b-xl overflow-hidden">
+            <div className="text-[9px] sm:text-xs font-semibold text-slate-500 whitespace-nowrap flex-shrink-0">
+              {indexOfFirstTicket + 1}-
+              {Math.min(indexOfLastTicket, sortedTickets.length)}{" "}
+              <span className="hidden sm:inline">
+                of {sortedTickets.length}
+              </span>
             </div>
-          )}
+            <div className="flex items-center justify-center bg-white border border-slate-200 shadow-sm rounded-full p-0.5 sm:p-1 flex-shrink-0 mx-1">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="p-1 sm:px-2 text-teal-600 hover:text-teal-700 disabled:opacity-40"
+              >
+                <ChevronLeft size={14} strokeWidth={3} />
+              </button>
+              <div className="flex items-center px-1">
+                <button className="w-5 h-5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-[12px] font-bold bg-teal-500 text-white shadow-sm">
+                  {currentPage}
+                </button>
+              </div>
+              <button
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                className="p-1 sm:px-2 text-teal-600 hover:text-teal-700 disabled:opacity-40"
+              >
+                <ChevronRight size={14} strokeWidth={3} />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[9px] sm:text-xs font-bold text-slate-500 hidden sm:inline">
+                Rows:
+              </span>
+              <select
+                value={ticketsPerPage}
+                onChange={(e) => setTicketsPerPage(Number(e.target.value))}
+                className="p-0.5 sm:p-1 border border-slate-200 rounded bg-white text-[9px] sm:text-xs font-bold text-slate-600 outline-none cursor-pointer shadow-sm"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <CreateTicketModal
@@ -742,7 +734,6 @@ export default function TicketsPage() {
         />
       </main>
 
-      {/* ── DETAILS MODAL ── */}
       {mounted &&
         selectedTicket &&
         createPortal(
@@ -761,10 +752,23 @@ export default function TicketsPage() {
                 <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0 pr-2">
                   <h3 className="text-base sm:text-xl font-extrabold text-white flex items-center gap-2 truncate">
                     <span className="truncate">Ticket Details</span>
+                    {/* 🟢 FIXED: The Modal Badge also accurately says Reminded */}
                     <span
-                      className={`text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold border border-white/40 flex-shrink-0 ${selectedTicket.status === "Finished" ? "bg-cyan-500" : selectedTicket.status === "Resolved" ? "bg-emerald-500" : "bg-white/20"}`}
+                      className={`text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold border border-white/40 flex-shrink-0 ${
+                        selectedTicket.status === "Finished"
+                          ? "bg-cyan-500"
+                          : selectedTicket.status === "Resolved"
+                            ? "bg-emerald-500"
+                            : selectedTicket.status === "Pending" &&
+                                selectedTicket.reminder_flag
+                              ? "bg-rose-500"
+                              : "bg-white/20"
+                      }`}
                     >
-                      {selectedTicket.status}
+                      {selectedTicket.status === "Pending" &&
+                      selectedTicket.reminder_flag
+                        ? "Reminded"
+                        : selectedTicket.status}
                     </span>
                   </h3>
                   <span className="text-[9px] sm:text-[10px] font-semibold text-green-100 uppercase tracking-widest truncate">
@@ -778,7 +782,6 @@ export default function TicketsPage() {
                   <X size={18} className="sm:w-5 sm:h-5" />
                 </button>
               </div>
-
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 smooth-scroll">
                 <div className="flex flex-col gap-2 sm:gap-3">
                   <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide">
@@ -789,7 +792,6 @@ export default function TicketsPage() {
                   </div>
                 </div>
               </div>
-
               <div className="w-full border-t border-slate-200 bg-white p-3 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
                 <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
                   <ModalActionButtons
@@ -811,7 +813,6 @@ export default function TicketsPage() {
           document.body,
         )}
 
-      {/* 🟢 CUSTOM CSS WITH STRICT BOUNDARY RULES */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
         
@@ -821,7 +822,6 @@ export default function TicketsPage() {
         .smooth-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .smooth-scroll::-webkit-scrollbar { display: none; }
         
-        /* 🟢 STRICT WIDTH RULES: 100% blocks right-side bleeding/shifting */
         .responsive-main { margin-left: 0px; width: 100%; max-width: 100%; box-sizing: border-box; }
         @media (min-width: 1024px) { 
           .responsive-main { margin-left: var(--sidebar-width, 256px); width: calc(100% - var(--sidebar-width, 256px)); } 
@@ -832,28 +832,39 @@ export default function TicketsPage() {
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Helpers for responsive hiding */
-        .hide-on-mobile { display: inline; }
+        /* 🟢 GLOW ANIMATIONS FOR TICKETS */
+        @keyframes glowRose { 0% { background-color: rgba(225, 29, 72, 0.2); } 100% { background-color: transparent; } }
+        @keyframes glowAmber { 0% { background-color: rgba(245, 158, 11, 0.2); } 100% { background-color: transparent; } }
+        @keyframes glowIndigo { 0% { background-color: rgba(99, 102, 241, 0.2); } 100% { background-color: transparent; } }
+        @keyframes glowGreen { 0% { background-color: rgba(16, 185, 129, 0.2); } 100% { background-color: transparent; } }
+        @keyframes glowCyan { 0% { background-color: rgba(6, 182, 212, 0.2); } 100% { background-color: transparent; } }
+        @keyframes glowSlate { 0% { background-color: rgba(100, 116, 139, 0.2); } 100% { background-color: transparent; } }
+        
+        /* Persistent heavy pulse when single notification clicked */
+        @keyframes highlightPulse { 
+          0%, 100% { background-color: rgba(20, 184, 166, 0.1); } 
+          50% { background-color: rgba(20, 184, 166, 0.4); } 
+        }
 
-        /* 📱 Extremely Small Phones (e.g. 360px wide) */
-        @media (max-width: 450px) {
+        .animate-glowRose { animation: glowRose 2.5s ease-out forwards; }
+        .animate-glowAmber { animation: glowAmber 2.5s ease-out forwards; }
+        .animate-glowIndigo { animation: glowIndigo 2.5s ease-out forwards; }
+        .animate-glowGreen { animation: glowGreen 2.5s ease-out forwards; }
+        .animate-glowCyan { animation: glowCyan 2.5s ease-out forwards; }
+        .animate-glowSlate { animation: glowSlate 2.5s ease-out forwards; }
+        .animate-highlightPulse { animation: highlightPulse 1.5s ease-in-out infinite; }
+
+        @media (max-width: 480px) {
+          .responsive-main { padding: 0 !important; }
           .hide-on-mobile { display: none !important; }
+          table { width: 100% !important; min-width: 100% !important; }
         }
       `}</style>
     </div>
   );
 }
 
-// ── ACTION COMPONENTS ──
-
-function ActionButtons({
-  ticket,
-  user,
-  onAction,
-  onEdit,
-  onRemind,
-  deptAccent,
-}: any) {
+function ActionButtons({ ticket, user, onAction, onEdit, onRemind }: any) {
   const minutesPast =
     (new Date().getTime() - new Date(ticket.date).getTime()) / 60000;
   const isOngoing =
@@ -885,7 +896,6 @@ function ActionButtons({
                     <path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
                   </svg>
                 </button>
-
                 {ticket.reminder_flag ? (
                   <span className="text-[7px] sm:text-[9px] text-rose-500 font-bold px-1 sm:px-2 py-0.5 bg-rose-50 rounded border border-rose-200">
                     Reminded
@@ -904,7 +914,6 @@ function ActionButtons({
                 ) : null}
               </>
             )}
-
             {isOngoing && !ticket.userMarkedDone && (
               <button
                 className="flex items-center gap-0.5 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-emerald-300 text-emerald-600 rounded font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
@@ -919,11 +928,9 @@ function ActionButtons({
             )}
           </>
         )}
-
       {user?.role === "Head" && ticket.status === "Pending" && (
         <button
-          className="flex items-center gap-0.5 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
-          style={{ backgroundColor: deptAccent.color }}
+          className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-green-800"
           onClick={(e) => {
             e.stopPropagation();
             onAction(ticket.globalId, { status: "In Progress" });
@@ -940,7 +947,6 @@ function ActionButtons({
 function ModalActionButtons({ ticket, user, onAction, deptAccent }: any) {
   const isOngoing =
     ticket.status === "In Progress" || ticket.status === "Resolved";
-
   if (user?.role === "Head") {
     if (ticket.status === "Pending")
       return (
@@ -962,7 +968,6 @@ function ModalActionButtons({ ticket, user, onAction, deptAccent }: any) {
         </button>
       );
   }
-
   if (
     user?.role === "User" &&
     isOngoing &&

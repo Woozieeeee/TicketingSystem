@@ -21,7 +21,8 @@ export default function UserChatPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // 🟢 Changed to chat container ref for top-scrolling
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -138,9 +139,10 @@ export default function UserChatPage() {
     return () => clearInterval(typingInterval);
   }, [selectedTicket, user]);
 
+  // 🟢 FIXED: Auto-scroll to TOP
   useEffect(() => {
     if (chatHistory.length > lastMessageCount) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      chatContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       setLastMessageCount(chatHistory.length);
     } else if (chatHistory.length < lastMessageCount) {
       setLastMessageCount(chatHistory.length);
@@ -335,7 +337,10 @@ export default function UserChatPage() {
 
   return (
     <>
-      <div className="responsive-chat flex flex-col h-[calc(100dvh-60px)] lg:h-[calc(100vh-72px)] bg-white lg:rounded-xl border-t lg:border border-slate-200 shadow-sm overflow-hidden text-slate-900 w-full max-w-[100vw]">
+      <div
+        className="responsive-chat flex flex-col h-[calc(100dvh-60px)] lg:h-[calc(100vh-72px)] bg-white lg:rounded-xl border-t lg:border border-slate-200 shadow-sm overflow-hidden text-slate-900 w-full max-w-[100vw]"
+        style={{ padding: "12px" }}
+      >
         <div className="flex flex-1 overflow-hidden relative w-full h-full max-w-full">
           {/* 1. LEFT SIDEBAR */}
           <div
@@ -495,8 +500,12 @@ export default function UserChatPage() {
                   </button>
                 </div>
 
-                <div className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 space-y-4 smooth-scroll w-full">
-                  {chatHistory.map((msg) => {
+                {/* 🟢 FIXED: Reversed Mapping and ref assigned to the container */}
+                <div
+                  ref={chatContainerRef}
+                  className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
+                >
+                  {[...chatHistory].reverse().map((msg) => {
                     if (msg.sender === "System") {
                       let displayMessage = msg.message;
                       let isReminder = false;
@@ -506,7 +515,10 @@ export default function UserChatPage() {
                           "🔔 Reminder Sent: The admin has been notified.";
                       }
                       return (
-                        <div key={msg.id} className="flex justify-center my-4">
+                        <div
+                          key={msg.id}
+                          className="flex justify-center my-4 w-full"
+                        >
                           <span
                             className={`text-[9px] px-4 py-2 rounded-full font-bold uppercase tracking-wider shadow-sm border text-center max-w-[90%] leading-relaxed ${isReminder ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"}`}
                           >
@@ -518,7 +530,7 @@ export default function UserChatPage() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex group items-end ${msg.sender === user?.username ? "justify-end gap-1.5" : "justify-start"}`}
+                        className={`flex group items-end ${msg.sender === user?.username ? "justify-end gap-1.5" : "justify-start"} w-full mt-4`}
                       >
                         {msg.sender === user?.username &&
                           selectedTicket.status !== "Finished" && (
@@ -540,11 +552,12 @@ export default function UserChatPage() {
                                 ? "You"
                                 : msg.sender}
                             </p>
+                            {/* 🟢 FIXED: Img styling logic matched with the modal */}
                             {msg.attachment && (
                               <img
                                 src={msg.attachment}
                                 alt="Attachment"
-                                className="max-w-full h-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50"
+                                className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
                                 onClick={() =>
                                   setFullScreenImage(msg.attachment)
                                 }
@@ -560,7 +573,7 @@ export default function UserChatPage() {
                   })}
 
                   {isOpponentTyping && (
-                    <div className="flex justify-start items-end gap-2 mt-2 animate-fadeIn">
+                    <div className="flex justify-start items-end gap-2 mt-2 animate-fadeIn w-full">
                       <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 font-black flex items-center justify-center text-[10px] border border-indigo-200 flex-shrink-0 shadow-sm">
                         A
                       </div>
@@ -582,7 +595,6 @@ export default function UserChatPage() {
                       </div>
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="p-2 md:p-3 border-t border-slate-200 bg-white flex-shrink-0 z-50 w-full box-border">
@@ -674,6 +686,7 @@ export default function UserChatPage() {
                           className="custom-input-text flex-1 w-full min-w-0 bg-transparent px-2 py-2 text-[13px] md:text-sm focus:outline-none relative z-10 text-slate-800 placeholder-slate-400"
                         />
 
+                        {/* 🟢 FIXED: Send button is green */}
                         <button
                           onClick={handleSend}
                           disabled={!messageInput.trim() && !filePreview}
@@ -805,7 +818,7 @@ export default function UserChatPage() {
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* 📱 Extremely Small Phones (e.g., older Androids, iPhone SE) */
+        /* 📱 Extremely Small Phones */
         @media (max-width: 360px) { 
           .custom-input-pill { padding: 4px !important; gap: 2px !important; }
           .custom-input-text { font-size: 11px !important; padding-left: 4px !important; padding-right: 4px !important; }
@@ -815,17 +828,10 @@ export default function UserChatPage() {
           .custom-header-title { font-size: 12px !important; }
           .custom-ticket-item { padding: 8px !important; }
         }
-
-        /* 📱 Standard Small Androids (like Infinix) */
         @media (max-width: 390px) { 
           .custom-input-pill { padding: 6px !important; }
           .custom-input-text { font-size: 12px !important; }
           .custom-message-text { font-size: 13px !important; }
-        }
-
-        /* 📱 Large Phones */
-        @media (max-width: 430px) { 
-          /* Base mobile classes apply naturally */
         }
       `}</style>
     </>

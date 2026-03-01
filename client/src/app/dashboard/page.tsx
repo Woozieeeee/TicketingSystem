@@ -35,15 +35,12 @@ export default function RoleBasedDashboard() {
   const [timeAgo, setTimeAgo] = useState("just now");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // ANALYTICS DASHBOARD STATE
   const [time, setTime] = useState(new Date());
   const [timeFilter, setTimeFilter] = useState("Custom date");
 
-  // INTERACTIVE CALENDAR STATE
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  // LIVE CLOCK HOOK
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -213,7 +210,6 @@ export default function RoleBasedDashboard() {
         .filter((t) => t.status === "Pending" || t.status === "In Progress")
         .map((t) => t.createdBy),
     ).size;
-
     const completedTickets = res + fin;
 
     const chartData = [
@@ -288,8 +284,6 @@ export default function RoleBasedDashboard() {
     );
   }
 
-  const totalTicketsAll = tickets.length;
-
   return (
     <div className="min-h-screen bg-slate-50">
       <main
@@ -311,7 +305,6 @@ export default function RoleBasedDashboard() {
                 <div
                   className={`w-12 h-12 rounded-xl border-1.5 flex items-center justify-center font-black text-lg flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw} ${deptAccent.borderTw}`}
                 >
-                  {/* 🟢 FIXED: Safe check for initial load */}
                   {user?.username?.charAt(0)?.toUpperCase()}
                 </div>
                 <div>
@@ -326,11 +319,9 @@ export default function RoleBasedDashboard() {
                   </p>
                 </div>
               </div>
-
               <button
                 className="sm:hidden inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-all flex-shrink-0"
                 onClick={handleRefresh}
-                title="Refresh dashboard"
               >
                 <svg
                   className={isRefreshing ? "animate-spin" : ""}
@@ -352,7 +343,6 @@ export default function RoleBasedDashboard() {
               <button
                 className="hidden sm:inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-all flex-shrink-0"
                 onClick={handleRefresh}
-                title="Refresh dashboard"
               >
                 <svg
                   className={isRefreshing ? "animate-spin" : ""}
@@ -413,7 +403,6 @@ export default function RoleBasedDashboard() {
           </div>
         </div>
 
-        {/* ── ACTIONABLE STATUS CARDS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
           {[
             {
@@ -421,7 +410,7 @@ export default function RoleBasedDashboard() {
               count: remindersCount,
               color: "rose",
               desc: "Needs urgent update",
-              filter: "Reminded",
+              filter: "Reminders",
             },
             {
               label: "Pending",
@@ -451,82 +440,107 @@ export default function RoleBasedDashboard() {
               desc: "Completed & Closed",
               filter: "Finished",
             },
-          ].map((card, i) => (
-            <div
-              key={card.label}
-              onClick={() => router.push(`/tickets?filter=${card.filter}`)}
-              className="group card bg-white border border-slate-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 animate-slideUpFade cursor-pointer overflow-hidden"
-              style={{
-                animationDelay: `${0.05 * (i + 1)}s`,
-                animationFillMode: "both",
-              }}
-            >
+          ].map((card, i) => {
+            const isReminder = card.label === "Reminders";
+            const isPending = card.label === "Pending";
+
+            let borderClasses =
+              "border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+            if (isReminder) {
+              borderClasses =
+                "border-2 border-rose-500 z-10 hover:-translate-y-1";
+            } else if (isPending) {
+              borderClasses =
+                "border-x border-b border-slate-200 border-t-4 border-t-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+            }
+
+            return (
               <div
-                className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}
-              />
-              <div
-                className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform hover:scale-110`}
+                key={card.label}
+                onClick={() =>
+                  router.push(`/tickets?filter=${card.filter}&glow=true`)
+                }
+                className={`group card bg-white p-6 transition-all duration-300 cursor-pointer overflow-hidden ${borderClasses}`}
+                style={
+                  isReminder
+                    ? {
+                        animation: `slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * (i + 1)}s both, urgentGlow 2s ${0.05 * (i + 1) + 0.6}s infinite ease-in-out`,
+                      }
+                    : {
+                        animationDelay: `${0.05 * (i + 1)}s`,
+                        animationFillMode: "both",
+                      }
+                }
               >
-                {i === 0 ? (
-                  <Bell
-                    size={18}
-                    className={`text-${card.color}-500 animate-wiggle`}
+                {!isReminder && !isPending && (
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}
                   />
-                ) : i === 1 ? (
-                  <CalendarIcon
-                    size={18}
-                    className={`text-${card.color}-500`}
-                  />
-                ) : i === 2 ? (
-                  <BarChart3 size={18} className={`text-${card.color}-500`} />
-                ) : i === 3 ? (
-                  <svg
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={`text-${card.color}-500`}
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={`text-${card.color}-500`}
-                    viewBox="0 0 24 24"
-                  >
-                    <polyline points="9 11 12 14 22 4"></polyline>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                  </svg>
                 )}
+
+                <div
+                  className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform hover:scale-110`}
+                >
+                  {i === 0 ? (
+                    <Bell
+                      size={18}
+                      className={`text-${card.color}-500 animate-wiggle`}
+                    />
+                  ) : i === 1 ? (
+                    <CalendarIcon
+                      size={18}
+                      className={`text-${card.color}-500`}
+                    />
+                  ) : i === 2 ? (
+                    <BarChart3 size={18} className={`text-${card.color}-500`} />
+                  ) : i === 3 ? (
+                    <svg
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`text-${card.color}-500`}
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`text-${card.color}-500`}
+                      viewBox="0 0 24 24"
+                    >
+                      <polyline points="9 11 12 14 22 4"></polyline>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                  )}
+                </div>
+                <p className="text-4xl font-black text-slate-900 mb-2">
+                  {card.count}
+                </p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  {card.label}
+                </p>
+                <p className="text-[10px] text-slate-400 mb-3.5 whitespace-nowrap">
+                  {card.desc}
+                </p>
+                <div className="flex items-center gap-1 text-[9px] font-black text-slate-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+                  View List <ArrowRight size={10} />
+                </div>
               </div>
-              <p className="text-4xl font-black text-slate-900 mb-2">
-                {card.count}
-              </p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                {card.label}
-              </p>
-              <p className="text-[10px] text-slate-400 mb-3.5 whitespace-nowrap">
-                {card.desc}
-              </p>
-              <div className="flex items-center gap-1 text-[9px] font-black text-slate-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                View List <ArrowRight size={10} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* ── PROFILE & ANALYTICS SECTION ── */}
         <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
           <div
             className="card bg-white border border-slate-200 p-6 animate-slideUpFade h-auto shadow-sm"
@@ -536,18 +550,15 @@ export default function RoleBasedDashboard() {
               <div
                 className={`w-12 h-12 rounded-lg border-1.5 flex items-center justify-center font-black text-base flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw} ${deptAccent.borderTw}`}
               >
-                {/* 🟢 FIXED: Safe check for user initials */}
                 {user?.username?.charAt(0)?.toUpperCase()}
               </div>
               <div className="min-w-0">
                 <p className="font-bold text-sm text-slate-900 mb-1 truncate">
-                  {/* 🟢 FIXED: Safe check for username */}
                   {user?.username}
                 </p>
                 <span
                   className={`px-2 py-0.5 rounded text-xs font-bold ${deptAccent.bgTw} ${deptAccent.textTw}`}
                 >
-                  {/* 🟢 FIXED: Safe check for department */}
                   {user?.dept}
                 </span>
               </div>
@@ -564,7 +575,6 @@ export default function RoleBasedDashboard() {
                     {label}
                   </span>
                   <span className="text-sm font-bold text-slate-700">
-                    {/* 🟢 FIXED: Fallback to System if empty */}
                     {value || "System"}
                   </span>
                 </div>
@@ -585,12 +595,10 @@ export default function RoleBasedDashboard() {
           >
             <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-slate-50/50">
               <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide whitespace-nowrap">
-                {/* 🟢 FIXED: Safe check for role condition */}
                 {user?.role === "Head"
                   ? "Department Analytics"
                   : "My Ticket Overview"}
               </h2>
-
               <div className="relative w-full sm:w-auto">
                 <select
                   className="w-full sm:w-auto appearance-none bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-slate-200 cursor-pointer transition-all hover:border-slate-300 shadow-sm"
@@ -627,7 +635,6 @@ export default function RoleBasedDashboard() {
             </div>
 
             <div className="flex flex-1 flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-slate-100 min-h-0">
-              {/* 🟢 FIXED: Safe check for Head role logic block */}
               {user?.role === "Head" ? (
                 <>
                   <div className="w-full xl:w-[220px] xl:max-w-[220px] p-6 flex flex-col sm:flex-row xl:flex-col items-center justify-center gap-8 xl:gap-6 bg-white flex-shrink-0">
@@ -885,22 +892,21 @@ export default function RoleBasedDashboard() {
                       let isInFilterRange = false;
 
                       if (!isFuture) {
-                        if (timeFilter === "Last 7 Days") {
+                        if (timeFilter === "Last 7 Days")
                           isInFilterRange =
                             dMidnight >=
                             todayMidnight - 6 * 24 * 60 * 60 * 1000;
-                        } else if (timeFilter === "Last 30 Days") {
+                        else if (timeFilter === "Last 30 Days")
                           isInFilterRange =
                             dMidnight >=
                             todayMidnight - 29 * 24 * 60 * 60 * 1000;
-                        } else if (timeFilter === "This Year") {
+                        else if (timeFilter === "This Year")
                           isInFilterRange =
                             d.getFullYear() === now.getFullYear();
-                        } else if (timeFilter === "All Time") {
+                        else if (timeFilter === "All Time")
                           isInFilterRange = hasTickets;
-                        } else if (timeFilter === "Custom Date") {
+                        else if (timeFilter === "Custom Date")
                           isInFilterRange = isSelected;
-                        }
                       }
 
                       let bgColor = "transparent";
@@ -970,6 +976,7 @@ export default function RoleBasedDashboard() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
         @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
         .animate-slideUpFade { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes urgentGlow { 0%, 100% { box-shadow: 0 0 5px rgba(225, 29, 72, 0.3); } 50% { box-shadow: 0 0 20px rgba(225, 29, 72, 0.8); } }
         html { font-family: 'DM Sans', sans-serif; }
         h1, h2, h3, .font-black, .header-title, .stat-number { font-family: 'Syne', sans-serif; font-weight: 700; }
         .card { position: relative; }
