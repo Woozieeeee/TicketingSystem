@@ -1,6 +1,21 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Paperclip, X, Camera, Image as ImageIcon, Send } from "lucide-react";
+import {
+  Paperclip,
+  X,
+  Camera,
+  Image as ImageIcon,
+  Send,
+  Mic,
+  Square,
+  Video,
+  Play,
+  Trash2,
+  Ban,
+  ArrowLeft,
+  Info,
+} from "lucide-react";
+import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
 
 interface Ticket {
@@ -19,6 +34,111 @@ interface Ticket {
   isTyping?: boolean;
 }
 
+const CustomAudioPlayer = ({ src, isMe }: { src: string; isMe: boolean }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+      setProgress(
+        (audioRef.current.currentTime / audioRef.current.duration) * 100,
+      );
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seekTo = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = (seekTo / 100) * duration;
+      setProgress(seekTo);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const m = Math.floor(time / 60);
+    const s = Math.floor(time % 60);
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-3 p-2 rounded-xl w-[200px] sm:w-[240px] mb-2 ${
+        isMe
+          ? "bg-black/10 text-white"
+          : "bg-slate-100 border border-slate-200 text-slate-700"
+      }`}
+    >
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => setIsPlaying(false)}
+        className="hidden"
+      />
+      <button
+        onClick={togglePlay}
+        className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full transition-transform active:scale-95 ${
+          isMe
+            ? "bg-white text-slate-800"
+            : "bg-white text-slate-700 shadow-sm border border-slate-200"
+        }`}
+      >
+        {isPlaying ? (
+          <Square size={12} fill="currentColor" />
+        ) : (
+          <Play size={14} fill="currentColor" className="ml-0.5" />
+        )}
+      </button>
+      <div className="flex-1 flex flex-col gap-1 w-full">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={isNaN(progress) ? 0 : progress}
+          onChange={handleSeek}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-current"
+          style={{
+            background: isMe
+              ? `linear-gradient(to right, white ${progress}%, rgba(0,0,0,0.2) ${progress}%)`
+              : `linear-gradient(to right, #64748b ${progress}%, #cbd5e1 ${progress}%)`,
+          }}
+        />
+        <div
+          className={`text-[9px] font-bold flex justify-between mt-0.5 ${
+            isMe ? "text-white/80" : "text-slate-500"
+          }`}
+        >
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function AdminChatPage() {
   const [user, setUser] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -32,15 +152,24 @@ export default function AdminChatPage() {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<"image" | "video" | "audio" | null>(
+    null,
+  );
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-
-  // 🟢 Changed to chat container ref for top-scrolling
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
+  const [isSending, setIsSending] = useState(false);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPingRef = useRef<number>(0);
@@ -99,10 +228,7 @@ export default function AdminChatPage() {
         const data = await res.json();
         setChatHistory(data);
       }
-    } catch (error: any) {
-      if (error.name === "TypeError" && error.message === "Failed to fetch")
-        return;
-    }
+    } catch (error: any) {}
   }, []);
 
   useEffect(() => {
@@ -111,11 +237,7 @@ export default function AdminChatPage() {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
       fetchTickets(parsedUser);
-
-      const ticketInterval = setInterval(() => {
-        fetchTickets(parsedUser);
-      }, 5000);
-
+      const ticketInterval = setInterval(() => fetchTickets(parsedUser), 5000);
       return () => clearInterval(ticketInterval);
     }
   }, [fetchTickets]);
@@ -123,11 +245,10 @@ export default function AdminChatPage() {
   useEffect(() => {
     if (!selectedTicket) return;
     fetchMessages(selectedTicket.globalId);
-
-    const messageInterval = setInterval(() => {
-      fetchMessages(selectedTicket.globalId);
-    }, 3000);
-
+    const messageInterval = setInterval(
+      () => fetchMessages(selectedTicket.globalId),
+      3000,
+    );
     return () => clearInterval(messageInterval);
   }, [selectedTicket, fetchMessages]);
 
@@ -156,7 +277,6 @@ export default function AdminChatPage() {
     return () => clearInterval(typingInterval);
   }, [selectedTicket]);
 
-  // 🟢 FIXED: Auto-scroll to TOP
   useEffect(() => {
     if (chatHistory.length > lastMessageCount) {
       chatContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -171,6 +291,7 @@ export default function AdminChatPage() {
     setChatHistory([]);
     setLastMessageCount(0);
     setIsInfoOpen(false);
+    removeFile();
 
     await fetchMessages(ticket.globalId);
 
@@ -211,21 +332,99 @@ export default function AdminChatPage() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = async (event) => {
-        const originalBase64 = event.target?.result as string;
-        const compressed = await compressImage(originalBase64);
-        setFilePreview(compressed);
-      };
+      if (file.type.startsWith("video/")) {
+        reader.onload = (event) => {
+          setFilePreview(event.target?.result as string);
+          setFileType("video");
+        };
+      } else if (file.type.startsWith("image/")) {
+        reader.onload = async (event) => {
+          const originalBase64 = event.target?.result as string;
+          const compressed = await compressImage(originalBase64);
+          setFilePreview(compressed);
+          setFileType("image");
+        };
+      }
       reader.readAsDataURL(file);
     }
     setIsAttachmentMenuOpen(false);
   };
 
+  const startRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert(
+          "Microphone access blocked! Browsers require HTTPS or 'localhost' to record audio.",
+        );
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreview(reader.result as string);
+          setFileType("audio");
+        };
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Could not access the microphone. Please check your permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
   const removeFile = () => {
     setSelectedFile(null);
     setFilePreview(null);
+    setFileType(null);
     if (galleryInputRef.current) galleryInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const parseAttachment = (attachmentStr: string | null | undefined) => {
+    if (!attachmentStr) return { type: null, src: null };
+    if (attachmentStr.startsWith("[video]"))
+      return { type: "video", src: attachmentStr.replace("[video]", "") };
+    if (attachmentStr.startsWith("[audio]"))
+      return { type: "audio", src: attachmentStr.replace("[audio]", "") };
+    if (attachmentStr.startsWith("[image]"))
+      return { type: "image", src: attachmentStr.replace("[image]", "") };
+    return { type: "image", src: attachmentStr };
   };
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,61 +455,90 @@ export default function AdminChatPage() {
 
   const handleSend = async () => {
     if (
-      (messageInput.trim() || filePreview) &&
-      selectedTicket &&
-      selectedTicket.status !== "Finished"
-    ) {
-      const payload = {
-        sender: "Support Admin",
-        message: messageInput.trim(),
-        attachment: filePreview,
-      };
+      (!messageInput.trim() && !filePreview) ||
+      !selectedTicket ||
+      selectedTicket.status === "Finished" ||
+      isSending
+    )
+      return;
 
-      const optimisticMsg = {
-        id: Date.now(),
-        ticketId: selectedTicket.globalId,
-        sender: payload.sender,
-        message: payload.message,
-        attachment: payload.attachment,
-        created_at: new Date().toISOString(),
-      };
-      setChatHistory((prev) => [...prev, optimisticMsg]);
-      setMessageInput("");
-      removeFile();
+    setIsSending(true);
 
-      lastPingRef.current = 0;
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    let finalAttachment = filePreview;
+    if (filePreview && fileType) {
+      finalAttachment = `[${fileType}]${filePreview}`;
+    }
 
-      try {
-        await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/typing`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: "Support Admin", isTyping: false }),
-        });
+    const payload = {
+      sender: "Support Admin",
+      message: messageInput.trim(),
+      attachment: finalAttachment,
+    };
 
-        await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        fetchMessages(selectedTicket.globalId);
-      } catch (error) {
-        console.error("Failed to send message", error);
-      }
+    const optimisticMsg = {
+      id: Date.now(),
+      ticketId: selectedTicket.globalId,
+      sender: payload.sender,
+      message: payload.message,
+      attachment: payload.attachment,
+      created_at: new Date().toISOString(),
+    };
+
+    setChatHistory((prev) => [...prev, optimisticMsg]);
+    setMessageInput("");
+    removeFile();
+
+    lastPingRef.current = 0;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    try {
+      await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/typing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "Support Admin", isTyping: false }),
+      });
+
+      await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      fetchMessages(selectedTicket.globalId);
+    } catch (error) {
+      console.error("Failed to send message", error);
+    } finally {
+      setIsSending(false);
     }
   };
 
-  const deleteMessage = async (messageId: any) => {
-    if (!messageId) return;
-    if (window.confirm("Are you sure you want to delete this message?")) {
+  // 🟢 NEW: Delete Message Logic
+  const deleteMessage = async (messageId: number) => {
+    const result = await Swal.fire({
+      title: "Delete message?",
+      text: "This will remove the content for everyone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Yes, delete it",
+    });
+
+    if (result.isConfirmed) {
       try {
-        await fetch(`${API_URL}/api/chat/messages/${messageId}`, {
+        const res = await fetch(`${API_URL}/api/chat/messages/${messageId}`, {
           method: "DELETE",
         });
-        setChatHistory((prev) =>
-          prev.filter((msg) => String(msg.id) !== String(messageId)),
-        );
-      } catch (error) {}
+        if (res.ok) {
+          setChatHistory((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? { ...msg, message: "[DELETED]", attachment: null }
+                : msg,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("Delete failed", error);
+      }
     }
   };
 
@@ -322,8 +550,13 @@ export default function AdminChatPage() {
     )
     .sort((a, b) => {
       if (activeTab === "active") {
-        if (a.reminder_flag && !b.reminder_flag) return -1;
-        if (!a.reminder_flag && b.reminder_flag) return 1;
+        const aHasReminder =
+          a.reminder_flag === 1 && a.status !== "In Progress";
+        const bHasReminder =
+          b.reminder_flag === 1 && b.status !== "In Progress";
+
+        if (aHasReminder && !bHasReminder) return -1;
+        if (!aHasReminder && bHasReminder) return 1;
       }
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
@@ -389,69 +622,97 @@ export default function AdminChatPage() {
                   </span>
                 </div>
               ) : (
-                displayedTickets.map((ticket) => (
-                  <div
-                    key={ticket.globalId}
-                    onClick={() => selectTicket(ticket)}
-                    className={`custom-ticket-item relative p-3 rounded-xl border transition-all duration-200 cursor-pointer ${selectedTicket?.globalId === ticket.globalId ? "bg-white border-indigo-400 shadow-md ring-1 ring-indigo-500/20" : "bg-white border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md"}`}
-                  >
-                    {(ticket.reminder_flag === 1 || ticket.unreadCount > 0) &&
-                      activeTab === "active" && (
-                        <div
-                          className={`absolute -top-2 -right-1 min-w-[20px] h-[20px] px-1 flex items-center justify-center rounded-full text-[10px] font-black text-white z-20 shadow-md ${ticket.reminder_flag === 1 ? "bg-[#ef4444] animate-highlight" : "bg-[#6366f1]"}`}
-                          style={{ border: "2px solid white" }}
-                        >
-                          {ticket.unreadCount > 0 ? ticket.unreadCount : "!"}
+                displayedTickets.map((ticket) => {
+                  const showReminder =
+                    ticket.reminder_flag === 1 &&
+                    ticket.status !== "In Progress";
+                  const showUnread = ticket.unreadCount > 0;
+                  const showBadge =
+                    (showReminder || showUnread) && activeTab === "active";
+
+                  return (
+                    <div
+                      key={ticket.globalId}
+                      onClick={() => selectTicket(ticket)}
+                      className={`custom-ticket-item group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer overflow-visible ${
+                        selectedTicket?.globalId === ticket.globalId
+                          ? "bg-white border-indigo-400 shadow-md ring-1 ring-indigo-500/20"
+                          : "bg-white border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md"
+                      }`}
+                    >
+                      {/* 🟢 TOOLTIP TRIGGERED BY ENTIRE CARD HOVER */}
+                      {showBadge && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-[999] animate-popOut pointer-events-none">
+                          <div className="bg-slate-900 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-2xl whitespace-nowrap font-bold border border-slate-700">
+                            {showUnread
+                              ? `${ticket.unreadCount} New Messages`
+                              : "Urgent Reminder"}
+                          </div>
+                          <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
                         </div>
                       )}
 
-                    <div className="flex justify-between items-center mb-1.5">
-                      <div className="flex items-center flex-1 min-w-0 mr-2">
-                        <span className="text-[10px] font-black text-slate-400 mr-1.5 flex-shrink-0">
-                          #{ticket.id}
-                        </span>
-                        <h3
-                          className={`text-sm font-bold truncate ${selectedTicket?.globalId === ticket.globalId ? "text-indigo-700" : "text-slate-800"}`}
+                      {showBadge && (
+                        <div
+                          className={`absolute -top-2 -right-1 min-w-[20px] h-[20px] px-1 flex items-center justify-center rounded-full text-[10px] font-black text-white z-20 shadow-md cursor-help ${
+                            showReminder && !showUnread
+                              ? "bg-[#ef4444] animate-highlight"
+                              : "bg-[#6366f1]"
+                          }`}
+                          style={{ border: "2px solid white" }}
                         >
-                          {ticket.title}
-                        </h3>
-                      </div>
-                      <span
-                        className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border flex-shrink-0 ${getStatusColor(ticket.status)}`}
-                      >
-                        {ticket.status}
-                      </span>
-                    </div>
-
-                    {ticket.isTyping ? (
-                      <div className="flex items-center gap-1.5 mt-1 animate-fadeIn">
-                        <span className="flex gap-0.5 items-center bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-                          <span
-                            className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"
-                            style={{ animationDelay: "-0.3s" }}
-                          ></span>
-                          <span
-                            className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"
-                            style={{ animationDelay: "-0.15s" }}
-                          ></span>
-                          <span className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"></span>
-                        </span>
-                        <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter truncate">
-                          {ticket.user} is typing...
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex justify-between items-center text-[10px]">
-                        <div className="flex items-center gap-1 text-slate-500 font-medium truncate">
-                          <span className="truncate">{ticket.user}</span>
+                          {showUnread ? ticket.unreadCount : "!"}
                         </div>
-                        <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-wider flex-shrink-0 ml-2">
-                          {ticket.department}
+                      )}
+
+                      <div className="flex justify-between items-center mb-1.5">
+                        <div className="flex items-center flex-1 min-w-0 mr-2">
+                          <span className="text-[10px] font-black text-slate-400 mr-1.5 flex-shrink-0">
+                            #{ticket.id}
+                          </span>
+                          <h3
+                            className={`text-sm font-bold truncate ${selectedTicket?.globalId === ticket.globalId ? "text-indigo-700" : "text-slate-800"}`}
+                          >
+                            {ticket.title}
+                          </h3>
+                        </div>
+                        <span
+                          className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border flex-shrink-0 ${getStatusColor(ticket.status)}`}
+                        >
+                          {ticket.status}
                         </span>
                       </div>
-                    )}
-                  </div>
-                ))
+
+                      {ticket.isTyping ? (
+                        <div className="flex items-center gap-1.5 mt-1 animate-fadeIn">
+                          <span className="flex gap-0.5 items-center bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
+                            <span
+                              className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"
+                              style={{ animationDelay: "-0.3s" }}
+                            ></span>
+                            <span
+                              className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"
+                              style={{ animationDelay: "-0.15s" }}
+                            ></span>
+                            <span className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"></span>
+                          </span>
+                          <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter truncate">
+                            {ticket.user} is typing...
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-[10px]">
+                          <div className="flex items-center gap-1 text-slate-500 font-medium truncate">
+                            <span className="truncate">{ticket.user}</span>
+                          </div>
+                          <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-wider flex-shrink-0 ml-2">
+                            {ticket.department}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -491,25 +752,12 @@ export default function AdminChatPage() {
                   </div>
                   <button
                     onClick={() => setIsProfileOpen(true)}
-                    className="xl:hidden p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full flex-shrink-0 ml-2"
+                    className="xl:hidden p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full flex-shrink-0 ml-2 transition-colors"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                    <Info size={22} />
                   </button>
                 </div>
 
-                {/* 🟢 FIXED: Reversed Mapping and ref assigned to the container */}
                 <div
                   ref={chatContainerRef}
                   className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
@@ -536,46 +784,80 @@ export default function AdminChatPage() {
                         </div>
                       );
                     }
+
+                    const isMe = msg.sender === "Support Admin";
+                    const isDeleted = msg.message === "[DELETED]";
+                    const { type: attachType, src: attachSrc } =
+                      parseAttachment(msg.attachment);
+
                     return (
                       <div
                         key={msg.id}
-                        className={`flex group items-end ${msg.sender === "Support Admin" ? "justify-end gap-1.5" : "justify-start"} w-full mt-4`}
+                        className={`flex group items-center ${isMe ? "justify-end gap-2" : "justify-start gap-2"} w-full mt-4`}
                       >
-                        {msg.sender === "Support Admin" &&
-                          selectedTicket.status !== "Finished" && (
+                        {/* 🟢 CENTERED DELETE ICON */}
+                        {isMe &&
+                          selectedTicket.status !== "Finished" &&
+                          !isDeleted && (
                             <button
                               onClick={() => deleteMessage(msg.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full flex-shrink-0 mb-2"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0"
+                              title="Delete message"
                             >
-                              <X size={14} />
+                              <Trash2 size={16} />
                             </button>
                           )}
-                        <div className="flex flex-col max-w-[80%] md:max-w-md">
-                          <div
-                            className={`p-3 rounded-2xl shadow-sm relative leading-relaxed ${msg.sender === "Support Admin" ? "bg-slate-800 text-white rounded-tr-none" : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"}`}
-                          >
-                            <p
-                              className={`font-black text-[8px] mb-1 uppercase tracking-wider ${msg.sender === "Support Admin" ? "text-slate-400" : "text-slate-400"}`}
+
+                        <div
+                          className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[80%] md:max-w-md`}
+                        >
+                          {!isMe && (
+                            <span className="text-[10px] font-bold text-gray-400 ml-1 mb-1">
+                              {msg.sender}
+                            </span>
+                          )}
+
+                          {/* 🟢 DELETED MESSAGE TOMBSTONE */}
+                          {isDeleted ? (
+                            <div
+                              className={`p-2.5 px-4 rounded-2xl shadow-sm text-[11px] italic flex items-center gap-1.5 ${isMe ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"}`}
                             >
-                              {msg.sender === "Support Admin"
-                                ? "You (Admin)"
-                                : selectedTicket.user}
-                            </p>
-                            {/* 🟢 FIXED: Img styling logic matched with the modal */}
-                            {msg.attachment && (
-                              <img
-                                src={msg.attachment}
-                                alt="Attachment"
-                                className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
-                                onClick={() =>
-                                  setFullScreenImage(msg.attachment)
-                                }
-                              />
-                            )}
-                            <p className="custom-message-text text-sm whitespace-pre-wrap break-words">
-                              {msg.message}
-                            </p>
-                          </div>
+                              <Ban size={12} className="opacity-70" />{" "}
+                              {isMe ? "You" : msg.sender} deleted a message
+                            </div>
+                          ) : (
+                            <div
+                              className={`p-3 rounded-2xl shadow-sm relative leading-relaxed ${isMe ? "bg-slate-800 text-white rounded-tr-none" : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"}`}
+                            >
+                              {attachType === "image" && attachSrc && (
+                                <img
+                                  src={attachSrc}
+                                  alt="Attachment"
+                                  className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
+                                  onClick={() => setFullScreenImage(attachSrc)}
+                                />
+                              )}
+                              {attachType === "video" && attachSrc && (
+                                <video
+                                  src={attachSrc}
+                                  controls
+                                  className="max-h-[200px] w-auto rounded-lg mb-1.5 border border-black/10 bg-black"
+                                />
+                              )}
+                              {attachType === "audio" && attachSrc && (
+                                <CustomAudioPlayer
+                                  src={attachSrc}
+                                  isMe={isMe}
+                                />
+                              )}
+
+                              {msg.message && (
+                                <p className="custom-message-text text-sm whitespace-pre-wrap break-words">
+                                  {msg.message}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -616,13 +898,29 @@ export default function AdminChatPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2 w-full">
+                      {/* PREVIEW SECTION */}
                       {filePreview && (
                         <div className="relative self-start mb-1 animate-fadeIn">
-                          <img
-                            src={filePreview}
-                            alt="Preview"
-                            className="h-16 w-auto rounded-lg border border-slate-200 object-cover shadow-sm"
-                          />
+                          {fileType === "image" && (
+                            <img
+                              src={filePreview}
+                              alt="Preview"
+                              className="h-14 w-auto rounded-lg border border-slate-200 object-cover shadow-sm"
+                            />
+                          )}
+                          {fileType === "video" && (
+                            <video
+                              src={filePreview}
+                              className="h-14 w-auto rounded-lg border border-slate-200 object-cover shadow-sm"
+                              muted
+                            />
+                          )}
+                          {fileType === "audio" && (
+                            <div className="h-10 px-4 bg-slate-100 rounded-full flex items-center border border-slate-200 text-xs font-bold text-slate-600 shadow-sm">
+                              🎵 Audio Ready
+                            </div>
+                          )}
+
                           <button
                             onClick={removeFile}
                             className="absolute -top-2 -right-2 bg-slate-800 text-white p-1 rounded-full hover:bg-slate-900 transition shadow-md"
@@ -650,7 +948,17 @@ export default function AdminChatPage() {
                               className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700"
                             >
                               <ImageIcon size={16} className="text-blue-500" />{" "}
-                              Photo Library
+                              Photo
+                            </button>
+                            <button
+                              onClick={() => {
+                                videoInputRef.current?.click();
+                                setIsAttachmentMenuOpen(false);
+                              }}
+                              className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
+                            >
+                              <Video size={16} className="text-purple-500" />{" "}
+                              Video
                             </button>
                             <button
                               onClick={() => {
@@ -660,7 +968,7 @@ export default function AdminChatPage() {
                               className="md:hidden flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
                             >
                               <Camera size={16} className="text-emerald-500" />{" "}
-                              Take Photo
+                              Camera
                             </button>
                           </div>
                         )}
@@ -683,6 +991,13 @@ export default function AdminChatPage() {
                         />
                         <input
                           type="file"
+                          accept="video/*"
+                          className="hidden"
+                          ref={videoInputRef}
+                          onChange={handleFileSelect}
+                        />
+                        <input
+                          type="file"
                           accept="image/*"
                           capture="environment"
                           className="hidden"
@@ -690,23 +1005,58 @@ export default function AdminChatPage() {
                           onChange={handleFileSelect}
                         />
 
-                        <input
-                          value={messageInput}
-                          onChange={handleTyping}
-                          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                          placeholder="Type reply..."
-                          className="custom-input-text flex-1 w-full min-w-0 bg-transparent px-2 py-2 text-[13px] md:text-sm focus:outline-none relative z-10 text-slate-800 placeholder-slate-400"
-                        />
+                        {/* 🟢 INPUT OR RECORDING STATUS */}
+                        {isRecording ? (
+                          <div className="flex-1 flex items-center px-4 bg-slate-200/50 rounded-xl h-[42px] sm:h-[46px] animate-pulse mx-1">
+                            <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                            <span className="text-xs font-bold text-red-500">
+                              Recording {formatTime(recordingTime)}
+                            </span>
+                          </div>
+                        ) : (
+                          <input
+                            value={messageInput}
+                            onChange={handleTyping}
+                            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                            disabled={isSending}
+                            placeholder="Type reply..."
+                            className="custom-input-text flex-1 w-full min-w-0 bg-transparent px-2 py-2 text-[13px] md:text-sm focus:outline-none relative z-10 text-slate-800 placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        )}
 
-                        {/* 🟢 FIXED: bg-green-600 instead of indigo */}
-                        <button
-                          onClick={handleSend}
-                          disabled={!messageInput.trim() && !filePreview}
-                          className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${messageInput.trim() || filePreview ? "bg-green-600 text-white shadow-md active:scale-95" : "bg-slate-200 text-slate-400 cursor-not-allowed"}`}
-                          title="Send message"
-                        >
-                          <Send size={14} className="custom-send-icon ml-0.5" />
-                        </button>
+                        {/* 🟢 MIC / SEND BUTTON LOGIC */}
+                        {!messageInput.trim() && !filePreview ? (
+                          <button
+                            onClick={
+                              isRecording ? stopRecording : startRecording
+                            }
+                            disabled={isSending}
+                            className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${isRecording ? "bg-red-500 text-white shadow-md animate-pulse" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
+                            title={
+                              isRecording
+                                ? "Stop recording"
+                                : "Record voice message"
+                            }
+                          >
+                            {isRecording ? (
+                              <Square size={14} fill="currentColor" />
+                            ) : (
+                              <Mic size={16} />
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleSend}
+                            disabled={isSending}
+                            className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 bg-indigo-600 text-white shadow-md active:scale-95 disabled:opacity-50`}
+                            title="Send message"
+                          >
+                            <Send
+                              size={14}
+                              className="custom-send-icon ml-0.5"
+                            />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -722,37 +1072,33 @@ export default function AdminChatPage() {
           {/* 3. RIGHT SIDEBAR DETAILS */}
           {selectedTicket && (
             <>
-              {isProfileOpen && (
+              {isInfoOpen && (
                 <div
-                  className="fixed inset-0 bg-slate-900/60 z-[50] lg:hidden"
-                  onClick={() => setIsProfileOpen(false)}
+                  className="fixed inset-0 bg-slate-900/60 z-[50] xl:hidden"
+                  onClick={() => setIsInfoOpen(false)}
                 />
               )}
+              {/* 🟢 FIXED: Changed 'absolute' to 'fixed' and 'inset-y-0' to 'top-0 bottom-0' */}
               <div
-                className={`absolute right-0 top-0 h-full w-[260px] bg-white z-[60] transition-transform duration-300 ease-in-out shadow-2xl ${isProfileOpen ? "translate-x-0" : "translate-x-full"} lg:static lg:translate-x-0 lg:flex lg:flex-col lg:border-l lg:border-slate-200 lg:bg-white lg:z-0`}
+                className={`fixed right-0 top-0 bottom-0 w-[200px] bg-white z-[60] transition-transform duration-300 ease-in-out shadow-2xl ${
+                  isInfoOpen ? "translate-x-0" : "translate-x-full"
+                } xl:static xl:translate-x-0 xl:flex xl:flex-col xl:w-72 xl:border-l xl:border-slate-200 xl:bg-white xl:shadow-none`}
               >
                 <div className="p-5 h-full overflow-y-auto">
-                  <div className="flex justify-between items-center mb-6 lg:hidden">
-                    <span className="font-bold text-slate-400 text-xs uppercase tracking-widest">
-                      Details
-                    </span>
+                  <div className="flex justify-between items-center mb-6 xl:hidden">
+                    <h3 className="font-bold text-xs text-slate-400 uppercase tracking-widest">
+                      Information
+                    </h3>
                     <button
-                      onClick={() => setIsProfileOpen(false)}
-                      className="p-1.5 bg-slate-100 rounded-full text-slate-500"
+                      onClick={() => setIsInfoOpen(false)}
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
                     >
                       <X size={16} />
                     </button>
                   </div>
-                  <div className="flex flex-col items-center mb-6 mt-2 lg:mt-0">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center border-2 border-slate-200 mb-2 shadow-sm">
-                      <span className="text-2xl font-black text-slate-600">
-                        {selectedTicket.user.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <p className="font-bold text-base text-slate-800 text-center">
-                      {selectedTicket.user}
-                    </p>
-                  </div>
+                  <h3 className="hidden xl:block font-bold text-xs mb-6 text-slate-400 uppercase tracking-widest">
+                    Ticket Info
+                  </h3>
                   <div className="space-y-5">
                     <div>
                       <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider mb-1.5">
@@ -764,26 +1110,31 @@ export default function AdminChatPage() {
                         {selectedTicket.status}
                       </span>
                     </div>
+                    {/* ... the rest of the ticket info (ID, Category, Date) remains the same ... */}
                     <div>
                       <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
-                        Department
+                        Ticket ID
                       </p>
-                      <p className="text-xs font-medium text-slate-700 mt-1">
-                        {selectedTicket.department}
+                      <p className="text-xs font-semibold text-slate-700 mt-1">
+                        #{selectedTicket.id}
                       </p>
                     </div>
                     <div>
                       <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
                         Category
                       </p>
-                      <p className="text-xs font-medium text-slate-700 mt-1">
+                      <p className="text-xs font-semibold text-slate-700 mt-1">
                         {selectedTicket.category}
                       </p>
                     </div>
-                    <hr className="border-slate-100" />
-                    <p className="text-[9px] text-slate-400 italic text-center">
-                      Created on {selectedTicket.date}
-                    </p>
+                    <div>
+                      <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
+                        Date Created
+                      </p>
+                      <p className="text-xs font-medium text-slate-700 mt-1">
+                        {selectedTicket.date}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -795,7 +1146,7 @@ export default function AdminChatPage() {
       {/* 🟢 FULL SCREEN IMAGE MODAL */}
       {fullScreenImage && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-fadeIn"
+          className="fixed inset-0 z-[10000] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-fadeIn"
           onClick={() => setFullScreenImage(null)}
         >
           <button
@@ -832,6 +1183,21 @@ export default function AdminChatPage() {
         .animate-popOut { animation: popOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 🟢 CRITICAL: ALlows tooltips to break out of sidebar */
+        .smooth-scroll {
+          overflow-y: auto;
+          overflow-x: visible !important; 
+          position: relative;
+        }
+
+        @keyframes popOut {
+          0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-popOut {
+          animation: popOut 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
 
         /* 📱 Extremely Small Phones */
         @media (max-width: 360px) { 

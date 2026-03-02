@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { API_URL } from "../config/api";
 import {
   Menu,
-  X, // 🟢 Added X icon for the toggle state
+  X, // 🟢 Added X icon for closing state
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
@@ -121,15 +121,15 @@ export default function Sidebar({ user }: { user: any }) {
 
   return (
     <>
-      {/* 📱 MOBILE HAMBURGER BUTTON - Now toggles between open/close and changes icon */}
+      {/* 📱 MOBILE HAMBURGER BUTTON - 🟢 FIXED: Now toggles and changes icon */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed z-[900] p-3 bg-[#15803d] text-white rounded-full shadow-[0_4px_15px_rgba(0,0,0,0.3)] hover:bg-green-700 transition-transform active:scale-95 bottom-[100px] right-4"
+        className="lg:hidden fixed z-[900] p-3 bg-[#15803d] text-white rounded-full shadow-[0_4px_15px_rgba(0,0,0,0.3)] hover:bg-green-700 transition-transform active:scale-95 bottom-[140px] right-4"
       >
         {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* 🟢 INVISIBLE BACKDROP: Completely clear, but still closes sidebar when clicked */}
+      {/* 🟢 INVISIBLE BACKDROP */}
       {isMobileOpen && (
         <div
           className="lg:hidden fixed inset-0 z-30 bg-transparent"
@@ -138,7 +138,7 @@ export default function Sidebar({ user }: { user: any }) {
         />
       )}
 
-      {/* 💻 THE SIDEBAR - Synchronized to exactly match Navbar height to avoid gaps */}
+      {/* 💻 THE SIDEBAR - Maintained your exact alignments */}
       <aside
         className={`
     fixed bg-[#15803d] text-white border-r border-green-800 flex flex-col z-40 transition-all duration-300 ease-in-out
@@ -151,8 +151,8 @@ export default function Sidebar({ user }: { user: any }) {
     ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
 
     /* 3. DESKTOP VIEW (Large screens, overriding mobile) */
-    lg:top-[56px] 
-    lg:h-[calc(100vh-56px)] 
+    lg:top-[62px] 
+    lg:h-[calc(100vh-62px)] 
     lg:shadow-none 
     lg:translate-x-0
     ${isCollapsed ? "lg:w-[88px]" : "lg:w-[280px]"}

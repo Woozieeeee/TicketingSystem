@@ -20,10 +20,17 @@ exports.saveMessage = async (ticketId, sender, message, attachment) => {
       return null;
     }
 
+    // 1. Save the actual message
     const [result] = await db.query(
       "INSERT INTO chat_messages (ticketId, sender, message, attachment, created_at) VALUES (?, ?, ?, ?, NOW())",
       [ticketId, sender, message || "", attachment || null],
     );
+
+    // 🟢 2. NEW FIX: Update the ticket's 'updatedAt' timestamp so it jumps to the top of the list!
+    await db.query("UPDATE tickets SET updatedAt = NOW() WHERE id = ?", [
+      ticketId,
+    ]);
+
     return result.insertId;
   } catch (error) {
     console.error("DB Error saving message:", error.message);
@@ -31,9 +38,15 @@ exports.saveMessage = async (ticketId, sender, message, attachment) => {
   }
 };
 
+// server/models/chatModel.js
+
 exports.deleteMessage = async (messageId) => {
   try {
-    await db.query("DELETE FROM chat_messages WHERE id = ?", [messageId]);
+    // 🟢 SOFT DELETE: Update the message to a special string and clear attachments
+    await db.query(
+      "UPDATE chat_messages SET message = '[DELETED]', attachment = NULL WHERE id = ?",
+      [messageId],
+    );
     return true;
   } catch (error) {
     console.error("DB Error deleting message:", error);

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { API_URL } from "../../config/api";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -27,15 +29,10 @@ export default function Login() {
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data));
 
-        // 1. Determine if it's "Welcome" or "Welcome back"
         const isFirstTime = data.login_count === 1;
         const greetingBase = isFirstTime ? "Welcome to" : "Welcome back to";
-
-        // 2. Add Role prefix if the user is a Head
         const userDisplay =
           data.role === "Head" ? `Head ${data.username}` : data.username;
-
-        // 3. Construct the full message: "Welcome [back] to $dept, $userDisplay"
         const finalMessage = `${greetingBase} ${data.dept}, ${userDisplay}!`;
 
         Swal.fire({
@@ -65,66 +62,79 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
-          Login
-        </h1>
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-bold text-gray-700 mb-2"
+    <div className="min-h-screen bg-gray-50 py-[80px]">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow-sm sm:rounded-2xl sm:px-10 border border-gray-100">
+          <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
+            Login
+          </h1>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label
+                htmlFor="username"
+                className="block text-sm font-bold text-gray-700 mb-2"
+              >
+                Username
+              </label>
+              <input
+                id="username"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
+                required={true}
+                suppressHydrationWarning
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-bold text-gray-700 mb-2"
+              >
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
+                  suppressHydrationWarning
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors flex items-center justify-center h-full"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-4 rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
-              Username
-            </label>
-            <input
-              id="username"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
-              required={true}
-              suppressHydrationWarning
-            />
-          </div>
+              {loading ? "Logging in..." : "Login"}
+            </button>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-bold text-gray-700 mb-2"
+            <Link
+              href="/register"
+              className="block w-full py-3 text-center text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm mt-4"
             >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
-              suppressHydrationWarning
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-4 rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 ${
-              loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-
-          <Link
-            href="/register"
-            className="block w-full py-3 text-center text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
-          >
-            Create a new account
-          </Link>
-        </form>
+              Create a new account
+            </Link>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -42,16 +42,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
   const isAuthPage = pathname === "/login" || pathname === "/register";
   const noSidebarPages = ["/tickets/create", "/tickets/edit"];
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
+
+  // Sidebar remains hidden on auth pages
   const showSidebar = !isAuthPage && !isNoSidebar;
 
-  // 🟢 FIXED: Expanded the check to catch singular/plural or different route names
-  // If your actual URL is different (e.g., "/admin/messages"), add it to this list!
   const isMessagingPage =
     pathname.startsWith("/messages") ||
     pathname.startsWith("/message") ||
     pathname.startsWith("/chat");
 
-  // Only show the chat head if logged in, NOT on auth pages, and NOT on the messages page
+  // Chat head remains hidden on auth pages and messaging pages
   const showChatHead = user && !isAuthPage && !isMessagingPage;
 
   return (
@@ -65,14 +65,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
             {showSidebar && <Sidebar user={user} />}
 
             <div className="flex flex-col flex-1 w-full overflow-hidden">
-              {!isAuthPage && <Navbar user={user} />}
+              {/* 🟢 FIXED: Removed the !isAuthPage check so Navbar ALWAYS shows */}
+              <Navbar user={user} />
 
               <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
                 <div className="w-full h-full">{children}</div>
               </main>
             </div>
 
-            {/* 🟢 Render ChatHead ONLY when showChatHead is true */}
+            {/* Render ChatHead ONLY when showChatHead is true */}
             {showChatHead && <ChatHeadModal />}
           </div>
         )}
