@@ -420,7 +420,7 @@ export default function RoleBasedDashboard() {
               filter: "Pending",
             },
             {
-              label: "Doing",
+              label: "In-Progress",
               count: inProgressCount,
               color: "indigo",
               desc: "Currently in work",
