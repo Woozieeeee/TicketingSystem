@@ -4,9 +4,9 @@ import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import "./globals.css";
 import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../components/sidebar";
 // 🟢 IMPORT THE CHAT HEAD COMPONENT
-import ChatHeadModal from "../components/chatHeadModal";
+import ChatHeadModal from "../components/ChatHeadModal";
 
 interface RootLayoutProps {
   children: React.ReactNode;
