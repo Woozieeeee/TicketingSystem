@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const express = require("express");
 const router = express.Router();
 const chatModel = require("../models/chatModel");
@@ -102,7 +101,6 @@ router.get("/:ticketId/typing", (req, res) => {
 
   res.json({ isTyping: opponentIsTyping });
 });
-=======
 // server/routes/chatRoutes.js
 const express = require("express");
 const router = express.Router();
@@ -125,6 +123,5 @@ router.post("/:ticketId/typing", chat.setTyping);
 
 // 6. GET Typing Status
 router.get("/:ticketId/typing", chat.getTyping);
->>>>>>> 89fb20978258dae2dd36356715b60a344714bc97
 
 module.exports = router;

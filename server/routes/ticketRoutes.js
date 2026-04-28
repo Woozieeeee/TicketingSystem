@@ -1,7 +1,6 @@
 // server/routes/ticketRoutes.js
 const express = require("express");
 const router = express.Router();
-<<<<<<< HEAD
 const ticketController = require("../controllers/ticketController");
 
 // Add this line where your other router.put() and router.post() lines are:
@@ -18,7 +17,6 @@ router.get("/:id", ticketController.getTicketById);
 
 // PUT update ticket (e.g., status)
 router.put("/:id", ticketController.updateTicket);
-=======
 const ticket = require("../controllers/ticket");
 const { verifyToken } = require("../middleware/authMiddleware");
 
@@ -39,6 +37,5 @@ router.put("/:id", ticket.updateTicket);
 
 // PUT send reminder for ticket
 router.put("/:id/remind", ticket.remindTicket);
->>>>>>> 89fb20978258dae2dd36356715b60a344714bc97
 
 module.exports = router;
