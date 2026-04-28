@@ -1,7 +1,9 @@
 "use client";
+
 import { motion } from "framer-motion";
 import RegisterHeader from "./components/RegisterHeader";
 import RegisterForm from "./components/RegisterForm";
+
 export default function Register() {
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-white font-sans">
