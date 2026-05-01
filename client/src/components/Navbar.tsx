@@ -87,10 +87,15 @@ export default function Navbar({ user }: NavbarProps) {
 
   return (
     <>
-      {/* 🟢 FIXED NAVBAR: Always stays securely at the top */}
+      {/* 🟢 FIXED NAVBAR: Background image added via style prop */}
       <nav
         className="fixed top-0 left-0 w-full z-[999] text-white shadow-md border-b border-green-600 px-4 sm:px-6 h-[56px] lg:h-[72px] flex justify-between items-center transition-all duration-300"
-        style={{ backgroundColor: "#15803d" }}
+        style={{ 
+          backgroundColor: "#15803d",
+          backgroundImage: `linear-gradient(rgba(21, 128, 61, 0.8), rgba(21, 128, 61, 0.8)), url('/spc-bgg.avif')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
       >
         <div className="flex items-center">
           <h1

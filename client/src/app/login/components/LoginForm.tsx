@@ -28,6 +28,9 @@ export default function LoginForm() {
 
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data));
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
 
         const isFirstTime = data.login_count === 1;
         const greetingBase = isFirstTime ? "Welcome to" : "Welcome back to";
@@ -35,17 +38,18 @@ export default function LoginForm() {
           data.role === "Head" ? `Head ${data.username}` : data.username;
         const finalMessage = `${greetingBase} ${data.dept}, ${userDisplay}!`;
 
+        // Updated Swal block with Redirection Logic
         Swal.fire({
           toast: true,
           position: "top-end",
           icon: "success",
           title: "Login Successful!",
           text: finalMessage,
-          timer: 3000,
+          timer: 2000, // 2 seconds para mabilis ang transition
           showConfirmButton: false,
+        }).then(() => {
+          router.push("/dashboard");
         });
-
-        router.push("/dashboard");
       } else {
         throw new Error(data.message || "Invalid username or password");
       }

@@ -1,15 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const authController = require("../controllers/authController");
-
-router.post("/register", authController.register);
-router.post("/login", authController.login);
-const auth = require("../controllers/auth");
+const authController = require("../controllers/auth");
 const { validateSession } = require("../middleware/authMiddleware");
 
-router.post("/register", auth.register);
-router.post("/login", auth.login);
-router.post("/logout", auth.logout);
-router.get("/validate", validateSession);  // Check if session is valid
+// 1. Authentication Routes
+router.post("/register", authController.register);
+router.post("/login", authController.login);
+router.post("/logout", authController.logout);
+
+// 2. Session Validation
+router.get("/validate", validateSession || ((req, res) => res.status(200).send("OK"))); 
 
 module.exports = router;

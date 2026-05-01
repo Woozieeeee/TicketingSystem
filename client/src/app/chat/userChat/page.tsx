@@ -1,154 +1,73 @@
 "use client";
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Paperclip,
-  X,
-  Camera,
-  Image as ImageIcon,
-  Send,
-  Mic,
-  Square,
-  Video,
-  Play,
-  Trash2,
-  Ban,
-  ArrowLeft, // 🟢 ADDED: Proper back button icon
-  Info, // 🟢 ADDED: Proper details button icon
-} from "lucide-react";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
 
-const CustomAudioPlayer = ({ src, isMe }: { src: string; isMe: boolean }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
+// Components
+import ChatList from "./components/ChatList";
+import ChatWindow from "./components/ChatWindow";
+import TicketDetails from "./components/TicketDetails";
+import { GlobalStyles, formatStatus } from "./components/CustomStyles";
 
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) audioRef.current.pause();
-      else audioRef.current.play();
-      setIsPlaying(!isPlaying);
-    }
-  };
+interface Ticket {
+  globalId: string;
+  id: number;
+  title: string;
+  status: string;
+  preview: string;
+  category: string;
+  senderName: string;
+  department: string;
+  date: string;
+  updatedAt: string;
+  reminder_flag: number;
+  unreadCount: number;
+  isTyping: boolean;
+}
 
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-      setProgress(
-        (audioRef.current.currentTime / audioRef.current.duration) * 100,
-      );
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) setDuration(audioRef.current.duration);
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const seekTo = parseFloat(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = (seekTo / 100) * duration;
-      setProgress(seekTo);
-    }
-  };
-
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return "0:00";
-    const m = Math.floor(time / 60);
-    const s = Math.floor(time % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
-
-  return (
-    <div
-      className={`flex items-center gap-3 p-2 rounded-xl w-[200px] sm:w-[240px] mb-2 ${isMe ? "bg-black/10 text-white" : "bg-slate-100 border border-slate-200 text-slate-700"}`}
-    >
-      <audio
-        ref={audioRef}
-        src={src}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={() => setIsPlaying(false)}
-        className="hidden"
-      />
-      <button
-        onClick={togglePlay}
-        className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full transition-transform active:scale-95 ${isMe ? "bg-white text-green-700" : "bg-white text-slate-700 shadow-sm border border-slate-200"}`}
-      >
-        {isPlaying ? (
-          <Square size={12} fill="currentColor" />
-        ) : (
-          <Play size={14} fill="currentColor" className="ml-0.5" />
-        )}
-      </button>
-      <div className="flex-1 flex flex-col gap-1 w-full">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={isNaN(progress) ? 0 : progress}
-          onChange={handleSeek}
-          className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-          style={{
-            background: isMe
-              ? `linear-gradient(to right, white ${progress}%, rgba(0,0,0,0.2) ${progress}%)`
-              : `linear-gradient(to right, #64748b ${progress}%, #cbd5e1 ${progress}%)`,
-          }}
-        />
-        <div
-          className={`text-[9px] font-bold flex justify-between mt-0.5 ${isMe ? "text-white/80" : "text-slate-500"}`}
-        >
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
+interface Message {
+  id: number;
+  ticketId: string;
+  sender: string;
+  message: string;
+  attachment: string | null;
+  created_at: string;
+}
 
 export default function UserChatPage() {
+  // --- STATES ---
   const [user, setUser] = useState<any>(null);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isOpponentTyping, setIsOpponentTyping] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<"image" | "video" | "audio" | null>(
-    null,
-  );
+  const [fileType, setFileType] = useState<"image" | "video" | "audio" | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+
+  // --- REFS ---
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
-
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPingRef = useRef<number>(0);
 
-  const formatStatus = (s: string) => {
-    if (s === "IN_PROGRESS") return "In Progress";
-    if (s === "PENDING") return "Pending";
-    if (s === "RESOLVED") return "Resolved";
-    if (s === "FINISHED") return "Finished";
-    return "Open";
-  };
-
+  // --- FUNCTIONS ---
   const fetchTickets = useCallback(async (currentUser: any) => {
     if (!currentUser?.username) return;
     try {
@@ -194,59 +113,7 @@ export default function UserChatPage() {
     } catch (error: any) {}
   }, []);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      fetchTickets(parsedUser);
-      const ticketInterval = setInterval(() => fetchTickets(parsedUser), 5000);
-      return () => clearInterval(ticketInterval);
-    }
-  }, [fetchTickets]);
-
-  useEffect(() => {
-    if (!selectedTicket) return;
-    fetchMessages(selectedTicket.globalId);
-    const messageInterval = setInterval(
-      () => fetchMessages(selectedTicket.globalId),
-      3000,
-    );
-    return () => clearInterval(messageInterval);
-  }, [selectedTicket, fetchMessages]);
-
-  useEffect(() => {
-    if (!selectedTicket || !user) return;
-    const checkTypingStatus = async () => {
-      try {
-        const res = await fetch(
-          `${API_URL}/api/chat/${selectedTicket.globalId}/typing?currentUser=${user.username}`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setIsOpponentTyping(data.isTyping);
-          setTickets((currentTickets) =>
-            currentTickets.map((t) =>
-              t.globalId === selectedTicket.globalId
-                ? { ...t, isTyping: data.isTyping }
-                : t,
-            ),
-          );
-        }
-      } catch (error) {}
-    };
-    const typingInterval = setInterval(checkTypingStatus, 2000);
-    return () => clearInterval(typingInterval);
-  }, [selectedTicket, user]);
-
-  useEffect(() => {
-    if (chatHistory.length > lastMessageCount) {
-      chatContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      setLastMessageCount(chatHistory.length);
-    }
-  }, [chatHistory, lastMessageCount]);
-
-  const selectTicket = async (ticket: any) => {
+  const selectTicket = async (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setChatHistory([]);
     setLastMessageCount(0);
@@ -430,7 +297,7 @@ export default function UserChatPage() {
     }
   };
 
-  const deleteMessage = async (messageId: any) => {
+  const deleteMessage = async (messageId: number) => {
     if (!messageId) return;
     const result = await Swal.fire({
       title: "Delete message?",
@@ -461,49 +328,60 @@ export default function UserChatPage() {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
+  // --- USE EFFECTS ---
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      fetchTickets(parsedUser);
+      const ticketInterval = setInterval(() => fetchTickets(parsedUser), 5000);
+      return () => clearInterval(ticketInterval);
+    }
+  }, [fetchTickets]);
 
-  const parseAttachment = (attachmentStr: string | null) => {
-    if (!attachmentStr) return { type: null, src: null };
-    if (attachmentStr.startsWith("[video]"))
-      return { type: "video", src: attachmentStr.replace("[video]", "") };
-    if (attachmentStr.startsWith("[audio]"))
-      return { type: "audio", src: attachmentStr.replace("[audio]", "") };
-    if (attachmentStr.startsWith("[image]"))
-      return { type: "image", src: attachmentStr.replace("[image]", "") };
-    return { type: "image", src: attachmentStr };
-  };
+  useEffect(() => {
+    if (!selectedTicket) return;
+    fetchMessages(selectedTicket.globalId);
+    const messageInterval = setInterval(
+      () => fetchMessages(selectedTicket.globalId),
+      3000,
+    );
+    return () => clearInterval(messageInterval);
+  }, [selectedTicket, fetchMessages]);
 
-  const displayedTickets = tickets
-    .filter((t) =>
-      activeTab === "active"
-        ? t.status !== "Finished"
-        : t.status === "Finished",
-    )
-    .sort((a, b) => {
-      if (activeTab === "active") {
-        if (a.reminder_flag && !b.reminder_flag) return -1;
-        if (!a.reminder_flag && b.reminder_flag) return 1;
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
+  useEffect(() => {
+    if (!selectedTicket || !user) return;
+    const checkTypingStatus = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/chat/${selectedTicket.globalId}/typing?currentUser=${user.username}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setIsOpponentTyping(data.isTyping);
+          setTickets((currentTickets) =>
+            currentTickets.map((t) =>
+              t.globalId === selectedTicket.globalId
+                ? { ...t, isTyping: data.isTyping }
+                : t,
+            ),
+          );
+        }
+      } catch (error) {}
+    };
+    const typingInterval = setInterval(checkTypingStatus, 2000);
+    return () => clearInterval(typingInterval);
+  }, [selectedTicket, user]);
 
-  const getStatusColor = (status: string) => {
-    if (status === "Pending")
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    if (status === "In Progress")
-      return "bg-indigo-50 text-indigo-700 border-indigo-200";
-    if (status === "Resolved")
-      return "bg-green-50 text-green-700 border-green-200";
-    if (status === "Finished")
-      return "bg-cyan-50 text-cyan-700 border-cyan-200";
-    return "bg-slate-50 text-slate-600 border-slate-200";
-  };
+  useEffect(() => {
+    if (chatHistory.length > lastMessageCount) {
+      chatContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      setLastMessageCount(chatHistory.length);
+    }
+  }, [chatHistory, lastMessageCount]);
 
+  // --- RENDER ---
   return (
     <>
       <div
@@ -511,485 +389,56 @@ export default function UserChatPage() {
         style={{ padding: "12px" }}
       >
         <div className="flex flex-1 overflow-hidden relative w-full h-full max-w-full">
-          {/* SIDEBAR */}
-          <div
-            className={`${selectedTicket ? "hidden md:flex" : "flex"} w-full md:w-80 bg-slate-50 border-r border-slate-200 flex-col flex-shrink-0 z-20`}
-          >
-            <div className="p-4 md:p-5 border-b border-green-800 bg-green-700 text-white shadow-sm z-10 flex-shrink-0">
-              <h1 className="font-black text-lg md:text-xl tracking-tight">
-                My Support
-              </h1>
-              <p className="text-[10px] text-green-200 uppercase tracking-widest font-semibold mt-0.5">
-                Ticket History
-              </p>
-            </div>
-            <div className="flex bg-slate-100 border-b border-slate-200 p-2 gap-2 shadow-inner flex-shrink-0">
-              <button
-                onClick={() => {
-                  setActiveTab("active");
-                  setSelectedTicket(null);
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${activeTab === "active" ? "bg-white text-green-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"}`}
-              >
-                Active
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab("archived");
-                  setSelectedTicket(null);
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${activeTab === "archived" ? "bg-white text-slate-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"}`}
-              >
-                Archive
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-2 py-3 space-y-2 smooth-scroll">
-              {displayedTickets.length === 0 ? (
-                <div className="py-10 text-center flex flex-col items-center justify-center opacity-60">
-                  <span className="text-sm font-semibold text-slate-500">
-                    No tickets found
-                  </span>
-                </div>
-              ) : (
-                displayedTickets.map((ticket) => {
-                  const showReminder = ticket.reminder_flag === 1;
-                  const showUnread = ticket.unreadCount > 0;
-                  const showBadge =
-                    (showReminder || showUnread) && activeTab === "active";
+          {/* LEFT SIDEBAR - ChatList */}
+          <ChatList
+            tickets={tickets}
+            selectedTicket={selectedTicket}
+            activeTab={activeTab}
+            onSelectTicket={selectTicket}
+            onSetActiveTab={setActiveTab}
+          />
 
-                  return (
-                    <div
-                      key={ticket.globalId}
-                      onClick={() => selectTicket(ticket)}
-                      className={`custom-ticket-item group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer overflow-visible ${
-                        selectedTicket?.globalId === ticket.globalId
-                          ? "bg-white border-green-500 shadow-md ring-1 ring-green-500/20"
-                          : "bg-white border-slate-200 shadow-sm hover:border-green-300 hover:shadow-md"
-                      }`}
-                    >
-                      {showBadge && (
-                        <div
-                          className={`absolute -top-2 -right-1 min-w-[20px] h-[20px] px-1 flex items-center justify-center rounded-full text-[10px] font-black text-white z-20 shadow-md cursor-help ${
-                            showReminder && !showUnread
-                              ? "bg-[#ef4444] animate-highlight"
-                              : "bg-[#16a34a]"
-                          }`}
-                          style={{ border: "2px solid white" }}
-                        >
-                          {showUnread ? ticket.unreadCount : "!"}
+          {/* CENTER - ChatWindow */}
+          <ChatWindow
+            selectedTicket={selectedTicket}
+            chatHistory={chatHistory}
+            user={user}
+            messageInput={messageInput}
+            isSending={isSending}
+            isRecording={isRecording}
+            recordingTime={recordingTime}
+            filePreview={filePreview}
+            fileType={fileType}
+            isAttachmentMenuOpen={isAttachmentMenuOpen}
+            isOpponentTyping={isOpponentTyping}
+            onBack={() => setSelectedTicket(null)}
+            onOpenInfo={() => setIsInfoOpen(true)}
+            onSend={handleSend}
+            onTyping={handleTyping}
+            onDeleteMessage={deleteMessage}
+            onToggleAttachmentMenu={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+            onCloseAttachmentMenu={() => setIsAttachmentMenuOpen(false)}
+            onRemoveFile={removeFile}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            onFileSelect={handleFileSelect}
+            galleryInputRef={galleryInputRef}
+            cameraInputRef={cameraInputRef}
+            videoInputRef={videoInputRef}
+            chatContainerRef={chatContainerRef}
+            onSetFullScreenImage={setFullScreenImage}
+          />
 
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-[999] animate-popOut pointer-events-none">
-                            <div className="bg-slate-900 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-2xl whitespace-nowrap font-bold border border-slate-700">
-                              {showUnread
-                                ? `${ticket.unreadCount} New Messages`
-                                : "Reminder Sent"}
-                            </div>
-                            <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center mb-1.5">
-                        <div className="flex items-center flex-1 min-w-0 mr-2">
-                          <span className="text-[10px] font-black text-slate-400 mr-1.5 flex-shrink-0">
-                            #{ticket.id}
-                          </span>
-                          <h3
-                            className={`text-sm font-bold truncate ${selectedTicket?.globalId === ticket.globalId ? "text-green-700" : "text-slate-800"}`}
-                          >
-                            {ticket.title}
-                          </h3>
-                        </div>
-                        <span
-                          className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border flex-shrink-0 ${getStatusColor(ticket.status)}`}
-                        >
-                          {ticket.status}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* CHAT AREA */}
-          <div
-            className={`${!selectedTicket ? "hidden md:flex" : "flex"} flex-1 flex-col bg-white h-full relative z-10 overflow-hidden w-full max-w-full`}
-          >
-            {selectedTicket ? (
-              <>
-                <div className="h-14 border-b border-amber-200 shadow-sm flex justify-between items-center bg-white z-10 px-3 md:px-4 flex-shrink-0 w-full">
-                  <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                    {/* 🟢 FIXED: The "Back" Button uses ArrowLeft */}
-                    <button
-                      onClick={() => setSelectedTicket(null)}
-                      className="md:hidden p-1.5 text-green-600 hover:bg-green-50 rounded-full transition-colors flex-shrink-0"
-                      title="Back to Tickets"
-                    >
-                      <ArrowLeft size={22} />
-                    </button>
-                    <div className="flex flex-col truncate flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 min-w-0">
-                        <h2 className="custom-header-title font-bold text-sm text-slate-800 truncate">
-                          {selectedTicket.title}
-                        </h2>
-                      </div>
-                    </div>
-                  </div>
-                  {/* 🟢 FIXED: The "Details" Button uses Info */}
-                  <button
-                    onClick={() => setIsInfoOpen(true)}
-                    className="xl:hidden p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors flex-shrink-0 ml-2"
-                    title="Ticket Information"
-                  >
-                    <Info size={22} />
-                  </button>
-                </div>
-
-                <div
-                  ref={chatContainerRef}
-                  className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
-                >
-                  {[...chatHistory].reverse().map((msg) => {
-                    const isSystemMsg = msg.sender === "System";
-                    if (isSystemMsg)
-                      return (
-                        <div
-                          key={msg.id}
-                          className="text-center text-xs text-gray-400 my-2"
-                        >
-                          {msg.message}
-                        </div>
-                      );
-
-                    const isMe = msg.sender === user?.username;
-                    const isDeleted = msg.message === "[DELETED]";
-                    const { type: attachType, src: attachSrc } =
-                      parseAttachment(msg.attachment);
-
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex group items-end ${isMe ? "justify-end gap-2" : "justify-start gap-2"} w-full mt-4`}
-                      >
-                        {isMe &&
-                          selectedTicket.status !== "Finished" &&
-                          !isDeleted && (
-                            <button
-                              onClick={() => deleteMessage(msg.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0"
-                              title="Delete message"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        <div
-                          className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[80%] md:max-w-md`}
-                        >
-                          {!isMe && (
-                            <span className="text-[10px] font-bold text-gray-400 ml-1 mb-1">
-                              {msg.sender}
-                            </span>
-                          )}
-
-                          {isDeleted ? (
-                            <div
-                              className={`p-2.5 px-4 rounded-2xl shadow-sm text-[11px] italic flex items-center gap-1.5 ${isMe ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"}`}
-                            >
-                              <Ban size={12} className="opacity-70" />{" "}
-                              {isMe ? "You" : msg.sender} deleted a message
-                            </div>
-                          ) : (
-                            <div
-                              className={`p-3 rounded-2xl shadow-sm relative leading-relaxed ${isMe ? "bg-green-600 text-white rounded-tr-none" : "bg-white border border-amber-200 text-slate-900 rounded-tl-none"}`}
-                            >
-                              {attachType === "image" && attachSrc && (
-                                <img
-                                  src={attachSrc}
-                                  alt="Attachment"
-                                  className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
-                                  onClick={() => setFullScreenImage(attachSrc)}
-                                />
-                              )}
-                              {attachType === "video" && attachSrc && (
-                                <video
-                                  src={attachSrc}
-                                  controls
-                                  className="max-h-[200px] w-auto rounded-lg mb-1.5 border border-black/10 bg-black"
-                                />
-                              )}
-                              {attachType === "audio" && attachSrc && (
-                                <CustomAudioPlayer
-                                  src={attachSrc}
-                                  isMe={isMe}
-                                />
-                              )}
-
-                              {msg.message && (
-                                <p className="custom-message-text text-sm whitespace-pre-wrap break-words">
-                                  {msg.message}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="p-2 md:p-3 border-t border-slate-200 bg-white flex-shrink-0 z-50 w-full box-border">
-                  {selectedTicket.status === "Finished" ? (
-                    <div className="w-full bg-slate-100 text-slate-400 text-xs font-bold text-center py-3 rounded-xl border border-slate-200 uppercase tracking-widest select-none">
-                      Ticket is closed.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 w-full">
-                      {/* PREVIEW SECTION */}
-                      {filePreview && (
-                        <div className="relative self-start mb-1 animate-fadeIn">
-                          {fileType === "image" && (
-                            <img
-                              src={filePreview}
-                              alt="Preview"
-                              className="h-14 w-auto rounded-lg border border-slate-200 object-cover shadow-sm"
-                            />
-                          )}
-                          {fileType === "video" && (
-                            <video
-                              src={filePreview}
-                              className="h-14 w-auto rounded-lg border border-slate-200 object-cover shadow-sm"
-                              muted
-                            />
-                          )}
-                          {fileType === "audio" && (
-                            <div className="h-10 px-4 bg-slate-100 rounded-full flex items-center border border-slate-200 text-xs font-bold text-slate-600 shadow-sm">
-                              🎵 Audio Ready
-                            </div>
-                          )}
-
-                          <button
-                            onClick={removeFile}
-                            className="absolute -top-2 -right-2 bg-slate-800 text-white p-1 rounded-full hover:bg-slate-900 transition shadow-md"
-                          >
-                            <X size={10} strokeWidth={3} />
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="custom-input-pill flex items-center bg-slate-100 p-1 sm:p-1.5 rounded-full border border-slate-200 focus-within:border-green-400 transition-colors relative w-full shadow-sm box-border">
-                        {isAttachmentMenuOpen && (
-                          <div
-                            className="fixed inset-0 z-40"
-                            onClick={() => setIsAttachmentMenuOpen(false)}
-                          />
-                        )}
-
-                        {isAttachmentMenuOpen && (
-                          <div className="absolute bottom-[110%] left-0 bg-white border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] rounded-2xl p-1 flex flex-col w-40 animate-popOut z-50 origin-bottom-left">
-                            <button
-                              onClick={() => {
-                                galleryInputRef.current?.click();
-                                setIsAttachmentMenuOpen(false);
-                              }}
-                              className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700"
-                            >
-                              <ImageIcon size={16} className="text-blue-500" />{" "}
-                              Photo
-                            </button>
-                            <button
-                              onClick={() => {
-                                videoInputRef.current?.click();
-                                setIsAttachmentMenuOpen(false);
-                              }}
-                              className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
-                            >
-                              <Video size={16} className="text-purple-500" />{" "}
-                              Video
-                            </button>
-                            <button
-                              onClick={() => {
-                                cameraInputRef.current?.click();
-                                setIsAttachmentMenuOpen(false);
-                              }}
-                              className="md:hidden flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
-                            >
-                              <Camera size={16} className="text-emerald-500" />{" "}
-                              Camera
-                            </button>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={() =>
-                            setIsAttachmentMenuOpen(!isAttachmentMenuOpen)
-                          }
-                          className={`p-1.5 md:p-2 rounded-full transition-colors flex-shrink-0 ${isAttachmentMenuOpen ? "bg-green-200 text-green-800" : "text-slate-400 hover:text-green-600 hover:bg-green-50"}`}
-                        >
-                          <Paperclip size={18} />
-                        </button>
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          ref={galleryInputRef}
-                          onChange={handleFileSelect}
-                        />
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          ref={videoInputRef}
-                          onChange={handleFileSelect}
-                        />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          ref={cameraInputRef}
-                          onChange={handleFileSelect}
-                        />
-
-                        {isRecording ? (
-                          <div className="flex-1 flex items-center px-4 bg-slate-200/50 rounded-xl h-[42px] sm:h-[46px] animate-pulse mx-1">
-                            <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                            <span className="text-xs font-bold text-red-500">
-                              Recording {formatTime(recordingTime)}
-                            </span>
-                          </div>
-                        ) : (
-                          <input
-                            value={messageInput}
-                            onChange={handleTyping}
-                            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                            disabled={!selectedTicket || isSending}
-                            placeholder="Type message..."
-                            className="custom-input-text flex-1 w-full min-w-0 bg-transparent px-2 py-2 text-[13px] md:text-sm focus:outline-none relative z-10 text-slate-800 placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                        )}
-
-                        {!messageInput.trim() && !filePreview ? (
-                          <button
-                            onClick={
-                              isRecording ? stopRecording : startRecording
-                            }
-                            disabled={!selectedTicket || isSending}
-                            className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${isRecording ? "bg-red-500 text-white shadow-md animate-pulse" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
-                            title={
-                              isRecording
-                                ? "Stop recording"
-                                : "Record voice message"
-                            }
-                          >
-                            {isRecording ? (
-                              <Square size={14} fill="currentColor" />
-                            ) : (
-                              <Mic size={16} />
-                            )}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleSend}
-                            disabled={isSending}
-                            className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 bg-green-600 text-white shadow-md active:scale-95 disabled:opacity-50`}
-                            title="Send message"
-                          >
-                            <Send
-                              size={14}
-                              className="custom-send-icon ml-0.5"
-                            />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic text-sm bg-slate-50/50">
-                <p className="font-semibold text-sm">Select a ticket</p>
-              </div>
-            )}
-          </div>
-
-          {/* 3. RIGHT SIDEBAR DETAILS */}
-          {selectedTicket && (
-            <>
-              {isInfoOpen && (
-                <div
-                  className="fixed inset-0 bg-slate-900/60 z-[50] xl:hidden"
-                  onClick={() => setIsInfoOpen(false)}
-                />
-              )}
-              {/* 🟢 FIXED: Changed 'absolute' to 'fixed' and 'inset-y-0' to 'top-0 bottom-0' */}
-              <div
-                className={`fixed right-0 top-0 bottom-0 w-[200px] bg-white z-[60] transition-transform duration-300 ease-in-out shadow-2xl ${
-                  isInfoOpen ? "translate-x-0" : "translate-x-full"
-                } xl:static xl:translate-x-0 xl:flex xl:flex-col xl:w-72 xl:border-l xl:border-slate-200 xl:bg-white xl:shadow-none`}
-              >
-                <div className="p-5 h-full overflow-y-auto">
-                  <div className="flex justify-between items-center mb-6 xl:hidden">
-                    <h3 className="font-bold text-xs text-slate-400 uppercase tracking-widest">
-                      Information
-                    </h3>
-                    <button
-                      onClick={() => setIsInfoOpen(false)}
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <h3 className="hidden xl:block font-bold text-xs mb-6 text-slate-400 uppercase tracking-widest">
-                    Ticket Info
-                  </h3>
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider mb-1.5">
-                        Status
-                      </p>
-                      <span
-                        className={`inline-flex px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-wider border shadow-sm ${getStatusColor(selectedTicket.status)}`}
-                      >
-                        {selectedTicket.status}
-                      </span>
-                    </div>
-                    {/* ... the rest of the ticket info (ID, Category, Date) remains the same ... */}
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
-                        Ticket ID
-                      </p>
-                      <p className="text-xs font-semibold text-slate-700 mt-1">
-                        #{selectedTicket.id}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
-                        Category
-                      </p>
-                      <p className="text-xs font-semibold text-slate-700 mt-1">
-                        {selectedTicket.category}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase text-slate-400 font-bold tracking-wider">
-                        Date Created
-                      </p>
-                      <p className="text-xs font-medium text-slate-700 mt-1">
-                        {selectedTicket.date}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {/* RIGHT SIDEBAR - TicketDetails */}
+          <TicketDetails
+            selectedTicket={selectedTicket}
+            isInfoOpen={isInfoOpen}
+            onCloseInfo={() => setIsInfoOpen(false)}
+          />
         </div>
       </div>
 
-      {/* 🟢 FULL SCREEN IMAGE MODAL */}
+      {/* FULL SCREEN IMAGE MODAL */}
       {fullScreenImage && (
         <div
           className="fixed inset-0 z-[9999] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-fadeIn"
@@ -999,7 +448,20 @@ export default function UserChatPage() {
             onClick={() => setFullScreenImage(null)}
             className="absolute top-6 right-6 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md"
           >
-            <X size={24} />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
           </button>
           <a
             href={fullScreenImage}
@@ -1018,48 +480,8 @@ export default function UserChatPage() {
         </div>
       )}
 
-      {/* 🟢 FULLY POPULATED MEDIA QUERIES FOR SMALL SCREENS */}
-      <style>{`
-        .responsive-chat { margin-left: 0px; width: 100vw; max-width: 100vw; transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out; overflow-x: hidden; } 
-        @media (min-width: 768px) { .responsive-chat { width: 100%; max-width: 100%; margin-left: var(--sidebar-width, 256px); width: calc(100% - var(--sidebar-width, 256px)); } }
-        
-        .smooth-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-        .smooth-scroll::-webkit-scrollbar { display: none; }
-        @keyframes popOut { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .animate-popOut { animation: popOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .smooth-scroll {
-          overflow-y: auto;
-          overflow-x: visible !important; 
-          position: relative;
-        }
-
-        @keyframes popOut {
-          0% { opacity: 0; transform: scale(0.9) translateY(10px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-popOut {
-          animation: popOut 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        /* 📱 Extremely Small Phones */
-        @media (max-width: 360px) { 
-          .custom-input-pill { padding: 4px !important; gap: 2px !important; }
-          .custom-input-text { font-size: 11px !important; padding-left: 4px !important; padding-right: 4px !important; }
-          .custom-send-btn { width: 28px !important; height: 28px !important; }
-          .custom-send-icon { width: 12px !important; height: 12px !important; margin-left: 0 !important; }
-          .custom-message-text { font-size: 12px !important; }
-          .custom-header-title { font-size: 12px !important; }
-          .custom-ticket-item { padding: 8px !important; }
-        }
-        @media (max-width: 390px) { 
-          .custom-input-pill { padding: 6px !important; }
-          .custom-input-text { font-size: 12px !important; }
-          .custom-message-text { font-size: 13px !important; }
-        }
-      `}</style>
+      {/* GLOBAL STYLES */}
+      <GlobalStyles />
     </>
   );
 }

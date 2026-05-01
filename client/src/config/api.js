@@ -53,7 +53,7 @@ const findWorkingServer = async () => {
   return null;
 };
 
-// 3. Final API_URL logic (Priority: Env > Auto-detect > Office Fallback)
+// 3. Final API_URL logic (Priority: Env > Auto-detect > Localhost > Office Fallback)
 const getFinalURL = () => {
   const envURL = getEnvURL();
   if (envURL) return envURL;
@@ -61,11 +61,15 @@ const getFinalURL = () => {
   const autoURL = getAutoDetectedURL();
   if (autoURL) return autoURL;
 
+  // Kung nasa local machine ka lang, unahin ang localhost
+  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+    return NETWORKS.localhost;
+  }
+
   return NETWORKS.office || "http://127.0.0.1:3001";
 };
-
 // 4. Final Exports
-export const API_URL = getFinalURL();
-export const SOCKET_URL = API_URL;
+export const API_URL = "http://localhost:3001";
+export const SOCKET_URL = "http://localhost:3001";
 
 export { NETWORKS, findWorkingServer };

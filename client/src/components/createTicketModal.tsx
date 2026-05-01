@@ -111,9 +111,13 @@ export default function CreateTicketModal({
         date: new Date().toISOString(),
       };
 
+      const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/tickets`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : "",
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

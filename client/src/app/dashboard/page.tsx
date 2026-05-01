@@ -6,30 +6,21 @@ import { getRelativeTime } from "../../lib/utils";
 import CreateTicketModal from "../../components/createTicketModal";
 import { API_URL } from "../../config/api";
 
+
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell,
+  ResponsiveContainer, Tooltip,
 } from "recharts";
 import {
-  Bell,
-  Calendar as CalendarIcon,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-  ArrowRight,
+  Bell, Calendar as CalendarIcon, Filter, ChevronLeft,
+  ChevronRight, BarChart3, ArrowRight,
 } from "lucide-react";
 
 export default function RoleBasedDashboard() {
+  // --- STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]); // Initialize as empty array
   const router = useRouter();
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [timeAgo, setTimeAgo] = useState("just now");
@@ -41,11 +32,7 @@ export default function RoleBasedDashboard() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+  // --- FUNCTIONS ---
   const loadTickets = useCallback(async () => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) return;
@@ -67,18 +54,12 @@ export default function RoleBasedDashboard() {
         }
         const transformed = allTickets.map((t: any) => ({
           ...t,
-          activityDate:
-            t.last_reminded_at || t.updatedAt || t.createdAt || t.date,
+          activityDate: t.last_reminded_at || t.updatedAt || t.createdAt || t.date,
           status:
-            t.status === "PENDING"
-              ? "Pending"
-              : t.status === "IN_PROGRESS"
-                ? "In Progress"
-                : t.status === "RESOLVED"
-                  ? "Resolved"
-                  : t.status === "FINISHED"
-                    ? "Finished"
-                    : t.status,
+            t.status === "PENDING" ? "Pending" :
+            t.status === "IN_PROGRESS" ? "In Progress" :
+            t.status === "RESOLVED" ? "Resolved" :
+            t.status === "FINISHED" ? "Finished" : t.status,
         }));
         setTickets(transformed);
         setLastUpdated(new Date());
@@ -94,11 +75,18 @@ export default function RoleBasedDashboard() {
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
+  // --- USE EFFECTS ---
+
+  // 1. Digital Clock
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 2. Time Ago (Relative time)
   useEffect(() => {
     const interval = setInterval(() => {
-      const seconds = Math.floor(
-        (new Date().getTime() - lastUpdated.getTime()) / 1000,
-      );
+      const seconds = Math.floor((new Date().getTime() - lastUpdated.getTime()) / 1000);
       if (seconds < 60) setTimeAgo("just now");
       else if (seconds < 3600) setTimeAgo(`${Math.floor(seconds / 60)}m ago`);
       else setTimeAgo(`${Math.floor(seconds / 3600)}h ago`);
@@ -106,39 +94,47 @@ export default function RoleBasedDashboard() {
     return () => clearInterval(interval);
   }, [lastUpdated]);
 
-  useEffect(() => {
+  // 3. Main Logic: Auth + Initial Load + Focus Refresh
+ useEffect(() => {
+    // A. Check Auth
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
+      console.log("No user found, redirecting...");
       router.push("/login");
       return;
     }
-    setUser(JSON.parse(storedUser));
+
+    // B. Set User and Load Data
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
     loadTickets();
-  }, [router, loadTickets]);
 
-  useEffect(() => {
-    window.addEventListener("focus", loadTickets);
-    return () => window.removeEventListener("focus", loadTickets);
-  }, [loadTickets]);
+    // C. Window Focus Refresh
+    const handleFocus = () => {
+      console.log("Window focused, refreshing tickets...");
+      loadTickets();
+    };
 
-  const pendingCount = tickets.filter((t) => t.status === "Pending").length;
-  const inProgressCount = tickets.filter(
-    (t) => t.status === "In Progress",
-  ).length;
-  const resolvedCount = tickets.filter((t) => t.status === "Resolved").length;
-  const finishedCount = tickets.filter((t) => t.status === "Finished").length;
-  const remindersCount = tickets.filter(
-    (t) => t.status === "Pending" && t.reminder_flag,
-  ).length;
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+    
+    // PALITAN MO ITONG LINE SA BABA:
+  }, []); // Sinama ang loadTickets para safe pero stable ito dahil sa useCallback
 
-  const latestTicket = [...tickets].sort((a, b) => {
-    return (
-      new Date(b.activityDate).getTime() - new Date(a.activityDate).getTime()
-    );
-  })[0];
+  // Dito na magpapatuloy yung filters and return/interface mo...
 
-  const displayDate = latestTicket
-    ? latestTicket.activityDate
+  // 1. Siguraduhin na may tickets bago mag-sort para hindi mag-error
+const latestTicket = tickets && tickets.length > 0 
+  ? [...tickets].sort((a, b) => {
+      const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
+      const dateB = b.activityDate ? new Date(b.activityDate).getTime() : 0;
+      return dateB - dateA;
+    })[0]
+  : null;
+
+// 2. Eto yung part na nag-re-red sa iyo, lagyan natin ng "?" (Optional Chaining)
+const displayDate = latestTicket?.activityDate 
+    ? latestTicket.activityDate 
     : new Date().toISOString();
 
   const deptAccent =
@@ -158,7 +154,7 @@ export default function RoleBasedDashboard() {
           borderTw: "border-green-200",
         };
 
-  const stats = useMemo(() => {
+ const stats = useMemo<any>(() => {
     let filtered = tickets || [];
     const now = new Date().getTime();
     const currentYear = time.getFullYear();
@@ -173,43 +169,35 @@ export default function RoleBasedDashboard() {
         );
       });
     } else {
-      if (timeFilter === "Last 7 Days")
+      if (timeFilter === "Last 7 Days") {
         filtered = filtered.filter(
-          (t) =>
-            now - new Date(t.activityDate).getTime() <= 7 * 24 * 60 * 60 * 1000,
+          (t) => now - new Date(t.activityDate).getTime() <= 7 * 24 * 60 * 60 * 1000
         );
-      else if (timeFilter === "Last 30 Days")
+      } else if (timeFilter === "Last 30 Days") {
         filtered = filtered.filter(
-          (t) =>
-            now - new Date(t.activityDate).getTime() <=
-            30 * 24 * 60 * 60 * 1000,
+          (t) => now - new Date(t.activityDate).getTime() <= 30 * 24 * 60 * 60 * 1000
         );
-      else if (timeFilter === "This Year")
+      } else if (timeFilter === "This Year") {
         filtered = filtered.filter(
-          (t) => new Date(t.activityDate).getFullYear() === currentYear,
+          (t) => new Date(t.activityDate).getFullYear() === currentYear
         );
+      }
     }
 
     const rem = filtered.filter(
-      (t) =>
-        t.reminder_flag === 1 &&
-        t.status !== "Resolved" &&
-        t.status !== "Finished",
+      (t) => t.reminder_flag === 1 && t.status !== "Resolved" && t.status !== "Finished"
     ).length;
-    const pen = filtered.filter(
-      (t) => t.status === "Pending" && t.reminder_flag !== 1,
-    ).length;
-    const inp = filtered.filter(
-      (t) => t.status === "In Progress" && t.reminder_flag !== 1,
-    ).length;
+    const pen = filtered.filter((t) => t.status === "Pending" && t.reminder_flag !== 1).length;
+    const inp = filtered.filter((t) => t.status === "In Progress" && t.reminder_flag !== 1).length;
     const res = filtered.filter((t) => t.status === "Resolved").length;
     const fin = filtered.filter((t) => t.status === "Finished").length;
 
     const activeRequestingUsers = new Set(
       filtered
         .filter((t) => t.status === "Pending" || t.status === "In Progress")
-        .map((t) => t.createdBy),
+        .map((t) => t.createdBy)
     ).size;
+
     const completedTickets = res + fin;
 
     const chartData = [
@@ -225,8 +213,21 @@ export default function RoleBasedDashboard() {
       activeRequestingUsers,
       completedTickets,
       chartData,
+      rem, 
+      pen, 
+      inp, 
+      res, 
+      fin 
     };
   }, [tickets, timeFilter, time, selectedDate]);
+
+  // Ito ang mga variables na gagamitin ng interface mo sa baba
+  const remindersCount = stats?.rem || 0;
+  const pendingCount = stats?.pen || 0;
+  const inProgressCount = stats?.inp || 0;
+  const resolvedCount = stats?.res || 0;
+  const finishedCount = stats?.fin || 0;
+  
 
   const handlePrevMonth = () =>
     setCalendarMonth(

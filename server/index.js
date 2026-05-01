@@ -41,3 +41,6 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`✓ Access via network: http://10.38.52.2:${PORT}`);
   console.log(`✓ HTTP Polling Chat enabled`);
 });
+app.get("/api/auth/validate", (req, res) => {
+  res.status(200).send("Server is reachable");
+});
