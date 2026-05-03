@@ -1,5 +1,7 @@
 "use client";
 import React from "react";
+import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // --- Types maintained from original ---
 interface Ticket {
@@ -35,7 +37,8 @@ const ChatList: React.FC<ChatListProps> = ({
   setActiveTab,
   setSelectedTicket,
 }) => {
-  
+  const router = useRouter();
+
   // Logic maintained: Filter and Sort exactly as original
   const displayedTickets = tickets
     .filter((t) =>
@@ -62,12 +65,23 @@ const ChatList: React.FC<ChatListProps> = ({
     >
       {/* Header Section */}
       <div className="p-4 md:p-5 border-b border-slate-900 bg-slate-800 text-white shadow-sm z-10 flex-shrink-0">
-        <h1 className="font-black text-lg md:text-xl tracking-tight">
-          Admin Support
-        </h1>
-        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
-          Manage Tickets
-        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+            title="Back to dashboard"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="font-black text-lg md:text-xl tracking-tight">
+              Admin Support
+            </h1>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
+              Manage Tickets
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Tabs Section */}

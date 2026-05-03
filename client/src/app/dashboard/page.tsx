@@ -6,15 +6,13 @@ import { getRelativeTime } from "../../lib/utils";
 import CreateTicketModal from "../../components/createTicketModal";
 import { API_URL } from "../../config/api";
 
+import StatsCards from "./components/StatsCards";
+import UserSidebar from "./components/UserSidebar";
+import VisualProgressChart from "./components/VisualProgressChart";
+import DigitalClock from "./components/DigitalClock";
+import DashboardCalendar from "./components/DashboardCalendar";
 
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell,
-  ResponsiveContainer, Tooltip,
-} from "recharts";
-import {
-  Bell, Calendar as CalendarIcon, Filter, ChevronLeft,
-  ChevronRight, BarChart3, ArrowRight,
-} from "lucide-react";
+import { Filter } from "lucide-react";
 
 export default function RoleBasedDashboard() {
   // --- STATES ---
@@ -296,6 +294,7 @@ const displayDate = latestTicket?.activityDate
               : "0px",
         }}
       >
+        {/* Header Section */}
         <div
           className="mb-8 animate-slideUpFade"
           style={{ animationDelay: "0s", animationFillMode: "both" }}
@@ -404,196 +403,26 @@ const displayDate = latestTicket?.activityDate
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
-          {[
-            {
-              label: "Reminders",
-              count: remindersCount,
-              color: "rose",
-              desc: "Needs urgent update",
-              filter: "Reminders",
-            },
-            {
-              label: "Pending",
-              count: pendingCount,
-              color: "amber",
-              desc: "Awaiting reply",
-              filter: "Pending",
-            },
-            {
-              label: "In-Progress",
-              count: inProgressCount,
-              color: "indigo",
-              desc: "Currently in work",
-              filter: "In Progress",
-            },
-            {
-              label: "Resolved",
-              count: resolvedCount,
-              color: "green",
-              desc: "Fixed (Check if okay)",
-              filter: "Resolved",
-            },
-            {
-              label: "Finished",
-              count: finishedCount,
-              color: "cyan",
-              desc: "Completed & Closed",
-              filter: "Finished",
-            },
-          ].map((card, i) => {
-            const isReminder = card.label === "Reminders";
-            const isPending = card.label === "Pending";
+        {/* Stats Cards */}
+        <StatsCards
+          remindersCount={remindersCount}
+          pendingCount={pendingCount}
+          inProgressCount={inProgressCount}
+          resolvedCount={resolvedCount}
+          finishedCount={finishedCount}
+        />
 
-            let borderClasses =
-              "border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
-            if (isReminder) {
-              borderClasses =
-                "border-2 border-rose-500 z-10 hover:-translate-y-1";
-            } else if (isPending) {
-              borderClasses =
-                "border-x border-b border-slate-200 border-t-4 border-t-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
-            }
-
-            return (
-              <div
-                key={card.label}
-                onClick={() =>
-                  router.push(`/tickets?filter=${card.filter}&glow=true`)
-                }
-                className={`group card bg-white p-6 transition-all duration-300 cursor-pointer overflow-hidden ${borderClasses}`}
-                style={
-                  isReminder
-                    ? {
-                        animation: `slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * (i + 1)}s both, urgentGlow 2s ${0.05 * (i + 1) + 0.6}s infinite ease-in-out`,
-                      }
-                    : {
-                        animationDelay: `${0.05 * (i + 1)}s`,
-                        animationFillMode: "both",
-                      }
-                }
-              >
-                {!isReminder && !isPending && (
-                  <div
-                    className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}
-                  />
-                )}
-
-                <div
-                  className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform hover:scale-110`}
-                >
-                  {i === 0 ? (
-                    <Bell
-                      size={18}
-                      className={`text-${card.color}-500 animate-wiggle`}
-                    />
-                  ) : i === 1 ? (
-                    <CalendarIcon
-                      size={18}
-                      className={`text-${card.color}-500`}
-                    />
-                  ) : i === 2 ? (
-                    <BarChart3 size={18} className={`text-${card.color}-500`} />
-                  ) : i === 3 ? (
-                    <svg
-                      width="18"
-                      height="18"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={`text-${card.color}-500`}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="18"
-                      height="18"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={`text-${card.color}-500`}
-                      viewBox="0 0 24 24"
-                    >
-                      <polyline points="9 11 12 14 22 4"></polyline>
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                    </svg>
-                  )}
-                </div>
-                <p className="text-4xl font-black text-slate-900 mb-2">
-                  {card.count}
-                </p>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  {card.label}
-                </p>
-                <p className="text-[10px] text-slate-400 mb-3.5 whitespace-nowrap">
-                  {card.desc}
-                </p>
-                <div className="flex items-center gap-1 text-[9px] font-black text-slate-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                  View List <ArrowRight size={10} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
+        {/* Main Content Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
-          <div
-            className="card bg-white border border-slate-200 p-6 animate-slideUpFade h-auto shadow-sm"
-            style={{ animationDelay: "0.5s", animationFillMode: "both" }}
-          >
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className={`w-12 h-12 rounded-lg border-1.5 flex items-center justify-center font-black text-base flex-shrink-0 ${deptAccent.bgTw} ${deptAccent.colorTw} ${deptAccent.borderTw}`}
-              >
-                {user?.username?.charAt(0)?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="font-bold text-sm text-slate-900 mb-1 truncate">
-                  {user?.username}
-                </p>
-                <span
-                  className={`px-2 py-0.5 rounded text-xs font-bold ${deptAccent.bgTw} ${deptAccent.textTw}`}
-                >
-                  {user?.dept}
-                </span>
-              </div>
-            </div>
-            <div className="divider my-2.5" />
-            {[
-              { label: "Role", value: user?.role },
-              { label: "Department", value: user?.dept },
-              { label: "Access Level", value: user?.role },
-            ].map(({ label, value }, i, arr) => (
-              <div key={label}>
-                <div className="flex items-center justify-between py-2.75">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                    {label}
-                  </span>
-                  <span className="text-sm font-bold text-slate-700">
-                    {value || "System"}
-                  </span>
-                </div>
-                {i < arr.length - 1 && <div className="divider my-0" />}
-              </div>
-            ))}
-            <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                System Online
-              </span>
-            </div>
-          </div>
+          {/* User Sidebar */}
+          <UserSidebar user={user} deptAccent={deptAccent} />
 
+          {/* Analytics Panel */}
           <div
             className="card bg-white border border-slate-200 flex flex-col overflow-hidden animate-slideUpFade shadow-sm"
             style={{ animationDelay: "0.6s", animationFillMode: "both" }}
           >
+            {/* Panel Header with Filter */}
             <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-slate-50/50">
               <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide whitespace-nowrap">
                 {user?.role === "Head"
@@ -635,7 +464,9 @@ const displayDate = latestTicket?.activityDate
               </div>
             </div>
 
+            {/* Content Area */}
             <div className="flex flex-1 flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-slate-100 min-h-0">
+              {/* Head Stats (only for Head role) */}
               {user?.role === "Head" ? (
                 <>
                   <div className="w-full xl:w-[220px] xl:max-w-[220px] p-6 flex flex-col sm:flex-row xl:flex-col items-center justify-center gap-8 xl:gap-6 bg-white flex-shrink-0">
@@ -724,243 +555,26 @@ const displayDate = latestTicket?.activityDate
                 </>
               ) : null}
 
-              <div className="flex-1 p-6 flex flex-col min-h-[350px] w-full min-w-0 overflow-hidden">
-                <div className="flex items-center justify-between mb-4 text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 size={14} />
-                    <span className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                      Visual Progress
-                    </span>
-                  </div>
-                  <p className="text-[9px] font-bold text-slate-400 italic">
-                    Click a bar to filter results
-                  </p>
-                </div>
+              {/* Visual Progress Chart */}
+              <VisualProgressChart chartData={stats.chartData} />
 
-                <div className="w-full h-[280px] relative min-w-0 block">
-                  <div className="absolute inset-0">
-                    <ResponsiveContainer width="99%" height="100%">
-                      <BarChart
-                        data={stats.chartData}
-                        margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-                        onClick={(data) =>
-                          data &&
-                          router.push(`/tickets?filter=${data.activeLabel}`)
-                        }
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="#f1f5f9"
-                        />
-                        <XAxis
-                          dataKey="name"
-                          tick={{
-                            fontSize: 10,
-                            fill: "#64748b",
-                            fontWeight: 800,
-                          }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          allowDecimals={false}
-                          tick={{ fontSize: 10, fill: "#64748b" }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "#f8fafc" }}
-                          contentStyle={{
-                            borderRadius: "12px",
-                            border: "none",
-                            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
-                          }}
-                          itemStyle={{ fontWeight: "bold" }}
-                        />
-                        <Bar
-                          dataKey="value"
-                          radius={[4, 4, 0, 0]}
-                          maxBarSize={45}
-                          animationDuration={1000}
-                          className="cursor-pointer"
-                        >
-                          {stats.chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
+              {/* Right Side: Clock & Calendar */}
               <div className="w-full xl:w-[280px] p-6 bg-slate-50/50 flex flex-col items-center justify-center flex-shrink-0">
-                <div className="text-center mb-5 w-full flex flex-col items-center">
-                  <div className="flex items-center justify-center gap-2 text-slate-800 h-[60px] w-full">
-                    <div className="flex flex-col items-center leading-none">
-                      <span
-                        className="text-2xl font-black tracking-tight tabular-nums"
-                        style={{ fontFamily: "Syne, sans-serif" }}
-                      >
-                        {time.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                          hour12: false,
-                        })}
-                      </span>
-                      <span className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">
-                        {time
-                          .toLocaleTimeString([], { hour12: true })
-                          .split(" ")
-                          .pop()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5 mt-2 h-[20px]">
-                    <CalendarIcon size={12} />
-                    {time.toLocaleDateString(undefined, {
-                      weekday: "short",
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </div>
-                </div>
-
-                <div className="w-full bg-white rounded-xl p-3 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center mb-3 px-1">
-                    <button
-                      onClick={handlePrevMonth}
-                      className="p-1 hover:bg-slate-100 rounded text-slate-400 transition-colors active:scale-95"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <div className="text-center text-[10px] font-black uppercase text-slate-600 tracking-wider whitespace-nowrap">
-                      {currentMonthName} {currentYearNum}
-                    </div>
-                    <button
-                      onClick={handleNextMonth}
-                      className="p-1 hover:bg-slate-100 rounded text-slate-400 transition-colors active:scale-95"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-black text-slate-300 mb-1">
-                    {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                      <div key={i}>{d}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium">
-                    {blanks.map((_, i) => (
-                      <div key={`blank-${i}`} />
-                    ))}
-                    {days.map((day) => {
-                      const d = new Date(
-                        calendarMonth.getFullYear(),
-                        calendarMonth.getMonth(),
-                        day,
-                      );
-                      const dString = d.toDateString();
-                      const dMidnight = new Date(
-                        d.getFullYear(),
-                        d.getMonth(),
-                        d.getDate(),
-                      ).getTime();
-                      const now = new Date();
-                      const todayMidnight = new Date(
-                        now.getFullYear(),
-                        now.getMonth(),
-                        now.getDate(),
-                      ).getTime();
-
-                      const isToday =
-                        d.toDateString() === new Date().toDateString();
-                      const isSelected =
-                        selectedDate?.toDateString() === dString;
-                      const isFuture = dMidnight > todayMidnight;
-
-                      const dayTickets = tickets.filter(
-                        (t) =>
-                          new Date(t.activityDate).toDateString() === dString,
-                      );
-                      const hasTickets = dayTickets.length > 0;
-                      const isBusyDay = dayTickets.length >= 5;
-
-                      let isInFilterRange = false;
-
-                      if (!isFuture) {
-                        if (timeFilter === "Last 7 Days")
-                          isInFilterRange =
-                            dMidnight >=
-                            todayMidnight - 6 * 24 * 60 * 60 * 1000;
-                        else if (timeFilter === "Last 30 Days")
-                          isInFilterRange =
-                            dMidnight >=
-                            todayMidnight - 29 * 24 * 60 * 60 * 1000;
-                        else if (timeFilter === "This Year")
-                          isInFilterRange =
-                            d.getFullYear() === now.getFullYear();
-                        else if (timeFilter === "All Time")
-                          isInFilterRange = hasTickets;
-                        else if (timeFilter === "Custom Date")
-                          isInFilterRange = isSelected;
-                      }
-
-                      let bgColor = "transparent";
-                      let textColor = "text-slate-400";
-                      let border = "border-transparent";
-
-                      if (isSelected) {
-                        bgColor = "";
-                        textColor =
-                          "text-white font-black shadow-md z-10 scale-110";
-                      } else if (isToday) {
-                        bgColor = "bg-green-100/60";
-                        textColor = "text-green-800 font-black";
-                        border = "border border-green-200";
-                      } else if (isFuture) {
-                        textColor = "text-slate-200 cursor-not-allowed";
-                      } else if (isInFilterRange) {
-                        if (hasTickets) {
-                          bgColor = isBusyDay
-                            ? "bg-green-600/40"
-                            : "bg-green-500/20";
-                          textColor = isBusyDay
-                            ? "text-green-900 font-black"
-                            : "text-green-700 font-bold";
-                        } else {
-                          bgColor = "bg-slate-100/80";
-                          textColor = "text-slate-400";
-                        }
-                      }
-
-                      return (
-                        <button
-                          key={day}
-                          onClick={() => !isFuture && handleDayClick(day)}
-                          disabled={isFuture}
-                          className={`p-1 rounded-md aspect-square flex items-center justify-center transition-all transform relative text-[10px] ${bgColor} ${textColor} ${border} ${!isFuture && !isSelected && "hover:bg-slate-200 cursor-pointer hover:scale-110 active:scale-95"}`}
-                          style={
-                            isSelected
-                              ? { backgroundColor: deptAccent.color }
-                              : {}
-                          }
-                        >
-                          {day}
-                          {hasTickets && !isSelected && !isToday && (
-                            <span
-                              className={`absolute bottom-1 w-1 h-1 rounded-full ${isBusyDay ? "bg-green-800" : "bg-green-500"}`}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <DigitalClock time={time} />
+                <DashboardCalendar
+                  calendarMonth={calendarMonth}
+                  handlePrevMonth={handlePrevMonth}
+                  handleNextMonth={handleNextMonth}
+                  currentMonthName={currentMonthName}
+                  currentYearNum={currentYearNum}
+                  blanks={blanks}
+                  days={days}
+                  tickets={tickets}
+                  selectedDate={selectedDate}
+                  timeFilter={timeFilter}
+                  handleDayClick={handleDayClick}
+                  deptAccent={deptAccent}
+                />
               </div>
             </div>
           </div>

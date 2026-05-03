@@ -69,7 +69,7 @@ export default function TicketsPage() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 w-full overflow-x-hidden">
-      <main className="responsive-main transition-all duration-300 ease-in-out bg-slate-50 p-0 sm:p-5 lg:p-8 min-h-[100dvh] font-sans box-border pb-24 sm:pb-8">
+      <main className="flex-1 w-full h-screen overflow-hidden bg-slate-50 p-4 sm:p-6">
         {/* Header */}
         <div className="px-4 pt-4 sm:px-0 sm:pt-0 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6 mb-3 sm:mb-5 lg:mb-7 animate-fadeIn w-full">
           <div className="flex items-center gap-2 lg:gap-3 w-full md:w-auto">
@@ -142,16 +142,16 @@ export default function TicketsPage() {
           </div>
 
           {/* Pagination */}
-          <TicketPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            ticketsPerPage={ticketsPerPage}
-            totalTickets={sortedTickets.length}
-            indexOfFirstTicket={indexOfFirstTicket}
-            indexOfLastTicket={indexOfLastTicket}
-            onPageChange={setCurrentPage}
-            onTicketsPerPageChange={setTicketsPerPage}
-          />
+        <TicketPagination
+  currentPage={currentPage}
+  totalPages={totalPages}
+  ticketsPerPage={ticketsPerPage}
+  totalCount={sortedTickets.length}     // binago: totalTickets -> totalCount
+  startIndex={indexOfFirstTicket}       // binago: indexOfFirstTicket -> startIndex
+  endIndex={indexOfLastTicket}         // binago: indexOfLastTicket -> endIndex
+  onPageChange={setCurrentPage}
+  onRowsPerPageChange={setTicketsPerPage} // binago: onTicketsPerPageChange -> onRowsPerPageChange
+/>
         </div>
 
         {/* Modals */}

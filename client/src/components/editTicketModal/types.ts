@@ -1,0 +1,19 @@
+export interface EditTicketModalProps {
+  isOpen: boolean;
+  ticket: Record<string, any> | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export interface FormData {
+  category: string;
+  title: string;
+  description: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  dept: string;
+  role: string;
+}

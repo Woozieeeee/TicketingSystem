@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, CheckCircle, PlayCircle } from "lucide-react";
-import type { Ticket, User } from "../types/tickets";
+import type { Ticket, User, DeptAccent } from "../types/tickets";
 
 interface ActionButtonsProps {
   ticket: Ticket;
@@ -9,6 +9,7 @@ interface ActionButtonsProps {
   onAction: (globalId: string | number, payload: any) => void;
   onEdit: (ticket: Ticket) => void;
   onRemind: (globalId: string | number) => void;
+  deptAccent?: DeptAccent;
 }
 
 export default function ActionButtons({
@@ -17,6 +18,7 @@ export default function ActionButtons({
   onAction,
   onEdit,
   onRemind,
+  deptAccent,
 }: ActionButtonsProps) {
   const minutesPast =
     (new Date().getTime() - new Date(ticket.date).getTime()) / 60000;
@@ -83,7 +85,8 @@ export default function ActionButtons({
         )}
       {user?.role === "Head" && ticket.status === "Pending" && (
         <button
-          className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-green-800"
+          className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
+          style={{ backgroundColor: deptAccent?.color || "#16a34a" }}
           onClick={(e) => {
             e.stopPropagation();
             onAction(ticket.globalId, { status: "In Progress" });

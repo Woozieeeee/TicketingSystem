@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { ArrowLeft, Search, RotateCcw, Clock, Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   view: "list" | "stats";
@@ -25,19 +26,37 @@ const Header: React.FC<HeaderProps> = ({
   setDisplayDate,
   dateInputRef,
 }) => {
+  // Inilipat sa loob ng component body para hindi mag-error
+  const router = useRouter();
+
   return (
     <header className="mb-6 sm:mb-8 animate-fadeIn">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
+        
         {/* LEFT SIDE - TITLE & BACK BUTTON */}
         <div className="flex items-center gap-3 sm:gap-4">
+          {/* Main Dashboard Back Button - only in list view */}
+          {view === "list" && (
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="p-2 sm:p-2.5 border border-slate-200 bg-white rounded-lg hover:bg-slate-100 text-slate-500 transition-all active:scale-95 shadow-sm flex-shrink-0"
+              title="Go back to dashboard"
+            >
+              <ArrowLeft size={16} className="sm:w-5 sm:h-5" />
+            </button>
+          )}
+
+          {/* Toggle View Back Button (only shows when in stats) */}
           {view === "stats" && (
             <button
               onClick={() => setView("list")}
               className="p-2.5 sm:p-3 bg-white border border-slate-200 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95"
+              title="Back to list"
             >
               <ArrowLeft size={20} />
             </button>
           )}
+
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
             {view === "list" ? "Monitoring" : "Performance"}
           </h1>

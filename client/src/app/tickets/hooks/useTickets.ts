@@ -335,7 +335,6 @@ export function useTickets() {
     currentPage,
     ticketsPerPage,
     isCreateModalOpen,
-    categoryFilter,
     filteredByRole,
     sortedTickets,
     currentTickets,
@@ -352,7 +351,6 @@ export function useTickets() {
     setTicketsPerPage,
     setCurrentPage,
     setIsCreateModalOpen,
-    setCategoryFilter,
     // Handlers
     handleRefresh,
     handleSendReminder,

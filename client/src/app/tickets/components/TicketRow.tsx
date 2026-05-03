@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { CheckCircle, PlayCircle, Bell, MoreVertical } from "lucide-react";
 import type { Ticket, User, DeptAccent } from "../types/tickets";
+import ActionButtons from "./ActionButtons";
 
 interface TicketRowProps {
   ticket: Ticket;
@@ -131,65 +131,14 @@ const TicketRow: React.FC<TicketRowProps> = ({
         className="px-2 sm:px-6 py-2.5 sm:py-3 text-right"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-end gap-1 sm:gap-2">
-          {user.role === "Head" && ticket.status === "Pending" && (
-            <button
-              onClick={() => onAction(ticket.globalId, { status: "In Progress" })}
-              className="p-1.5 rounded-lg text-white shadow-sm transition-all active:scale-90"
-              style={{ backgroundColor: deptAccent.color }}
-              title="Start Work"
-            >
-              <PlayCircle size={14} />
-            </button>
-          )}
-
-          {user.role === "Head" &&
-            (ticket.status === "In Progress" || ticket.status === "Resolved") &&
-            !ticket.headMarkedDone && (
-              <button
-                onClick={() => onAction(ticket.globalId, { headMarkedDone: true })}
-                className="p-1.5 bg-emerald-500 text-white rounded-lg shadow-sm transition-all active:scale-90"
-                title="Resolve"
-              >
-                <CheckCircle size={14} />
-              </button>
-            )}
-
-          {user.role === "User" && ticket.status === "Pending" && (
-            <>
-              <button
-                onClick={() => onRemind(ticket.globalId)}
-                className={`p-1.5 rounded-lg shadow-sm transition-all active:scale-90 ${
-                  ticket.reminder_flag
-                    ? "bg-rose-100 text-rose-500 cursor-not-allowed"
-                    : "bg-amber-100 text-amber-600 hover:bg-amber-200"
-                }`}
-                disabled={ticket.reminder_flag}
-                title="Send Reminder"
-              >
-                <Bell size={14} className={ticket.reminder_flag ? "animate-none" : "animate-pulse"} />
-              </button>
-              <button
-                onClick={() => onEdit(ticket)}
-                className="p-1.5 bg-slate-100 text-slate-600 rounded-lg shadow-sm hover:bg-slate-200"
-              >
-                <MoreVertical size={14} />
-              </button>
-            </>
-          )}
-
-          {user.role === "User" &&
-            (ticket.status === "In Progress" || ticket.status === "Resolved") &&
-            !ticket.userMarkedDone && (
-              <button
-                onClick={() => onAction(ticket.globalId, { userMarkedDone: true })}
-                className="p-1.5 bg-emerald-500 text-white rounded-lg shadow-sm transition-all active:scale-90"
-                title="Confirm Done"
-              >
-                <CheckCircle size={14} />
-              </button>
-            )}
-        </div>
+        <ActionButtons
+          ticket={ticket}
+          user={user}
+          onAction={onAction}
+          onEdit={onEdit}
+          onRemind={onRemind}
+          deptAccent={deptAccent}
+        />
       </td>
     </tr>
   );

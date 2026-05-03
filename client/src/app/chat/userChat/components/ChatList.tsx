@@ -2,6 +2,8 @@
 
 import React from "react";
 import { getStatusColor } from "./CustomStyles";
+import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Ticket {
   globalId: string;
@@ -47,20 +49,31 @@ export default function ChatList({
       }
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
-
+const router = useRouter();
   return (
     <div
       className={`${selectedTicket ? "hidden md:flex" : "flex"} w-full md:w-80 bg-slate-50 border-r border-slate-200 flex-col flex-shrink-0 z-20`}
     >
-      {/* Header */}
-      <div className="p-4 md:p-5 border-b border-green-800 bg-green-700 text-white shadow-sm z-10 flex-shrink-0">
-        <h1 className="font-black text-lg md:text-xl tracking-tight">
-          My Support
-        </h1>
-        <p className="text-[10px] text-green-200 uppercase tracking-widest font-semibold mt-0.5">
-          Ticket History
-        </p>
-      </div>
+   {/* Header */}
+<div className="p-4 md:p-5 border-b border-green-800 bg-green-700 text-white shadow-sm z-10 flex-shrink-0">
+  <div className="flex items-center gap-3">
+    <button
+      onClick={() => router.push("/dashboard")}
+      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+      title="Back to dashboard"
+    >
+      <ArrowLeft size={18} />
+    </button>
+    <div>
+      <h1 className="font-black text-lg md:text-xl tracking-tight">
+        My Support
+      </h1>
+      <p className="text-[10px] text-green-200 uppercase tracking-widest font-semibold mt-0.5">
+        Ticket History
+      </p>
+    </div>
+  </div>
+</div>
 
       {/* Tabs */}
       <div className="flex bg-slate-100 border-b border-slate-200 p-2 gap-2 shadow-inner flex-shrink-0">

@@ -385,8 +385,7 @@ export default function UserChatPage() {
   return (
     <>
       <div
-        className="responsive-chat flex flex-col h-[calc(100dvh-60px)] lg:h-[calc(100vh-72px)] bg-white lg:rounded-xl border-t lg:border border-slate-200 shadow-sm overflow-hidden text-slate-900 w-full max-w-[100vw]"
-        style={{ padding: "12px" }}
+        className="flex flex-col h-screen w-full bg-white overflow-hidden text-slate-900"
       >
         <div className="flex flex-1 overflow-hidden relative w-full h-full max-w-full">
           {/* LEFT SIDEBAR - ChatList */}

@@ -5,6 +5,9 @@ import Header from "./components/Header";
 import PersonnelList from "./components/PersonnelList";
 import StatsDashboard from "./components/StatsDashboard";
 import { TeamMember, DashboardView } from "./types/monitoring";
+// 1. IMPORT FRAMER MOTION
+import { motion, AnimatePresence } from "framer-motion"; 
+
 import {
   BarChart,
   Bar,
@@ -25,7 +28,26 @@ import {
   Search,
 } from "lucide-react";
 
-// --- Types ---
+// --- Animation Variants ---
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1, // Ito ang gumagawa ng "staggered" effect
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.4, ease: "easeOut" }
+  },
+};
 
 export default function ITHeadViewDashboard() {
   const [view, setView] = useState<"list" | "stats">("list");
@@ -48,7 +70,6 @@ export default function ITHeadViewDashboard() {
     year: "numeric",
   });
 
-  // Handle Clock and Initial Date
   useEffect(() => {
     setIsMounted(true);
     const updateClock = () => {
@@ -67,7 +88,6 @@ export default function ITHeadViewDashboard() {
     return () => clearInterval(timerId);
   }, [displayDate, todayFormatted]);
 
-  // Update stats dynamically when range or user changes
   useEffect(() => {
     if (selectedUser) setCurrentStats(getStatsForRange());
   }, [selectedUser, timeRange, displayDate]);
@@ -84,44 +104,69 @@ export default function ITHeadViewDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 overflow-x-hidden">
-      {/* 🟢 RESPONSIVE MAIN MARGIN */}
-      <main className="responsive-main transition-all duration-300 ease-in-out bg-slate-50 p-4 sm:p-6 lg:p-8 min-h-screen font-sans">
-        {/* HEADER SECTION */}
-<Header 
-  view={view} 
-  setView={setView} 
-  searchQuery={searchQuery} 
-  setSearchQuery={setSearchQuery}
-  displayDate={displayDate}
-  setDisplayDate={setDisplayDate}
-  liveTime={liveTime}
-  todayFormatted={todayFormatted}
-  dateInputRef={dateInputRef}
-/>
+      {/* 2. WRAP MAIN IN MOTION.DIV FOR INITIAL PAGE FADE-IN */}
+      <motion.main 
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="flex-1 w-full h-screen overflow-hidden bg-slate-50 p-4 sm:p-6"
+      >
+        {/* HEADER SECTION - WRAPPED IN ITEMVARIANTS */}
+        <motion.div variants={itemVariants}>
+          <Header 
+            view={view} 
+            setView={setView} 
+            searchQuery={searchQuery} 
+            setSearchQuery={setSearchQuery}
+            displayDate={displayDate}
+            setDisplayDate={setDisplayDate}
+            liveTime={liveTime}
+            todayFormatted={todayFormatted}
+            dateInputRef={dateInputRef}
+          />
+        </motion.div>
 
-        {/* VIEW 1: PERSONNEL DIRECTORY */}
-        {view === "list" && (
-  <PersonnelList 
-    filteredTeam={filteredTeam} 
-    onUserClick={(user) => {
-      setSelectedUser(user);
-      setView("stats");
-    }} 
-  />
-)}
+        {/* 3. USE ANIMATEPRESENCE FOR SMOOTH VIEW TRANSITIONS */}
+        <AnimatePresence mode="wait">
+          {/* VIEW 1: PERSONNEL DIRECTORY */}
+          {view === "list" && (
+            <motion.div
+              key="list-view"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <PersonnelList 
+                filteredTeam={filteredTeam} 
+                onUserClick={(user) => {
+                  setSelectedUser(user);
+                  setView("stats");
+                }} 
+              />
+            </motion.div>
+          )}
 
-        {/* VIEW 2: STATISTICS & ANALYTICS */}
-        {view === "stats" && selectedUser && (
-  <StatsDashboard 
-    selectedUser={selectedUser}
-    currentStats={currentStats}
-    timeRange={timeRange}
-    setTimeRange={setTimeRange}
-  />
-)}
-      </main>
+          {/* VIEW 2: STATISTICS & ANALYTICS */}
+          {view === "stats" && selectedUser && (
+            <motion.div
+              key="stats-view"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <StatsDashboard 
+                selectedUser={selectedUser}
+                currentStats={currentStats}
+                timeRange={timeRange}
+                setTimeRange={setTimeRange}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.main>
 
-      {/* 🟢 CSS MEDIA QUERIES APPLIED HERE */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
         
@@ -132,27 +177,11 @@ export default function ITHeadViewDashboard() {
         .search-input:focus ~ .search-icon-animated { color: #10b981; }
         .search-input:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
         
-        /* 🟢 RESPONSIVE MARGIN LOGIC */
-        .responsive-main {
-          margin-left: 0px;
-        }
-        
-        @media (min-width: 1024px) {
-          .responsive-main {
-            margin-left: var(--sidebar-width, 256px);
-          }
-        }
+        .responsive-main { margin-left: 0px; }
+        @media (min-width: 1024px) { .responsive-main { margin-left: var(--sidebar-width, 256px); } }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slideUp { animation: slideUp 0.3s ease; }
-        
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fadeIn { animation: fadeIn 0.4s ease both; }
       `}</style>
     </div>
   );
 }
-
-// Fixed spacing and font sizes for mobile
