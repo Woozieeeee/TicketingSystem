@@ -6,7 +6,7 @@ import PersonnelList from "./components/PersonnelList";
 import StatsDashboard from "./components/StatsDashboard";
 import { TeamMember, DashboardView } from "./types/monitoring";
 // 1. IMPORT FRAMER MOTION
-import { motion, AnimatePresence } from "framer-motion"; 
+import { motion, AnimatePresence, Variants } from "framer-motion";
 
 import {
   BarChart,
@@ -28,13 +28,13 @@ import {
   Search,
 } from "lucide-react";
 
-// --- Animation Variants ---
-const containerVariants = {
+// --- Animation Variants (Defined outside to ensure proper scope) ---
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1, // Ito ang gumagawa ng "staggered" effect
+      staggerChildren: 0.1,
       delayChildren: 0.2,
     },
   },
