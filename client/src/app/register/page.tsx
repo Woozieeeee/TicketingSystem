@@ -18,6 +18,16 @@ export default function Register() {
           <RegisterForm />
         </div>
       </motion.div>
+
+      {/* Hide browser's native password reveal button */}
+      <style>{`
+        input::-webkit-credentials-auto-fill-button,
+        input::-ms-reveal {
+          display: none !important;
+          visibility: hidden;
+          pointer-events: none;
+        }
+      `}</style>
     </div>
   );
 }

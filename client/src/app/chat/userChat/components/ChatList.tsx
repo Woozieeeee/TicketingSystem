@@ -7,13 +7,13 @@ import { useRouter } from "next/navigation";
 
 interface Ticket {
   globalId: string;
-  id: number;
+  id: string;
   title: string;
   status: string;
   preview: string;
   category: string;
-  senderName: string;
-  department: string;
+  createdBy: string;
+  dept: string;
   date: string;
   updatedAt: string;
   reminder_flag: number;
@@ -52,118 +52,93 @@ export default function ChatList({
 const router = useRouter();
   return (
     <div
-      className={`${selectedTicket ? "hidden md:flex" : "flex"} w-full md:w-80 bg-slate-50 border-r border-slate-200 flex-col flex-shrink-0 z-20`}
+      className={`${selectedTicket ? "hidden md:flex" : "flex"} w-full md:w-80 bg-white border-r border-amber-200 flex-col shadow-sm flex-shrink-0 z-20`}
     >
-   {/* Header */}
-<div className="p-4 md:p-5 border-b border-green-800 bg-green-700 text-white shadow-sm z-10 flex-shrink-0">
-  <div className="flex items-center gap-3">
-    <button
-      onClick={() => router.push("/dashboard")}
-      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
-      title="Back to dashboard"
-    >
-      <ArrowLeft size={18} />
-    </button>
-    <div>
-      <h1 className="font-black text-lg md:text-xl tracking-tight">
-        My Support
-      </h1>
-      <p className="text-[10px] text-green-200 uppercase tracking-widest font-semibold mt-0.5">
-        Ticket History
-      </p>
-    </div>
-  </div>
-</div>
+      {/* Header */}
+      <div className="p-4 border-b border-amber-200 bg-green-700 text-white shadow-sm z-10 flex-shrink-0">
+        <div className="flex items-center gap-2 mb-1">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="hover:bg-green-800 p-1 rounded-md transition-colors"
+            title="Back to dashboard"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="font-bold text-lg">My Support</h1>
+        </div>
+        <p className="text-[10px] text-green-200 uppercase tracking-widest ml-8">
+          Ticket History
+        </p>
+      </div>
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 border-b border-slate-200 p-2 gap-2 shadow-inner flex-shrink-0">
+      <div className="flex bg-green-50 border-b border-amber-200 p-2 gap-2 flex-shrink-0">
         <button
-          onClick={() => {
-            onSetActiveTab("active");
-          }}
-          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${activeTab === "active" ? "bg-white text-green-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"}`}
+          onClick={() => onSetActiveTab("active")}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === "active" ? "bg-white text-green-700 shadow-sm border border-amber-200" : "text-green-600 hover:bg-green-100"}`}
         >
           Active
         </button>
         <button
-          onClick={() => {
-            onSetActiveTab("archived");
-          }}
-          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 ${activeTab === "archived" ? "bg-white text-slate-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-slate-200 hover:text-slate-700"}`}
+          onClick={() => onSetActiveTab("archived")}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === "archived" ? "bg-white text-green-800 shadow-sm border border-amber-200" : "text-green-600 hover:bg-green-100"}`}
         >
           Archive
         </button>
       </div>
 
       {/* Ticket List */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-2 smooth-scroll">
+      <div className="flex-1 overflow-y-auto smooth-scroll">
         {displayedTickets.length === 0 ? (
-          <div className="py-10 text-center flex flex-col items-center justify-center opacity-60">
-            <span className="text-sm font-semibold text-slate-500">
+          <div className="p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+              <span className="text-xl">🎫</span>
+            </div>
+            <p className="text-green-600 font-medium text-sm">
               No tickets found
-            </span>
+            </p>
           </div>
         ) : (
-          displayedTickets.map((ticket) => {
-            const showReminder = ticket.reminder_flag === 1;
-            const showUnread = ticket.unreadCount > 0;
-            const showBadge =
-              (showReminder || showUnread) && activeTab === "active";
-
-            return (
-              <div
-                key={ticket.globalId}
-                onClick={() => onSelectTicket(ticket)}
-                className={`custom-ticket-item group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer overflow-visible ${
-                  selectedTicket?.globalId === ticket.globalId
-                    ? "bg-white border-green-500 shadow-md ring-1 ring-green-500/20"
-                    : "bg-white border-slate-200 shadow-sm hover:border-green-300 hover:shadow-md"
-                }`}
-              >
-                {/* Badge */}
-                {showBadge && (
-                  <div
-                    className={`absolute -top-2 -right-1 min-w-[20px] h-[20px] px-1 flex items-center justify-center rounded-full text-[10px] font-black text-white z-20 shadow-md cursor-help ${
-                      showReminder && !showUnread
-                        ? "bg-[#ef4444] animate-highlight"
-                        : "bg-[#16a34a]"
-                    }`}
-                    style={{ border: "2px solid white" }}
-                  >
-                    {showUnread ? ticket.unreadCount : "!"}
-
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-[999] animate-popOut pointer-events-none">
-                      <div className="bg-slate-900 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-2xl whitespace-nowrap font-bold border border-slate-700">
-                        {showUnread
-                          ? `${ticket.unreadCount} New Messages`
-                          : "Reminder Sent"}
-                      </div>
-                      <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Ticket Info */}
-                <div className="flex justify-between items-center mb-1.5">
-                  <div className="flex items-center flex-1 min-w-0 mr-2">
-                    <span className="text-[10px] font-black text-slate-400 mr-1.5 flex-shrink-0">
-                      #{ticket.id}
-                    </span>
-                    <h3
-                      className={`text-sm font-bold truncate ${selectedTicket?.globalId === ticket.globalId ? "text-green-700" : "text-slate-800"}`}
-                    >
-                      {ticket.title}
-                    </h3>
-                  </div>
-                  <span
-                    className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border flex-shrink-0 ${getStatusColor(ticket.status)}`}
-                  >
-                    {ticket.status}
-                  </span>
-                </div>
+          displayedTickets.map((ticket) => (
+            <div
+              key={ticket.globalId}
+              onClick={() => onSelectTicket(ticket)}
+              className={`p-4 border-b border-amber-100 cursor-pointer transition-colors ${
+                selectedTicket?.globalId === ticket.globalId
+                  ? "bg-green-50 border-l-4 border-l-green-600"
+                  : "hover:bg-green-50"
+              }`}
+            >
+              {/* ID + Status row */}
+              <div className="flex justify-between items-center mb-1">
+                <p className="font-bold text-sm text-green-800">#{ticket.id}</p>
+                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                  ticket.status === 'Open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {ticket.status}
+                </span>
               </div>
-            );
-          })
+              {/* User */}
+              <p className="text-sm font-medium text-green-900">{ticket.createdBy}</p>
+              {/* Department */}
+              <p className="text-[11px] text-slate-400 truncate">{ticket.dept}</p>
+              {/* Unread/Reminder Badge */}
+              {(ticket.unreadCount > 0 || ticket.reminder_flag === 1) && activeTab === "active" && (
+                <div className="flex items-center gap-2 mt-2">
+                  {ticket.reminder_flag === 1 && (
+                    <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold">
+                      Reminder
+                    </span>
+                  )}
+                  {ticket.unreadCount > 0 && (
+                    <span className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                      {ticket.unreadCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>

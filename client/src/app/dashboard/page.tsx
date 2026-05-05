@@ -114,10 +114,17 @@ export default function RoleBasedDashboard() {
     };
 
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-    
-    // PALITAN MO ITONG LINE SA BABA:
-  }, []); // Sinama ang loadTickets para safe pero stable ito dahil sa useCallback
+
+    // D. AUTO-REFRESH POLLING (Every 5 seconds) - Replaces socket.io
+    const pollInterval = setInterval(() => {
+      loadTickets();
+    }, 5000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(pollInterval);
+    };
+  }, [loadTickets]);
 
   // Dito na magpapatuloy yung filters and return/interface mo...
 

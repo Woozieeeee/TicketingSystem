@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
+import { getAuthHeaders } from "../../../lib/apiClient";
 
 // Components
 import ChatList from "./components/ChatList";
@@ -73,6 +74,7 @@ export default function UserChatPage() {
     try {
       const res = await fetch(
         `${API_URL}/api/tickets?role=User&username=${currentUser.username}`,
+        { headers: getAuthHeaders() },
       );
       if (res.ok) {
         const data = await res.json();
@@ -108,9 +110,16 @@ export default function UserChatPage() {
 
   const fetchMessages = useCallback(async (ticketId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`);
-      if (res.ok) setChatHistory(await res.json());
-    } catch (error: any) {}
+      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatHistory(data);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
   }, []);
 
   const selectTicket = async (ticket: Ticket) => {
@@ -287,7 +296,10 @@ export default function UserChatPage() {
 
       await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
       fetchMessages(selectedTicket.globalId);

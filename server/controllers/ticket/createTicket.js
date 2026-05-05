@@ -32,15 +32,16 @@ module.exports = async (req, res) => {
       });
     }
 
+    // [SOCKET.IO DISABLED] Using HTTP polling instead
     // Real-time trigger
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("ticket_status_changed", {
-        id,
-        status: "PENDING",
-        username: createdBy,
-      });
-    }
+    // const io = req.app.get("io");
+    // if (io) {
+    //   io.emit("ticket_status_changed", {
+    //     id,
+    //     status: "PENDING",
+    //     username: createdBy,
+    //   });
+    // }
 
     return res.status(201).json({
       success: true,

@@ -34,22 +34,23 @@ module.exports = async (req, res) => {
     const sysMsg = `SYS_REMINDER|${ticket.createdBy}`;
     const chatId = await chatModel.saveSystemMessage(id, sysMsg);
 
+    // [SOCKET.IO DISABLED] Using HTTP polling instead
     // Real-time emit
-    const io = req.app.get("io");
-    if (io) {
-      io.to(id).emit("receive_message", {
-        id: chatId,
-        ticketId: id,
-        sender: "System",
-        message: sysMsg,
-        created_at: new Date(),
-      });
-      io.emit("ticket_status_changed", {
-        id,
-        action: "remind",
-        reminder_flag: 1,
-      });
-    }
+    // const io = req.app.get("io");
+    // if (io) {
+    //   io.to(id).emit("receive_message", {
+    //     id: chatId,
+    //     ticketId: id,
+    //     sender: "System",
+    //     message: sysMsg,
+    //     created_at: new Date(),
+    //   });
+    //   io.emit("ticket_status_changed", {
+    //     id,
+    //     action: "remind",
+    //     reminder_flag: 1,
+    //   });
+    // }
 
     return res.status(200).json({
       success: true,

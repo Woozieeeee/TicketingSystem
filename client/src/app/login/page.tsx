@@ -19,6 +19,16 @@ export default function LoginPage() {
           <LoginForm />
         </div>
       </motion.div>
+
+      {/* Hide browser's native password reveal button */}
+      <style>{`
+        input::-webkit-credentials-auto-fill-button,
+        input::-ms-reveal {
+          display: none !important;
+          visibility: hidden;
+          pointer-events: none;
+        }
+      `}</style>
     </div>
   );
 }

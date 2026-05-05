@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL } from "../../../config/api";
+import { getAuthHeaders } from "../../../lib/apiClient";
 import type { Ticket, SortConfig, User } from "../types/tickets";
 
 export function useTickets() {
@@ -62,7 +62,9 @@ export function useTickets() {
       if (currentUser?.dept) params.set("dept", currentUser.dept);
       if (currentUser?.username) params.set("username", currentUser.username);
 
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`);
+      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
 
       if (res.ok) {
         const serverTickets = await res.json();
@@ -109,20 +111,14 @@ export function useTickets() {
     setCurrentPage(1);
   }, [activeTab, searchQuery, categoryFilter, ticketsPerPage]);
 
-  // Initialize user and local data on mount
+  // Initialize user on mount - always fetch fresh data from API
   useEffect(() => {
     setMounted(true);
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      const localData = localStorage.getItem("myTickets");
-      if (localData) {
-        setTickets(JSON.parse(localData));
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
     } else {
       router.push("/login");
     }

@@ -1,4 +1,8 @@
 // server/controllers/socketController.js
+// [SOCKET.IO DISABLED] Using HTTP polling instead
+// All socket handlers are currently disabled
+
+/*
 const socketModel = require("../models/socketModel");
 
 exports.handleStartEdit = (io, socket, data) => {
@@ -24,3 +28,4 @@ exports.handleStopEdit = (io, socket, data) => {
 exports.handleDisconnect = (socket) => {
   console.log(`🔌 Socket disconnected: ${socket.id}`);
 };
+*/

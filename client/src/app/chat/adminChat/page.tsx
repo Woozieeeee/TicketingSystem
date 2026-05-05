@@ -1,29 +1,14 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import ChatList from "../adminChat/components/ChatList";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import ChatList, { Ticket } from "../adminChat/components/ChatList";
 import ChatWindow from "../adminChat/components/ChatWindow";
 import TicketDetails from "../adminChat/components/TicketDetails";
 
 
 // NOTE: You already have this in your original file
 import { API_URL } from "../../../config/api";
-
-interface Ticket {
-  globalId: string;
-  id: number;
-  title: string;
-  user: string;
-  status: string;
-  department: string;
-  category: string;
-  date: string;
-  preview: string;
-  updatedAt: string;
-  reminder_flag: number;
-  unreadCount: number;
-  isTyping?: boolean;
-}
+import { getAuthHeaders } from "../../../lib/apiClient";
 
 export default function Page() {
   // ---------------- STATE ----------------
@@ -47,6 +32,7 @@ export default function Page() {
   const [isOpponentTyping, setIsOpponentTyping] = useState(false);
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   // ---------------- REFS ----------------
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -85,22 +71,43 @@ export default function Page() {
     setMessageInput(e.target.value);
   };
 
-  const handleSend = () => {
-    if (!messageInput.trim()) return;
-
+  const handleSend = async () => {
+    if (!messageInput.trim() || !selectedTicket || isSending) return;
     setIsSending(true);
 
-    const newMessage = {
-      id: Date.now(),
-      sender: "Support Admin",
-      message: messageInput,
+    const currentUsername = user?.username || "Admin";
+    const payload = {
+      sender: currentUsername,
+      message: messageInput.trim(),
       attachment: null,
     };
 
-    setChatHistory((prev) => [...prev, newMessage]);
+    const optimisticMsg = {
+      id: Date.now(),
+      ticketId: selectedTicket.globalId,
+      sender: payload.sender,
+      message: payload.message,
+      attachment: null,
+      created_at: new Date().toISOString(),
+    };
+    setChatHistory((prev) => [...prev, optimisticMsg]);
     setMessageInput("");
 
-    setTimeout(() => setIsSending(false), 300);
+    try {
+      await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      fetchMessages(selectedTicket.globalId);
+    } catch (error) {
+      console.error("Error sending message:", error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const deleteMessage = (id: number) => {
@@ -147,6 +154,131 @@ export default function Page() {
     <audio controls src={src} />
   );
 
+  // ---------------- SELECT TICKET & MARK AS READ ----------------
+  const markAsRead = async (ticketId: string) => {
+    try {
+      await fetch(`${API_URL}/api/chat/${ticketId}/read`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
+  };
+
+  const selectTicket = async (ticket: Ticket) => {
+    // If ticket has unread messages, mark them as read
+    if (ticket.unreadCount > 0) {
+      await markAsRead(ticket.globalId);
+      // Update local state to reset unread count
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.globalId === ticket.globalId ? { ...t, unreadCount: 0 } : t
+        )
+      );
+    }
+    setSelectedTicket(ticket);
+  };
+
+  // ---------------- ACCEPT TICKET FUNCTION ----------------
+  const handleAcceptTicket = async (ticket: any) => {
+    try {
+      // Update ticket status to In Progress
+      const res = await fetch(`${API_URL}/api/tickets/${ticket.globalId}`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "IN_PROGRESS" }),
+      });
+
+      if (res.ok) {
+        // Update local ticket state
+        setTickets((prev) =>
+          prev.map((t) =>
+            t.globalId === ticket.globalId ? { ...t, status: "In Progress" } : t
+          )
+        );
+        // Open the chat
+        setSelectedTicket({ ...ticket, status: "In Progress" });
+      }
+    } catch (error) {
+      console.error("Error accepting ticket:", error);
+    }
+  };
+
+  // ---------------- FETCH FUNCTIONS ----------------
+  const fetchTickets = useCallback(async (userData: any) => {
+    try {
+      const params = new URLSearchParams();
+      if (userData?.role) params.set("role", userData.role);
+      if (userData?.dept) params.set("dept", userData.dept);
+      if (userData?.username) params.set("username", userData.username);
+
+      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      console.log("Tickets API response:", res.status, res.statusText);
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Tickets data:", data);
+        if (Array.isArray(data)) {
+          const transformed = data.map((t: any) => ({
+            ...t,
+            globalId: t.id,
+            activityDate: t.last_reminded_at || t.updatedAt || t.createdAt || t.date,
+            status:
+              t.status === "PENDING" ? "Pending" :
+              t.status === "IN_PROGRESS" ? "In Progress" :
+              t.status === "RESOLVED" ? "Resolved" :
+              t.status === "FINISHED" ? "Finished" : t.status,
+            unreadCount: t.unreadCount || 0,
+          }));
+          setTickets(transformed);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+    }
+  }, []);
+
+  const fetchMessages = useCallback(async (ticketId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        setChatHistory(data);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  }, []);
+
+  // ---------------- USE EFFECTS ----------------
+  // Auto-fetch tickets on mount with polling
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      fetchTickets(parsedUser);
+      const ticketInterval = setInterval(() => fetchTickets(parsedUser), 5000);
+      return () => clearInterval(ticketInterval);
+    }
+  }, [fetchTickets]);
+
+  // Auto-fetch messages when ticket selected with polling
+  useEffect(() => {
+    if (!selectedTicket) return;
+    fetchMessages(selectedTicket.globalId);
+    const messageInterval = setInterval(
+      () => fetchMessages(selectedTicket.globalId),
+      3000
+    );
+    return () => clearInterval(messageInterval);
+  }, [selectedTicket, fetchMessages]);
+
   return (
     <>
       <div className="flex h-screen w-full overflow-hidden">
@@ -154,44 +286,73 @@ export default function Page() {
         <ChatList
           tickets={tickets}
           selectedTicket={selectedTicket}
-          onSelectTicket={setSelectedTicket}
+          onSelectTicket={selectTicket}
+          onAcceptTicket={handleAcceptTicket}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           setSelectedTicket={setSelectedTicket}
         />
 
         {/* MAIN CHAT */}
-        <ChatWindow
-          selectedTicket={selectedTicket}
-          setSelectedTicket={setSelectedTicket}
-          setIsInfoOpen={setIsInfoOpen}
-          chatContainerRef={chatContainerRef}
-          chatHistory={chatHistory}
-          parseAttachment={parseAttachment}
-          getStatusColor={getStatusColor}
-          deleteMessage={deleteMessage}
-          setFullScreenImage={setFullScreenImage}
-          isOpponentTyping={isOpponentTyping}
-          messageInput={messageInput}
-          handleTyping={handleTyping}
-          handleSend={handleSend}
-          isSending={isSending}
-          filePreview={filePreview}
-          fileType={fileType}
-          removeFile={removeFile}
-          isAttachmentMenuOpen={isAttachmentMenuOpen}
-          setIsAttachmentMenuOpen={setIsAttachmentMenuOpen}
-          galleryInputRef={galleryInputRef}
-          videoInputRef={videoInputRef}
-          cameraInputRef={cameraInputRef}
-          handleFileSelect={handleFileSelect}
-          isRecording={isRecording}
-          recordingTime={recordingTime}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
-          formatTime={formatTime}
-          CustomAudioPlayer={CustomAudioPlayer}
-        />
+        {selectedTicket?.status === "Pending" ? (
+          <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+            <div className="text-center p-8">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">
+                Ticket Pending
+              </h3>
+              <p className="text-slate-500 mb-4 max-w-sm">
+                This ticket needs to be accepted before starting the conversation.
+              </p>
+              <button
+                onClick={() => handleAcceptTicket(selectedTicket)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Accept & Start Chat
+              </button>
+            </div>
+          </div>
+        ) : (
+          <ChatWindow
+            selectedTicket={selectedTicket}
+            setSelectedTicket={setSelectedTicket}
+            currentUser={user}
+            setIsInfoOpen={setIsInfoOpen}
+            chatContainerRef={chatContainerRef}
+            chatHistory={chatHistory}
+            parseAttachment={parseAttachment}
+            getStatusColor={getStatusColor}
+            deleteMessage={deleteMessage}
+            setFullScreenImage={setFullScreenImage}
+            isOpponentTyping={isOpponentTyping}
+            messageInput={messageInput}
+            handleTyping={handleTyping}
+            handleSend={handleSend}
+            isSending={isSending}
+            filePreview={filePreview}
+            fileType={fileType}
+            removeFile={removeFile}
+            isAttachmentMenuOpen={isAttachmentMenuOpen}
+            setIsAttachmentMenuOpen={setIsAttachmentMenuOpen}
+            galleryInputRef={galleryInputRef}
+            videoInputRef={videoInputRef}
+            cameraInputRef={cameraInputRef}
+            handleFileSelect={handleFileSelect}
+            isRecording={isRecording}
+            recordingTime={recordingTime}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            formatTime={formatTime}
+            CustomAudioPlayer={CustomAudioPlayer}
+          />
+        )}
 
         {/* RIGHT SIDEBAR */}
         <TicketDetails

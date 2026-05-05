@@ -77,7 +77,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
 
   const showSidebar = !isAuthPage && !isNoSidebar;
-
+  const showNavbar = !isAuthPage;
   const isMessagingPage =
     pathname.startsWith("/messages") ||
     pathname.startsWith("/message") ||
@@ -96,7 +96,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             {showSidebar && <Sidebar user={user} />}
 
             <div className="flex flex-col flex-1 w-full overflow-hidden">
-              <Navbar user={user} />
+              {showNavbar && <Navbar user={user} />}
 
               <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
                 <div className="w-full h-full">{children}</div>

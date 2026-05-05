@@ -45,6 +45,23 @@ const Ticket = {
     const [rows] = await db.query("SELECT * FROM ticket WHERE id = ?", [id]);
     return rows[0];
   },
+
+  getTicketsForUser: async (username) => {
+    try {
+      const sql = `
+        SELECT t.*, u.username as createdBy, u.dept 
+        FROM ticket t 
+        LEFT JOIN user u ON t.userId = u.id 
+        WHERE u.username = ?
+        ORDER BY t.createdAt DESC
+      `;
+      const [rows] = await db.query(sql, [username]);
+      return rows;
+    } catch (err) {
+      console.error("❌ Get Tickets For User Error:", err.message);
+      throw err;
+    }
+  },
 };
 
 module.exports = Ticket;
