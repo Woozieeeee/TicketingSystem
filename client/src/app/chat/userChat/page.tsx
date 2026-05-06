@@ -13,13 +13,13 @@ import { GlobalStyles, formatStatus } from "./components/CustomStyles";
 
 interface Ticket {
   globalId: string;
-  id: number;
+  id: string;
   title: string;
   status: string;
   preview: string;
   category: string;
-  senderName: string;
-  department: string;
+  createdBy: string;
+  dept: string;
   date: string;
   updatedAt: string;
   reminder_flag: number;
@@ -78,15 +78,14 @@ export default function UserChatPage() {
       );
       if (res.ok) {
         const data = await res.json();
-        const formattedTickets = data.map((t: any, index: number) => ({
+        const formattedTickets = data.map((t: any) => ({
+          ...t,
           globalId: t.id,
-          id: index + 1,
-          title: t.title || "No Title",
           status: formatStatus(t.status),
           preview: t.description || "No description...",
           category: t.category || "General",
-          senderName: t.createdBy,
-          department: t.dept,
+          createdBy: t.createdBy,
+          dept: t.dept,
           date: new Date(t.createdAt).toLocaleDateString(),
           updatedAt: t.updatedAt || t.createdAt,
           reminder_flag: t.reminder_flag || 0,

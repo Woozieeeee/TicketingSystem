@@ -6,7 +6,7 @@ import { getStatusColor } from "./CustomStyles";
 
 interface Ticket {
   globalId: string;
-  id: number;
+  id: string;
   title: string;
   status: string;
   category: string;

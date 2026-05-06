@@ -22,11 +22,10 @@ export default function ActionButtons({
 }: ActionButtonsProps) {
   const minutesPast =
     (new Date().getTime() - new Date(ticket.date).getTime()) / 60000;
-  const isOngoing =
-    ticket.status === "In Progress" || ticket.status === "Resolved";
 
   return (
     <div className="flex gap-1 sm:gap-2 items-center justify-end">
+      {/* USER ACTIONS: Edit and Nudge only */}
       {user?.role === "User" &&
         String(ticket.createdBy) === String(user?.username) && (
           <>
@@ -69,32 +68,55 @@ export default function ActionButtons({
                 ) : null}
               </>
             )}
-            {isOngoing && !ticket.userMarkedDone && (
-              <button
-                className="flex items-center gap-0.5 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-emerald-300 text-emerald-600 rounded font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAction(ticket.globalId, { userMarkedDone: true });
-                }}
-              >
-                <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
-                <span>Confirm</span>
-              </button>
-            )}
           </>
         )}
-      {user?.role === "Head" && ticket.status === "Pending" && (
-        <button
-          className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
-          style={{ backgroundColor: deptAccent?.color || "#16a34a" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAction(ticket.globalId, { status: "In Progress" });
-          }}
-        >
-          <PlayCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
-          <span>Accept</span>
-        </button>
+
+      {/* HEAD ACTIONS: Accept and Resolve only */}
+      {user?.role === "Head" && (
+        <>
+          {/* Pag Pending, Accept lang ang button */}
+          {ticket.status === "Pending" && (
+            <button
+              className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
+              style={{ backgroundColor: deptAccent?.color || "#16a34a" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction(ticket.globalId, "In Progress");
+              }}
+            >
+              <PlayCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
+              <span>Accept</span>
+            </button>
+          )}
+
+          {/* Pag In Progress, Resolve lang ang button (Inalis na ang Confirm dito) */}
+          {ticket.status === "In Progress" && (
+            <button
+              className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction(ticket.globalId, "Resolved");
+              }}
+            >
+              <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
+              <span>Resolve</span>
+            </button>
+          )}
+
+          {/* Dito natin ilalagay ang Confirm, lalabas lang siya kapag RESOLVED na ang ticket */}
+          {ticket.status === "Resolved" && !ticket.headMarkedDone && (
+            <button
+              className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction(ticket.globalId, { headMarkedDone: true });
+              }}
+            >
+              <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
+              <span>Finish</span>
+            </button>
+          )}
+        </>
       )}
     </div>
   );
