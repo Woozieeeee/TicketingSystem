@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 // Inayos ang path base sa explorer: components/sidebar/Sidebar.tsx
-import Sidebar from "../components/Sidebar"; 
+import Sidebar from "../components/sidebar"; 
 // Inayos ang path base sa explorer: components/ChatHeadModal/index.tsx
 import ChatHeadModal from "../components/ChatHeadModal";
 import { validateToken, clearAuth } from "../lib/apiClient";
@@ -15,7 +15,7 @@ interface RootLayoutProps {
 }
 
 export default function RootLayout({ children }: RootLayoutProps) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -73,7 +73,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
   }, [pathname, mounted, router]);
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
-  const noSidebarPages = ["/tickets", "/monitoring", "/chat"];
+  // Added userManagement paths to the list of pages that do not render the sidebar
+  const noSidebarPages = ["/tickets", "/monitoring", "/chat", "/userManagement", "/user-management"];
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
 
   const showSidebar = !isAuthPage && !isNoSidebar;

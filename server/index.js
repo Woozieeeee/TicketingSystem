@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const ticketRoutes = require("./routes/ticketRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const userRoutes = require('./routes/users');
 
 const app = express();
 const PORT = 3001;
@@ -30,6 +31,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/users", userRoutes);
 app.get("/", (req, res) => {
   res.send("Backend Server is Running Successfully!");
 });
