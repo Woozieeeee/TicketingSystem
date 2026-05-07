@@ -123,7 +123,7 @@ export default function ActionButtons({
               className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
-                onAction(ticket.globalId, { headMarkedDone: true });
+                onAction(ticket.globalId, { headMarkedDone: true,userMarkedDone: true });
               }}
             >
               <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
