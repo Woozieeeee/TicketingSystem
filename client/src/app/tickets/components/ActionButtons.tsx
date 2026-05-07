@@ -89,21 +89,35 @@ export default function ActionButtons({
             </button>
           )}
 
-          {/* Pag In Progress, Resolve lang ang button (Inalis na ang Confirm dito) */}
+          {/* Pag In Progress, Follow Up at Resolve lang ang button */}
           {ticket.status === "In Progress" && (
-            <button
-              className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAction(ticket.globalId, { status: "Resolved" });
-              }}
-            >
-              <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
-              <span>Resolve</span>
-            </button>
+            <>
+              <button
+                className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-amber-500 hover:bg-amber-600 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction(ticket.globalId, { status: "Follow Up" });
+                }}
+              >
+                <Bell size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
+                <span>Follow Up</span>
+              </button>
+
+              <button
+                className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction(ticket.globalId, { status: "Resolved" });
+                }}
+              >
+                <CheckCircle size={8} className="sm:w-2.5 sm:h-2.5" />{" "}
+                <span>Resolve</span>
+              </button>
+            </>
           )}
 
           {/* Dito natin ilalagay ang Confirm, lalabas lang siya kapag RESOLVED na ang ticket */}
+          
           {ticket.status === "Resolved" && !ticket.headMarkedDone && (
             <button
               className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 transition-colors"

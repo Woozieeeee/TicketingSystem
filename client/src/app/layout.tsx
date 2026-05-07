@@ -73,7 +73,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   }, [pathname, mounted, router]);
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
-  const noSidebarPages = ["/tickets", "/monitoring", "/chat"];
+  const noSidebarPages = ["/tickets", "/monitoring", "/chat","/userManagement"];
   const isNoSidebar = noSidebarPages.some((p) => pathname.startsWith(p));
 
   const showSidebar = !isAuthPage && !isNoSidebar;

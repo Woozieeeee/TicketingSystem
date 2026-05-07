@@ -100,7 +100,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Detailed Description
               </p>
-              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium break-words overflow-hidden">
                 {ticket.description || "No additional details provided."}
               </div>
             </div>
