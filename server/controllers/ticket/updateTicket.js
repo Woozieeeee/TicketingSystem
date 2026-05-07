@@ -45,14 +45,21 @@ module.exports = async (req, res) => {
       isHeadDone = false;
     }
 
-    // Determine status based on done flags
-    if (isUserDone && isHeadDone) {
-      newStatus = "FINISHED";
-    } else if (isUserDone || isHeadDone) {
-      newStatus = "RESOLVED";
-    } else if (newStatus !== "PENDING") {
-      newStatus = "IN_PROGRESS";
+    // Only apply done flags logic if done flags are explicitly provided
+    // Otherwise, respect the direct status update from frontend
+    const doneFlagsProvided = userMarkedDone !== undefined || headMarkedDone !== undefined;
+    
+    if (doneFlagsProvided) {
+      // Determine status based on done flags
+      if (isUserDone && isHeadDone) {
+        newStatus = "FINISHED";
+      } else if (isUserDone || isHeadDone) {
+        newStatus = "RESOLVED";
+      } else if (newStatus !== "PENDING") {
+        newStatus = "IN_PROGRESS";
+      }
     }
+    // If doneFlagsProvided is false, keep the status from req.body (direct status update)
 
     // Update ticket
     await Ticket.update(id, {

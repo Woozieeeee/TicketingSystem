@@ -160,15 +160,22 @@ exports.updateTicket = async (req, res) => {
     let justFinished = false;
     let justResolved = false;
 
-    if (isUserDone && isHeadDone) {
-      newStatus = "FINISHED";
-      if (ticket.status !== "FINISHED") justFinished = true;
-    } else if (isUserDone || isHeadDone) {
-      newStatus = "RESOLVED";
-      if (ticket.status !== "RESOLVED") justResolved = true;
-    } else if (newStatus !== "PENDING") {
-      newStatus = "IN_PROGRESS";
+    // Only apply done flags logic if done flags are explicitly provided
+    // Otherwise, respect the direct status update from frontend
+    const doneFlagsProvided = userMarkedDone !== undefined || headMarkedDone !== undefined;
+    
+    if (doneFlagsProvided) {
+      if (isUserDone && isHeadDone) {
+        newStatus = "FINISHED";
+        if (ticket.status !== "FINISHED") justFinished = true;
+      } else if (isUserDone || isHeadDone) {
+        newStatus = "RESOLVED";
+        if (ticket.status !== "RESOLVED") justResolved = true;
+      } else if (newStatus !== "PENDING") {
+        newStatus = "IN_PROGRESS";
+      }
     }
+    // If doneFlagsProvided is false, keep the status from req.body (direct status update)
 
     const finalUserMarked = isUserDone ? 1 : 0;
     const finalHeadMarked = isHeadDone ? 1 : 0;

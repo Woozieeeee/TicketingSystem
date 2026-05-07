@@ -12,7 +12,7 @@ export function useTickets() {
   const highlightParam = searchParams ? searchParams.get("highlight") : null;
   const filterParam = searchParams ? searchParams.get("filter") : null;
   const glowParam = searchParams ? searchParams.get("glow") : null;
-
+  
   const [user, setUser] = useState<User | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [isGroupGlowing, setIsGroupGlowing] = useState(false);
@@ -33,6 +33,7 @@ export function useTickets() {
   const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
   const [sortConfig] = useState<SortConfig | null>({ key: "id", direction: "asc" });
 
+  const [isUpdating, setIsUpdating] = useState(false);
   // Initialize filter from URL params
   useEffect(() => {
     if (filterParam) {
@@ -74,10 +75,10 @@ export function useTickets() {
           title: t.title,
           description: t.description,
           category: t.category || "General",
-          status: (t.status === "PENDING" || t.status === "Pending") ? "Pending" :
-        (t.status === "IN_PROGRESS" || t.status === "In Progress") ? "In Progress" :
-        (t.status === "RESOLVED" || t.status === "Resolved") ? "Resolved" :
-        (t.status === "FINISHED" || t.status === "Finished") ? "Finished" : t.status,
+          status: t.status?.toUpperCase() === "PENDING" ? "Pending" :
+                  t.status?.toUpperCase() === "IN_PROGRESS" ? "In Progress" :
+                  t.status?.toUpperCase() === "RESOLVED" ? "Resolved" :
+                  t.status?.toUpperCase() === "FINISHED" ? "Finished" : t.status,
           createdBy: t.createdBy || "Unknown",
           dept: t.dept,
           date: t.createdAt || new Date().toISOString(),
@@ -100,11 +101,18 @@ export function useTickets() {
 
   // Auto-fetch tickets when user changes
   useEffect(() => {
-    if (!user) return;
-    fetchTickets(user);
-    const intervalId = setInterval(() => fetchTickets(user), 5000);
-    return () => clearInterval(intervalId);
-  }, [user, fetchTickets]);
+  if (!user) return;
+
+  fetchTickets(user);
+
+  const intervalId = setInterval(() => {
+    if (!isUpdating) {
+      fetchTickets(user);
+    }
+  }, 5000);
+
+  return () => clearInterval(intervalId);
+}, [user, fetchTickets, isUpdating]);
 
   // Reset page on filter changes
   useEffect(() => {
@@ -158,15 +166,15 @@ export function useTickets() {
 
   // Handlers
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchTickets(user);
-    setTimeout(() => setIsRefreshing(false), 600);
-  };
+  setIsRefreshing(true);
+  await fetchTickets(user);
+  setTimeout(() => setIsRefreshing(false), 600);
+};
 
   const handleSendReminder = async (globalId: string | number) => {
     setTickets((prev) =>
       prev.map((t) =>
-        t.globalId === globalId ? { ...t, reminder_flag: true } : t
+        String(t.globalId) === String(globalId) ? { ...t, reminder_flag: true } : t
       )
     );
     try {
@@ -196,12 +204,13 @@ export function useTickets() {
   };
 
   const handleTicketAction = async (globalId: string | number, payload: any) => {
+  setIsUpdating(true);
     // 1. I-normalize ang payload (string man o object)
     const normalizedPayload = typeof payload === "string" ? { status: payload } : payload;
     let finalStatusToDB = "";
 
     const updatedTickets = tickets.map((ticket) => {
-      if (ticket.globalId === globalId) {
+      if (String(ticket.globalId) === String(globalId)) {
         // I-merge ang dating data sa bagong payload
         const t = {
           ...ticket,
@@ -210,16 +219,16 @@ export function useTickets() {
         };
 
         // PRIORIDAD 1: Kung ang mismong payload ay may status (galing sa button click)
-        if (normalizedPayload.status) {
-          t.status = normalizedPayload.status;
-        } 
-        // PRIORIDAD 2: Kung walang status sa payload, gamitin ang checkbox logic
-        else if (t.userMarkedDone && t.headMarkedDone) {
-          t.status = "Finished";
-        } else if (t.userMarkedDone || t.headMarkedDone) {
-          t.status = "Resolved";
-        }
-
+       if (normalizedPayload.status) {
+  // Kung may pinasang status ang button (e.g., "Resolved"), ito ang masusunod.
+  t.status = normalizedPayload.status;
+} 
+else if (t.userMarkedDone && t.headMarkedDone) {
+  t.status = "Finished";
+} 
+else if (t.userMarkedDone || t.headMarkedDone) {
+  t.status = "Resolved";
+}
         // Siguraduhin ang format para sa Database (UPPERCASE)
         finalStatusToDB = t.status.toUpperCase().replace(" ", "_");
 
@@ -238,12 +247,22 @@ export function useTickets() {
     // Update local state agad para lumipat ng tab sa UI
     setTickets(updatedTickets);
     localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
+    if (normalizedPayload.status === "Resolved") {
+  setActiveTab("Resolved");
+}
 
     // Ihanda ang data para sa fetch
-    const dbPayload = { 
-      ...normalizedPayload, 
-      status: finalStatusToDB 
-    };
+    let dbPayload: any = { ...normalizedPayload };
+
+if (normalizedPayload.status) {
+  dbPayload.status = finalStatusToDB;
+} else if (dbPayload.headMarkedDone || dbPayload.userMarkedDone) {
+  // recompute correct status for backend
+  const updatedTicket = updatedTickets.find(t => String(t.globalId) === String(globalId));
+  if (updatedTicket) {
+    dbPayload.status = updatedTicket.status.toUpperCase().replace(" ", "_");
+  }
+}
 
     try {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}`, {
@@ -257,11 +276,13 @@ export function useTickets() {
 
       if (res.ok) {
         handleCloseModal();
-        // Bigyan ng konting delay bago mag-refetch para tapos na ang DB update
-        setTimeout(() => fetchTickets(user), 500);
+        // Don't call fetchTickets here - let the optimistic update persist
+        // The 5-second polling interval will sync with backend eventually
       }
     } catch (error) {
       console.error("Error updating ticket on server:", error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
