@@ -229,6 +229,9 @@ else if (t.userMarkedDone && t.headMarkedDone) {
 else if (t.userMarkedDone || t.headMarkedDone) {
   t.status = "Resolved";
 }
+else if (normalizedPayload.status === "Pending") {
+  setActiveTab("Pending");
+}
         // Siguraduhin ang format para sa Database (UPPERCASE)
         finalStatusToDB = t.status.toUpperCase().replace(" ", "_");
 
