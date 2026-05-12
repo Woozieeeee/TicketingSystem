@@ -141,7 +141,7 @@ const TicketRow: React.FC<TicketRowProps> = ({
         />
       </td>
     </tr>
-  );
+  )
 };
 
 export default TicketRow;

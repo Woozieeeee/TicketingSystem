@@ -9,6 +9,6 @@ router.post("/login", authController.login);
 router.post("/logout", authController.logout);
 
 // 2. Session Validation
-router.get("/validate", validateSession || ((req, res) => res.status(200).send("OK"))); 
+router.get("/validate", validateSession); 
 
 module.exports = router;

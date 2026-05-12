@@ -47,7 +47,11 @@ export function useUsers() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/users`);
+      const response = await fetch(`${API_URL}/api/users`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
       console.log(`Fetching users from: ${API_URL}/api/users, Status: ${response.status}`);
       if (!response.ok) {
         if (response.status === 404) {
@@ -101,6 +105,7 @@ export function useUsers() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify({
           username: name,
@@ -137,6 +142,9 @@ export function useUsers() {
     try {
       const response = await fetch(`${API_URL}/api/users/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
       });
       if (!response.ok) {
         const err = await response.json();
@@ -166,6 +174,7 @@ export function useUsers() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify({
           username: updatedUser.name,

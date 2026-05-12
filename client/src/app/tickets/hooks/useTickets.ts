@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL } from "../../../config/api";
+import { getAuthHeaders } from "../../../lib/apiClient";
 import type { Ticket, SortConfig, User } from "../types/tickets";
 
 export function useTickets() {
@@ -12,7 +12,7 @@ export function useTickets() {
   const highlightParam = searchParams ? searchParams.get("highlight") : null;
   const filterParam = searchParams ? searchParams.get("filter") : null;
   const glowParam = searchParams ? searchParams.get("glow") : null;
-
+  
   const [user, setUser] = useState<User | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [isGroupGlowing, setIsGroupGlowing] = useState(false);
@@ -33,6 +33,7 @@ export function useTickets() {
   const [ticketToEdit, setTicketToEdit] = useState<Ticket | null>(null);
   const [sortConfig] = useState<SortConfig | null>({ key: "id", direction: "asc" });
 
+  const [isUpdating, setIsUpdating] = useState(false);
   // Initialize filter from URL params
   useEffect(() => {
     if (filterParam) {
@@ -62,7 +63,9 @@ export function useTickets() {
       if (currentUser?.dept) params.set("dept", currentUser.dept);
       if (currentUser?.username) params.set("username", currentUser.username);
 
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`);
+      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
 
       if (res.ok) {
         const serverTickets = await res.json();
@@ -72,10 +75,10 @@ export function useTickets() {
           title: t.title,
           description: t.description,
           category: t.category || "General",
-          status: t.status === "PENDING" ? "Pending" :
-                  t.status === "IN_PROGRESS" ? "In Progress" :
-                  t.status === "RESOLVED" ? "Resolved" :
-                  t.status === "FINISHED" ? "Finished" : t.status,
+          status: t.status?.toUpperCase() === "PENDING" ? "Pending" :
+                  t.status?.toUpperCase() === "IN_PROGRESS" ? "In Progress" :
+                  t.status?.toUpperCase() === "RESOLVED" ? "Resolved" :
+                  t.status?.toUpperCase() === "FINISHED" ? "Finished" : t.status,
           createdBy: t.createdBy || "Unknown",
           dept: t.dept,
           date: t.createdAt || new Date().toISOString(),
@@ -98,37 +101,38 @@ export function useTickets() {
 
   // Auto-fetch tickets when user changes
   useEffect(() => {
-    if (!user) return;
-    fetchTickets(user);
-    const intervalId = setInterval(() => fetchTickets(user), 5000);
-    return () => clearInterval(intervalId);
-  }, [user, fetchTickets]);
+  if (!user) return;
+
+  fetchTickets(user);
+
+  const intervalId = setInterval(() => {
+    if (!isUpdating) {
+      fetchTickets(user);
+    }
+  }, 5000);
+
+  return () => clearInterval(intervalId);
+}, [user, fetchTickets, isUpdating]);
 
   // Reset page on filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery, categoryFilter, ticketsPerPage]);
 
-  // Initialize user and local data on mount
+  // Initialize user on mount
   useEffect(() => {
     setMounted(true);
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      const localData = localStorage.getItem("myTickets");
-      if (localData) {
-        setTickets(JSON.parse(localData));
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-      }
+      setIsLoading(true);
     } else {
       router.push("/login");
     }
   }, [router]);
 
-  // Handle body scroll lock when modal open
+  // Handle body scroll lock
   useEffect(() => {
     if (selectedTicket) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "unset";
@@ -160,22 +164,23 @@ export function useTickets() {
     }
   }, [highlightParam, tickets.length, selectedTicket]);
 
-  // Handler functions
+  // Handlers
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchTickets(user);
-    setTimeout(() => setIsRefreshing(false), 600);
-  };
+  setIsRefreshing(true);
+  await fetchTickets(user);
+  setTimeout(() => setIsRefreshing(false), 600);
+};
 
   const handleSendReminder = async (globalId: string | number) => {
     setTickets((prev) =>
       prev.map((t) =>
-        t.globalId === globalId ? { ...t, reminder_flag: true } : t
+        String(t.globalId) === String(globalId) ? { ...t, reminder_flag: true } : t
       )
     );
     try {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}/remind`, {
         method: "PUT",
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         const Swal = (await import("sweetalert2")).default;
@@ -199,59 +204,97 @@ export function useTickets() {
   };
 
   const handleTicketAction = async (globalId: string | number, payload: any) => {
-    let finalStatusToDB = payload.status;
+  setIsUpdating(true);
+    // 1. I-normalize ang payload (string man o object)
+    const normalizedPayload = typeof payload === "string" ? { status: payload } : payload;
+    let finalStatusToDB = "";
+
     const updatedTickets = tickets.map((ticket) => {
-      if (ticket.globalId === globalId) {
+      if (String(ticket.globalId) === String(globalId)) {
+        // I-merge ang dating data sa bagong payload
         const t = {
           ...ticket,
-          ...payload,
+          ...normalizedPayload,
           lastUpdated: new Date().toISOString(),
         };
-        if (payload.status === "Pending") {
+
+        // PRIORIDAD 1: Kung ang mismong payload ay may status (galing sa button click)
+       if (normalizedPayload.status) {
+  // Kung may pinasang status ang button (e.g., "Resolved"), ito ang masusunod.
+  t.status = normalizedPayload.status;
+} 
+else if (t.userMarkedDone && t.headMarkedDone) {
+  t.status = "Finished";
+} 
+else if (t.userMarkedDone || t.headMarkedDone) {
+  t.status = "Resolved";
+}
+else if (normalizedPayload.status === "Pending") {
+  setActiveTab("Pending");
+}
+        // Siguraduhin ang format para sa Database (UPPERCASE)
+        finalStatusToDB = t.status.toUpperCase().replace(" ", "_");
+
+        // Reset markers kung ibinalik sa Pending
+        if (t.status === "Pending") {
           t.userMarkedDone = false;
           t.headMarkedDone = false;
+          finalStatusToDB = "PENDING";
         }
-        if (t.userMarkedDone && t.headMarkedDone && t.status !== "Finished") {
-          t.status = "Finished";
-          finalStatusToDB = "FINISHED";
-        } else if (
-          (t.userMarkedDone || t.headMarkedDone) &&
-          !(t.userMarkedDone && t.headMarkedDone) &&
-          t.status !== "Resolved" &&
-          t.status !== "Pending"
-        ) {
-          t.status = "Resolved";
-          finalStatusToDB = "RESOLVED";
-        }
+
         return t;
       }
       return ticket;
     });
 
+    // Update local state agad para lumipat ng tab sa UI
     setTickets(updatedTickets);
     localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
+    if (normalizedPayload.status === "Resolved") {
+  setActiveTab("Resolved");
+}
 
-    const dbPayload = { ...payload };
-    if (finalStatusToDB) {
-      if (finalStatusToDB === "In Progress") dbPayload.status = "IN_PROGRESS";
-      else if (finalStatusToDB === "Pending") dbPayload.status = "PENDING";
-      else dbPayload.status = finalStatusToDB;
-    }
+    // Ihanda ang data para sa fetch
+    let dbPayload: any = { ...normalizedPayload };
+
+if (normalizedPayload.status) {
+  dbPayload.status = finalStatusToDB;
+} else if (dbPayload.headMarkedDone || dbPayload.userMarkedDone) {
+  // recompute correct status for backend
+  const updatedTicket = updatedTickets.find(t => String(t.globalId) === String(globalId));
+  if (updatedTicket) {
+    dbPayload.status = updatedTicket.status.toUpperCase().replace(" ", "_");
+  }
+}
 
     try {
-      await fetch(`${API_URL}/api/tickets/${globalId}`, {
+      const res = await fetch(`${API_URL}/api/tickets/${globalId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          ...getAuthHeaders(), 
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify(dbPayload),
       });
-      handleCloseModal();
-      fetchTickets(user);
+
+      if (res.ok) {
+        handleCloseModal();
+        // Don't call fetchTickets here - let the optimistic update persist
+        // The 5-second polling interval will sync with backend eventually
+      }
     } catch (error) {
       console.error("Error updating ticket on server:", error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  // Filtering logic
+  const handleStatusUpdate = async (globalId: string | number, newStatus: string) => {
+    // FIX: Redirect to centralized action handler
+    await handleTicketAction(globalId, newStatus);
+  };
+
+  // Filtering & Sorting
   const filteredByRole = tickets.filter((ticket) => {
     if (!user) return false;
     if (user.role === "Head") return ticket.dept === user.dept;
@@ -266,7 +309,8 @@ export function useTickets() {
     } else if (activeTab === "Pending") {
       tabMatch = Boolean(ticket.status === "Pending" && !ticket.reminder_flag);
     } else if (activeTab === "In Progress") {
-      tabMatch = ticket.status === "In Progress" || ticket.status === "Resolved";
+      // FIX: Alisin ang "|| ticket.status === 'Resolved'" dito
+      tabMatch = ticket.status === "In Progress"; 
     } else if (activeTab === "Resolved") {
       tabMatch = ticket.status === "Resolved";
     } else if (activeTab === "All") {
@@ -288,7 +332,6 @@ export function useTickets() {
     return tabMatch && categoryMatch && searchMatch;
   });
 
-  // Sorting logic
   const sortedTickets = [...filteredTickets].sort((a, b) => {
     if (a.reminder_flag && !b.reminder_flag) return -1;
     if (!a.reminder_flag && b.reminder_flag) return 1;
@@ -301,28 +344,23 @@ export function useTickets() {
     return 0;
   });
 
-  // Pagination logic
   const indexOfLastTicket = currentPage * ticketsPerPage;
   const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
   const currentTickets = sortedTickets.slice(indexOfFirstTicket, indexOfLastTicket);
   const totalPages = Math.ceil(sortedTickets.length / ticketsPerPage);
 
-  // Department accent colors
-  const deptAccent =
-    user?.dept === "Nursing"
+  const deptAccent = user?.dept === "Nursing"
       ? { color: "#e11d48", bgTw: "bg-rose-50", colorTw: "text-rose-500" }
       : { color: "#16a34a", bgTw: "bg-green-50", colorTw: "text-green-500" };
 
-  // Available tabs based on role
-  const availableTabs =
-    user?.role === "Head"
+  const availableTabs = user?.role === "Head"
       ? ["All", "Reminders", "Pending", "In Progress", "Resolved", "Finished"]
       : ["All", "Pending", "In Progress", "Resolved", "Finished"];
 
   return {
-    // State
     user,
     tickets,
+    handleStatusUpdate,
     selectedTicket,
     ticketToEdit,
     highlightId,
@@ -343,7 +381,6 @@ export function useTickets() {
     indexOfLastTicket,
     deptAccent,
     availableTabs,
-    // Setters
     setSelectedTicket,
     setTicketToEdit,
     setActiveTab,
@@ -351,7 +388,6 @@ export function useTickets() {
     setTicketsPerPage,
     setCurrentPage,
     setIsCreateModalOpen,
-    // Handlers
     handleRefresh,
     handleSendReminder,
     handleCloseModal,

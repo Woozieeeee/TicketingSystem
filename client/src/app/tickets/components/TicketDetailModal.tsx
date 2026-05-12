@@ -2,22 +2,18 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { X, CheckCircle, PlayCircle, Clock, User as UserIcon, Tag, Calendar } from "lucide-react";
-import type { Ticket, User, DeptAccent } from "../types/tickets";
+import { X, Clock, User as UserIcon, Tag, Calendar } from "lucide-react";
+import type { Ticket, DeptAccent } from "../types/tickets";
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
-  user: User;
   onClose: () => void;
-  onAction: (id: string | number, payload: any) => void;
   deptAccent: DeptAccent;
 }
 
 const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   ticket,
-  user,
   onClose,
-  onAction,
   deptAccent,
 }) => {
   if (!ticket) return null;
@@ -104,7 +100,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Detailed Description
               </p>
-              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium break-words overflow-hidden">
                 {ticket.description || "No additional details provided."}
               </div>
             </div>
@@ -126,38 +122,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row gap-2">
-          <div className="flex-1 flex gap-2">
-            {/* Modal Specific Action Logic */}
-            {user.role === "Head" && ticket.status === "Pending" && (
-              <button
-                onClick={() => onAction(ticket.globalId, { status: "In Progress" })}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-white font-black text-sm transition-all active:scale-95 shadow-md"
-                style={{ backgroundColor: deptAccent.color }}
-              >
-                <PlayCircle size={18} strokeWidth={2.5} /> Start Work
-              </button>
-            )}
-
-            {user.role === "Head" && (ticket.status === "In Progress" || ticket.status === "Resolved") && !ticket.headMarkedDone && (
-              <button
-                onClick={() => onAction(ticket.globalId, { headMarkedDone: true })}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-sm transition-all active:scale-95 shadow-md shadow-emerald-200"
-              >
-                <CheckCircle size={18} strokeWidth={2.5} /> Mark Resolved
-              </button>
-            )}
-
-            {user.role === "User" && (ticket.status === "In Progress" || ticket.status === "Resolved") && !ticket.userMarkedDone && (
-              <button
-                onClick={() => onAction(ticket.globalId, { userMarkedDone: true })}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-sm transition-all active:scale-95 shadow-md shadow-emerald-200"
-              >
-                <CheckCircle size={18} strokeWidth={2.5} /> Confirm Fix
-              </button>
-            )}
-          </div>
-          
+        <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row gap-2 justify-end">
           <button 
             onClick={onClose}
             className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black text-sm transition-all active:scale-95"

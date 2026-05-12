@@ -45,14 +45,21 @@ module.exports = async (req, res) => {
       isHeadDone = false;
     }
 
-    // Determine status based on done flags
-    if (isUserDone && isHeadDone) {
-      newStatus = "FINISHED";
-    } else if (isUserDone || isHeadDone) {
-      newStatus = "RESOLVED";
-    } else if (newStatus !== "PENDING") {
-      newStatus = "IN_PROGRESS";
+    // Only apply done flags logic if done flags are explicitly provided
+    // Otherwise, respect the direct status update from frontend
+    const doneFlagsProvided = userMarkedDone !== undefined || headMarkedDone !== undefined;
+    
+    if (doneFlagsProvided) {
+      // Determine status based on done flags
+      if (isUserDone && isHeadDone) {
+        newStatus = "FINISHED";
+      } else if (isUserDone || isHeadDone) {
+        newStatus = "RESOLVED";
+      } else if (newStatus !== "PENDING") {
+        newStatus = "IN_PROGRESS";
+      }
     }
+    // If doneFlagsProvided is false, keep the status from req.body (direct status update)
 
     // Update ticket
     await Ticket.update(id, {
@@ -80,19 +87,20 @@ module.exports = async (req, res) => {
 
       const chatId = await chatModel.saveSystemMessage(id, sysMsg);
 
+      // [SOCKET.IO DISABLED] Using HTTP polling instead
       // Real-time emit
-      const io = req.app.get("io");
-      if (io) {
-        io.to(id).emit("receive_message", {
-          id: chatId,
-          ticketId: id,
-          sender: "System",
-          message: sysMsg,
-          created_at: new Date(),
-        });
-        io.emit("ticket_status_changed", { id, status: newStatus });
-        io.emit("user_typing_lock", { ticketId: id, username: null });
-      }
+      // const io = req.app.get("io");
+      // if (io) {
+      //   io.to(id).emit("receive_message", {
+      //     id: chatId,
+      //     ticketId: id,
+      //     sender: "System",
+      //     message: sysMsg,
+      //     created_at: new Date(),
+      //   });
+      //   io.emit("ticket_status_changed", { id, status: newStatus });
+      //   io.emit("user_typing_lock", { ticketId: id, username: null });
+      // }
     }
 
     return res.status(200).json({

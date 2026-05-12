@@ -4,7 +4,7 @@ const pool = mysql.createPool({
   host: "localhost",
   user: "root", // The username you set in Workbench
   password: "earl11022003_", // The password you set in Workbench
-  database: "TicketingSystem",
+  database: "ticketingsystem",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

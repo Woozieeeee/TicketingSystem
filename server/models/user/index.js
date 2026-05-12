@@ -8,4 +8,7 @@ module.exports = {
   incrementLoginCount: require("./incrementLoginCount"),
   updateToken: require("./updateToken"),
   clearToken: require("./clearToken"),
+  getAll: require("./getAll"),
+  deleteById: require("./deleteById"),
+  updateById: require("./updateById"),
 };

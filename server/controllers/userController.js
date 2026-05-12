@@ -1,114 +1,158 @@
-// server/controllers/userController.js
-const db = require('../db');
-const bcrypt = require('bcrypt');
-const { v4: uuidv4 } = require('uuid'); // for generating unique IDs
+const userModel = require("../models/user");
+const { v4: uuidv4 } = require("uuid");
 
-exports.getAllUsers = async (req, res) => {
+/**
+ * Get all users
+ */
+const getAllUsers = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, username, role, dept, login_count FROM users');
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: error.message });
+    const users = await userModel.getAll();
+    res.json(users);
+  } catch (err) {
+    console.error("❌ Get Users Error:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 };
 
-exports.getUserById = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [rows] = await db.query('SELECT id, username, role, dept, login_count FROM users WHERE id = ?', [id]);
-    if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
-    res.json(rows[0]);
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.registerUser = async (req, res) => {
+/**
+ * Register a new user
+ */
+const registerUser = async (req, res) => {
   try {
     const { username, password, role, dept } = req.body;
+
     if (!username || !password || !role) {
-      return res.status(400).json({ error: 'username, password and role are required' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const id = uuidv4();
-    const cleanDept = dept ? dept.trim() : 'General';
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if user already exists
+    const existingUser = await userModel.findByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
 
-    await db.query(
-      'INSERT INTO users (id, username, password, role, dept, login_count) VALUES (?, ?, ?, ?, ?, 0)',
-      [id, username, hashedPassword, role, cleanDept],
-    );
+    const userId = uuidv4();
+    const userData = {
+      id: userId,
+      username,
+      password, // Will be hashed in the model
+      role,
+      dept: dept || "General",
+    };
 
-    res.status(201).json({ message: 'User registered successfully', userId: id });
-  } catch (error) {
-    console.error('Error registering user:', error);
-    res.status(500).json({ error: error.message });
+    await userModel.create(userData);
+    res.status(201).json({ userId, message: "User created successfully" });
+  } catch (err) {
+    console.error("❌ Register User Error:", err);
+    res.status(500).json({ error: "Failed to create user" });
   }
 };
 
-exports.updateUser = async (req, res) => {
-  const { id } = req.params;
-  const { username, role, dept } = req.body;
-
-  if (!username || !role) {
-    return res.status(400).json({ error: 'username and role are required' });
-  }
-
+/**
+ * Update user by ID
+ */
+const updateUser = async (req, res) => {
   try {
-    const cleanDept = dept ? dept.trim() : 'General';
-    const [result] = await db.query(
-      'UPDATE users SET username = ?, role = ?, dept = ? WHERE id = ?',
-      [username, role, cleanDept, id],
-    );
+    const { id } = req.params;
+    const { username, role, dept } = req.body;
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    // Check if user exists
+    const existingUser = await userModel.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ message: 'User updated successfully' });
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({ error: error.message });
+    const userData = { username, role, dept };
+    await userModel.updateById(id, userData);
+    res.json({ message: "User updated successfully" });
+  } catch (err) {
+    console.error("❌ Update User Error:", err);
+    res.status(500).json({ error: "Failed to update user" });
   }
 };
 
-exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
+/**
+ * Get user by ID
+ */
+const getUserById = async (req, res) => {
   try {
-    const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    const { id } = req.params;
+    const user = await userModel.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: error.message });
+    res.json(user);
+  } catch (err) {
+    console.error("❌ Get User Error:", err);
+    res.status(500).json({ error: "Failed to fetch user" });
   }
 };
 
-exports.loginUser = async (req, res) => {
+/**
+ * Delete user by ID
+ */
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const existingUser = await userModel.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await userModel.deleteById(id);
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("❌ Delete User Error:", err);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+};
+
+/**
+ * Login user
+ */
+const loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
-    const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
 
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
     }
 
-    const user = rows[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: 'Incorrect password' });
+    const user = await userModel.findByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
+    // Verify password using bcrypt
+    const isValidPassword = await userModel.verifyPassword(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Generate and store auth token
     const token = uuidv4();
-    const tokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+    await userModel.updateToken(user.id, token);
 
-    await db.query('UPDATE users SET auth_token = ?, token_expires = ? WHERE id = ?', [token, tokenExpires, user.id]);
-
-    res.json({ message: 'Login successful', token, userId: user.id });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ error: error.message });
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      dept: user.dept,
+      token,
+    });
+  } catch (err) {
+    console.error("❌ Login User Error:", err);
+    res.status(500).json({ error: "Failed to login user" });
   }
+};
+
+module.exports = {
+  getAllUsers,
+  registerUser,
+  updateUser,
+  deleteUser,
+  getUserById,
+  loginUser,
 };
