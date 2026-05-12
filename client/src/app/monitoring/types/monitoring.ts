@@ -9,6 +9,14 @@ export interface TeamMember {
   role: string;
   trend: number[];
   color: string;
+  // Real user data properties
+  dept?: string;
+  totalTickets?: number;
+  pendingTickets?: number;
+  ongoingTickets?: number;
+  resolvedTickets?: number;
+  loginCount?: number;
+  createdAt?: string;
 }
 
 /**

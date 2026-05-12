@@ -31,6 +31,8 @@ interface StatsDashboardProps {
   };
   timeRange: string;
   setTimeRange: (range: string) => void;
+  userTicketStats?: any[];
+  monitoringStats?: any;
 }
 
 export default function StatsDashboard({
@@ -38,28 +40,44 @@ export default function StatsDashboard({
   currentStats,
   timeRange,
   setTimeRange,
+  userTicketStats,
+  monitoringStats,
 }: StatsDashboardProps) {
+
+  // Find the selected user's actual ticket statistics
+  const selectedUserStats = userTicketStats?.find(user => user.username === selectedUser.name);
+  
+  // Use real data if available, otherwise fall back to placeholder data
+  const userStats = {
+    total_tickets: selectedUserStats?.total_tickets_created || currentStats.pending + currentStats.ongoing + currentStats.resolved,
+    pending_tickets: selectedUserStats?.pending_tickets || currentStats.pending,
+    ongoing_tickets: selectedUserStats?.ongoing_tickets || currentStats.ongoing,
+    resolved_tickets: selectedUserStats?.resolved_tickets || currentStats.resolved,
+    role: selectedUserStats?.role || selectedUser.role,
+    dept: selectedUserStats?.dept || 'Unknown',
+    last_ticket_created: selectedUserStats?.last_ticket_created || null
+  };
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <MetricCard
           label="Pending"
-          value={currentStats.pending}
+          value={userStats.pending_tickets}
           sub="Backlog"
           color="text-slate-500"
           border="border-slate-200"
         />
         <MetricCard
           label="Ongoing"
-          value={currentStats.ongoing}
+          value={userStats.ongoing_tickets}
           sub="In Progress"
           color="text-amber-500"
           border="border-amber-200"
         />
         <MetricCard
           label="Resolved"
-          value={currentStats.resolved}
+          value={userStats.resolved_tickets}
           sub="Completed"
           color="text-emerald-500"
           border="border-emerald-200"
@@ -98,9 +116,9 @@ export default function StatsDashboard({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
-                  { name: "BACKLOG", val: currentStats.pending },
-                  { name: "PROGRESS", val: currentStats.ongoing },
-                  { name: "RESOLVED", val: currentStats.resolved },
+                  { name: "BACKLOG", val: userStats.pending_tickets },
+                  { name: "PROGRESS", val: userStats.ongoing_tickets },
+                  { name: "RESOLVED", val: userStats.resolved_tickets },
                 ]}
                 margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
               >
@@ -154,16 +172,33 @@ export default function StatsDashboard({
               </span>
             </div>
             <h4 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 leading-tight">
-              Log: <br className="hidden lg:block" />
+              User: <br className="hidden lg:block" />
               <span className="text-emerald-600">
                 {selectedUser.name}
               </span>
             </h4>
-            <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider leading-relaxed">
-              User is currently managing {currentStats.ongoing} active
-              tickets. Efficiency rating is stable at 94.2% for the
-              current {timeRange.toLowerCase()} cycle.
-            </p>
+            <div className="space-y-2">
+              <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider">
+                Role: <span className="text-slate-700">{userStats.role}</span>
+              </p>
+              <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider">
+                Department: <span className="text-slate-700">{userStats.dept}</span>
+              </p>
+              <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider">
+                Total Tickets: <span className="text-slate-700">{userStats.total_tickets}</span>
+              </p>
+              <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider leading-relaxed">
+                Currently managing {userStats.ongoing_tickets} active
+                tickets with {userStats.pending_tickets} pending resolution.
+              </p>
+              {userStats.last_ticket_created && (
+                <p className="text-slate-500 text-[10px] sm:text-xs font-medium uppercase tracking-wider">
+                  Last Activity: <span className="text-slate-700">
+                    {new Date(userStats.last_ticket_created).toLocaleDateString()}
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
           <button className="relative z-10 w-full py-3 sm:py-3.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs tracking-widest transition-all uppercase flex items-center justify-center gap-2 active:scale-95 shadow-md">
             <Download size={14} /> Export Dataset

@@ -140,6 +140,34 @@ const User = {
       console.error('❌ Update Token Error:', err.message);
       throw err;
     }
+  },
+
+  // Increment login count for a user
+  incrementLoginCount: async (userId) => {
+    try {
+      const [result] = await db.query(
+        'UPDATE users SET login_count = login_count + 1 WHERE id = ?',
+        [userId]
+      );
+      return result;
+    } catch (err) {
+      console.error('❌ Increment Login Count Error:', err.message);
+      throw err;
+    }
+  },
+
+  // Count users by department
+  countByDept: async (dept) => {
+    try {
+      const [result] = await db.query(
+        'SELECT COUNT(*) as count FROM users WHERE dept = ?',
+        [dept]
+      );
+      return result[0].count;
+    } catch (err) {
+      console.error('❌ Count By Dept Error:', err.message);
+      throw err;
+    }
   }
 };
 

@@ -1,5 +1,5 @@
 // Token Authentication Middleware
-const User = require("../models/user");
+const User = require("../models/user.js");
 const crypto = require("crypto");
 const db = require("../config/db");
 
