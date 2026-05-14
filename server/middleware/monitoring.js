@@ -137,6 +137,18 @@ const logLoginAttempt = async (username, success, ip, userAgent, failureReason =
 const logSecurityEvent = async (event, details = {}) => {
   try {
     console.log(`🛡️ SECURITY EVENT: ${event}`, details);
+
+    // Determine severity based on event type
+    const severityMap = {
+      'FAILED_LOGIN': 'LOW',
+      'BRUTE_FORCE_SUSPECTED': 'CRITICAL',
+      'ROLE_CHANGED': 'HIGH',
+      'USER_DELETED': 'MEDIUM',
+      'PERMISSION_VIOLATION': 'HIGH',
+      'SUSPICIOUS_ACTIVITY': 'HIGH',
+    };
+    const severity = severityMap[event] || 'MEDIUM';
+    const message = details.message || event;
     
     // Try to log to database
     try {
@@ -144,9 +156,9 @@ const logSecurityEvent = async (event, details = {}) => {
         INSERT INTO system_alerts (type, severity, message, details, username)
         VALUES (?, ?, ?, ?, ?)
       `, [
-        'SECURITY_EVENT',
-        'MEDIUM',
         event,
+        severity,
+        message,
         JSON.stringify(details),
         details.username || 'system'
       ]);

@@ -1,5 +1,7 @@
 const userModel = require("../models/user");
 const { v4: uuidv4 } = require("uuid");
+const db = require("../config/db");
+const { logSecurityEvent } = require("../middleware/monitoring");
 
 /**
  * Get all users
@@ -41,6 +43,16 @@ const registerUser = async (req, res) => {
     };
 
     await userModel.create(userData);
+
+    // Log activity
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user?.username || 'system', 'USER_CREATED', 'USER', userId, JSON.stringify({ newUser: username, role, dept: dept || 'General' }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
+      );
+    } catch (logErr) { /* silent */ }
+
     res.status(201).json({ userId, message: "User created successfully" });
   } catch (err) {
     console.error("❌ Register User Error:", err);
@@ -64,6 +76,25 @@ const updateUser = async (req, res) => {
 
     const userData = { username, role, dept };
     await userModel.updateById(id, userData);
+
+    // Log activity + security event for role changes
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user?.username || 'system', 'USER_UPDATED', 'USER', id, JSON.stringify({ targetUser: username, role, dept, previousRole: existingUser.role }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
+      );
+      if (existingUser.role !== role) {
+        await logSecurityEvent('ROLE_CHANGED', {
+          username: req.user?.username || 'system',
+          targetUser: username,
+          previousRole: existingUser.role,
+          newRole: role,
+          message: `Role changed for ${username}: ${existingUser.role} → ${role}`
+        });
+      }
+    } catch (logErr) { /* silent */ }
+
     res.json({ message: "User updated successfully" });
   } catch (err) {
     console.error("❌ Update User Error:", err);
@@ -102,6 +133,22 @@ const deleteUser = async (req, res) => {
     }
 
     await userModel.deleteById(id);
+
+    // Log activity + security event
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user?.username || 'system', 'USER_DELETED', 'USER', id, JSON.stringify({ deletedUser: existingUser.username, role: existingUser.role }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
+      );
+      await logSecurityEvent('USER_DELETED', {
+        username: req.user?.username || 'system',
+        deletedUser: existingUser.username,
+        deletedRole: existingUser.role,
+        message: `User ${existingUser.username} (${existingUser.role}) was deleted`
+      });
+    } catch (logErr) { /* silent */ }
+
     res.json({ message: "User deleted successfully" });
   } catch (err) {
     console.error("❌ Delete User Error:", err);

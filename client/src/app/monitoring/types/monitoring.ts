@@ -31,7 +31,7 @@ export interface TicketStats {
 /**
  * Ang mga posibleng view states ng dashboard.
  */
-export type DashboardView = "list" | "stats";
+export type DashboardView = "list" | "stats" | "activities" | "alerts";
 
 /**
  * Ang mga valid time ranges para sa analytics filtering.

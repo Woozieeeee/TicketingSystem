@@ -1,6 +1,7 @@
 const Ticket = require("../../models/ticket");
 const chatModel = require("../../models/chat");
 const toBool = require("./toBool");
+const db = require("../../config/db");
 
 /**
  * Update ticket
@@ -102,6 +103,16 @@ module.exports = async (req, res) => {
       //   io.emit("user_typing_lock", { ticketId: id, username: null });
       // }
     }
+
+    // Log activity
+    try {
+      const actionType = newStatus !== ticket.status ? 'TICKET_STATUS_CHANGED' : 'TICKET_UPDATED';
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user?.username || 'unknown', actionType, 'TICKET', id, JSON.stringify({ oldStatus: ticket.status, newStatus, title: newTitle }), req.ip, req.get('User-Agent'), req.user?.role || 'User']
+      );
+    } catch (logErr) { /* silent */ }
 
     return res.status(200).json({
       success: true,

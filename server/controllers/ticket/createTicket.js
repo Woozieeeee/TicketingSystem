@@ -1,5 +1,6 @@
 const Ticket = require("../../models/ticket");
 const Notification = require("../../models/notification");
+const db = require("../../config/db");
 
 /**
  * Create a new ticket
@@ -41,6 +42,15 @@ module.exports = async (req, res) => {
         username: createdBy,
       });
     }
+
+    // Log activity
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [createdBy, 'TICKET_CREATED', 'TICKET', id, JSON.stringify({ title, category, dept }), req.ip, req.get('User-Agent'), req.user?.role || 'User']
+      );
+    } catch (logErr) { /* silent */ }
 
     return res.status(201).json({
       success: true,

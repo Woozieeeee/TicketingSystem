@@ -2,6 +2,7 @@
 const db = require("../config/db");
 const bcrypt = require("bcrypt");
 const { generateAndSaveToken } = require("../middleware/authMiddleware");
+const { logLoginAttempt, logSecurityEvent } = require("../middleware/monitoring");
 
 // --- REGISTER ---
 exports.register = async (req, res) => {
@@ -40,6 +41,15 @@ exports.register = async (req, res) => {
 
     console.log(`✅ User ${username} registered as ${assignedRole} for ${cleanDept}`);
 
+    // Log activity
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [username, 'USER_REGISTERED', 'AUTH', JSON.stringify({ role: assignedRole, dept: cleanDept }), req.ip, req.get('User-Agent'), assignedRole]
+      );
+    } catch (logErr) { /* silent */ }
+
     res.status(201).json({
       success: true,
       role: assignedRole,
@@ -60,6 +70,24 @@ exports.login = async (req, res) => {
     const [rows] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
 
     if (rows.length === 0) {
+      await logLoginAttempt(username, false, req.ip, req.get('User-Agent'), 'User not found');
+      await logSecurityEvent('FAILED_LOGIN', { username, reason: 'User not found', ip: req.ip });
+
+      // Check for brute-force: 5+ failed attempts in 15 min
+      try {
+        const [recentFails] = await db.query(
+          `SELECT COUNT(*) as cnt FROM login_attempts
+           WHERE username = ? AND success = FALSE AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)`,
+          [username]
+        );
+        if (recentFails[0].cnt >= 5) {
+          await logSecurityEvent('BRUTE_FORCE_SUSPECTED', {
+            username, attempts: recentFails[0].cnt, ip: req.ip,
+            message: `${recentFails[0].cnt} failed login attempts in 15 minutes`
+          });
+        }
+      } catch (e) { /* silent */ }
+
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
@@ -68,6 +96,24 @@ exports.login = async (req, res) => {
     // 2. Check password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      await logLoginAttempt(username, false, req.ip, req.get('User-Agent'), 'Invalid password');
+      await logSecurityEvent('FAILED_LOGIN', { username, reason: 'Invalid password', ip: req.ip });
+
+      // Check for brute-force
+      try {
+        const [recentFails] = await db.query(
+          `SELECT COUNT(*) as cnt FROM login_attempts
+           WHERE username = ? AND success = FALSE AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)`,
+          [username]
+        );
+        if (recentFails[0].cnt >= 5) {
+          await logSecurityEvent('BRUTE_FORCE_SUSPECTED', {
+            username, attempts: recentFails[0].cnt, ip: req.ip,
+            message: `${recentFails[0].cnt} failed login attempts in 15 minutes`
+          });
+        }
+      } catch (e) { /* silent */ }
+
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
@@ -83,6 +129,16 @@ exports.login = async (req, res) => {
     // 5. GET FRESH DATA
     const [updatedRows] = await db.query("SELECT * FROM users WHERE id = ?", [user.id]);
     const updatedUser = updatedRows[0];
+
+    // Log successful login
+    await logLoginAttempt(updatedUser.username, true, req.ip, req.get('User-Agent'));
+    try {
+      await db.query(
+        `INSERT INTO activity_logs (username, action, resource, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [updatedUser.username, 'LOGIN_SUCCESS', 'AUTH', JSON.stringify({ login_count: updatedUser.login_count }), req.ip, req.get('User-Agent'), updatedUser.role]
+      );
+    } catch (logErr) { /* silent */ }
 
     return res.status(200).json({
       id: updatedUser.id,
@@ -100,6 +156,14 @@ exports.login = async (req, res) => {
 };
 
 // --- LOGOUT ---
-exports.logout = (req, res) => {
+exports.logout = async (req, res) => {
+  const username = req.body?.username || 'unknown';
+  try {
+    await db.query(
+      `INSERT INTO activity_logs (username, action, resource, details, ip_address, user_agent, role)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [username, 'LOGOUT', 'AUTH', JSON.stringify({ timestamp: new Date().toISOString() }), req.ip, req.get('User-Agent'), 'N/A']
+    );
+  } catch (logErr) { /* silent */ }
   return res.status(200).json({ success: true, message: "Logged out successfully" });
 };
