@@ -89,32 +89,55 @@ const getMonitoringStats = async (req, res) => {
     
     console.log('🏢 Department stats:', deptTicketStats.length, 'departments');
 
-    // Create mock data for missing monitoring tables
-    const activeUsers24h = allUsers.filter(user => {
-      const userCreatedDate = new Date(user.createdAt);
-      const now = new Date();
-      const hoursDiff = (now - userCreatedDate) / (1000 * 60 * 60);
-      return hoursDiff <= 24 || user.login_count > 0;
-    });
+    // Get real data from monitoring tables
+    // Get active users in last 24 hours from activity_logs
+    const [activeUsers24hData] = await db.query(`
+      SELECT DISTINCT username
+      FROM activity_logs
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    `);
+    const activeUsers24h = activeUsers24hData.length;
 
-    const topResources24h = [
-      { resource: 'TICKETS', count: ticketStats[0]?.total_tickets || 0 },
-      { resource: 'USERS', count: allUsers.length },
-      { resource: 'LOGIN', count: allUsers.reduce((sum, user) => sum + user.login_count, 0) }
-    ];
+    // Get failed login attempts in last 24 hours
+    const [failedLogins24hData] = await db.query(`
+      SELECT COUNT(*) as count
+      FROM login_attempts
+      WHERE success = FALSE AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+    `);
+    const failedLogins24h = failedLogins24hData[0]?.count || 0;
 
-    const recentSecurityEvents = allUsers
-      .filter(user => user.login_count > 5)
-      .slice(0, 5)
-      .map(user => ({
-        type: 'LOGIN_ACTIVITY',
-        severity: user.login_count > 10 ? 'HIGH' : 'MEDIUM',
-        message: `User ${user.username} has ${user.login_count} logins`,
-        details: { username: user.username, loginCount: user.login_count, role: user.role },
-        username: user.username,
-        resolved: false,
-        created_at: user.createdAt
-      }));
+    // Get top resources accessed in last 24 hours from activity_logs
+    const [topResources24hData] = await db.query(`
+      SELECT 
+        COALESCE(resource, 'UNKNOWN') as resource,
+        COUNT(*) as count
+      FROM activity_logs
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      GROUP BY resource
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    const topResources24h = topResources24hData;
+
+    // Get recent security events from system_alerts
+    const [recentSecurityEventsData] = await db.query(`
+      SELECT 
+        type,
+        severity,
+        message,
+        details,
+        username,
+        resolved,
+        created_at
+      FROM system_alerts
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      ORDER BY created_at DESC
+      LIMIT 10
+    `);
+    const recentSecurityEvents = recentSecurityEventsData.map(alert => ({
+      ...alert,
+      details: alert.details ? JSON.parse(alert.details) : null
+    }));
 
     res.json({
       success: true,
@@ -150,49 +173,73 @@ const getMonitoringStats = async (req, res) => {
   }
 };
 
-// Get activity logs with filtering and pagination (using tickets as activity logs)
+// Get activity logs with filtering and pagination
 const getActivityLogs = async (req, res) => {
   try {
     const {
       username,
+      action,
       limit = 50,
       offset = 0
     } = req.query;
 
     const db = require('../config/db');
     
-    // Use ticket creation as activity logs since activity_logs table doesn't exist yet
     let query = `
       SELECT 
-        t.id,
-        t.createdBy as username,
-        'TICKET_CREATED' as action,
-        'TICKET' as resource,
-        t.id as resource_id,
-        JSON_OBJECT('title', t.title, 'category', t.category, 'status', t.status) as details,
-        u.role,
-        t.createdAt as created_at
-      FROM tickets t
-      JOIN users u ON t.createdBy = u.username
+        id,
+        username,
+        action,
+        resource,
+        resource_id,
+        details,
+        ip_address,
+        user_agent,
+        role,
+        created_at
+      FROM activity_logs
     `;
     
     const params = [];
+    const conditions = [];
     
     if (username) {
-      query += ` WHERE t.createdBy = ?`;
+      conditions.push('username = ?');
       params.push(username);
     }
     
-    query += ` ORDER BY t.createdAt DESC LIMIT ? OFFSET ?`;
+    if (action) {
+      conditions.push('action = ?');
+      params.push(action);
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
     const [activities] = await db.query(query, params);
 
+    // Parse JSON details for each activity
+    const parsedActivities = activities.map(activity => ({
+      ...activity,
+      details: activity.details ? JSON.parse(activity.details) : null
+    }));
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM activity_logs';
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    const [countResult] = await db.query(countQuery, params.slice(0, -2));
+
     res.json({
       success: true,
-      data: activities,
-      total: activities.length,
-      filters: { username, limit, offset }
+      data: parsedActivities,
+      total: countResult[0].total,
+      filters: { username, action, limit, offset }
     });
   } catch (error) {
     console.error('❌ Get Activity Logs Error:', error);
@@ -289,36 +336,81 @@ const getTicketTrends = async (req, res) => {
   }
 };
 
-// Get system alerts (using user login activity as alerts since system_alerts doesn't exist yet)
+// Get system alerts
 const getSystemAlerts = async (req, res) => {
   try {
-    const { limit = 20, offset = 0 } = req.query;
+    const { 
+      severity, 
+      type, 
+      resolved = 'false',
+      limit = 20, 
+      offset = 0 
+    } = req.query;
 
     const db = require('../config/db');
 
-    // Use user login activity as system alerts
-    const [alerts] = await db.query(`
+    let query = `
       SELECT 
         id,
-        'LOGIN_ACTIVITY' as type,
-        CASE WHEN login_count > 10 THEN 'HIGH' 
-             WHEN login_count > 5 THEN 'MEDIUM' 
-             ELSE 'LOW' END as severity,
-        CONCAT('User ', username, ' has ', login_count, ' total logins') as message,
-        JSON_OBJECT('username', username, 'loginCount', login_count, 'role', role) as details,
+        type,
+        severity,
+        message,
+        details,
+        user_id,
         username,
-        FALSE as resolved,
-        createdAt as created_at
-      FROM users 
-      WHERE login_count > 0
-      ORDER BY login_count DESC
-      LIMIT ? OFFSET ?
-    `, [parseInt(limit), parseInt(offset)]);
+        resolved,
+        resolved_by,
+        resolved_at,
+        created_at
+      FROM system_alerts
+    `;
+    
+    const params = [];
+    const conditions = [];
+    
+    if (severity) {
+      conditions.push('severity = ?');
+      params.push(severity);
+    }
+    
+    if (type) {
+      conditions.push('type = ?');
+      params.push(type);
+    }
+    
+    if (resolved === 'true') {
+      conditions.push('resolved = TRUE');
+    } else if (resolved === 'false') {
+      conditions.push('resolved = FALSE');
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const [alerts] = await db.query(query, params);
+
+    // Parse JSON details for each alert
+    const parsedAlerts = alerts.map(alert => ({
+      ...alert,
+      details: alert.details ? JSON.parse(alert.details) : null
+    }));
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM system_alerts';
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    const [countResult] = await db.query(countQuery, params.slice(0, -2));
 
     res.json({
       success: true,
-      data: alerts,
-      total: alerts.length
+      data: parsedAlerts,
+      total: countResult[0].total,
+      filters: { severity, type, resolved, limit, offset }
     });
   } catch (error) {
     console.error('❌ Get System Alerts Error:', error);
@@ -330,20 +422,99 @@ const getSystemAlerts = async (req, res) => {
   }
 };
 
-// Create system alert (placeholder - not implemented yet)
+// Create system alert
 const createSystemAlert = async (req, res) => {
-  res.status(501).json({
-    success: false,
-    error: 'Alert creation not implemented yet'
-  });
+  try {
+    const { type, severity, message, details, username } = req.body;
+    
+    if (!type || !severity || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: type, severity, message'
+      });
+    }
+
+    const db = require('../config/db');
+    
+    const [result] = await db.query(`
+      INSERT INTO system_alerts (type, severity, message, details, username, resolved)
+      VALUES (?, ?, ?, ?, ?, FALSE)
+    `, [
+      type,
+      severity,
+      message,
+      details ? JSON.stringify(details) : null,
+      username || req.user?.username || 'system'
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        id: result.insertId,
+        type,
+        severity,
+        message,
+        details,
+        username: username || req.user?.username || 'system',
+        resolved: false
+      }
+    });
+  } catch (error) {
+    console.error('❌ Create System Alert Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create system alert',
+      message: error.message
+    });
+  }
 };
 
-// Resolve system alert (placeholder - not implemented yet)
+// Resolve system alert
 const resolveSystemAlert = async (req, res) => {
-  res.status(501).json({
-    success: false,
-    error: 'Alert resolution not implemented yet'
-  });
+  try {
+    const { alertId } = req.params;
+    const { resolved_by } = req.body;
+    
+    if (!alertId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing alert ID'
+      });
+    }
+
+    const db = require('../config/db');
+    
+    const [result] = await db.query(`
+      UPDATE system_alerts
+      SET resolved = TRUE, resolved_by = ?, resolved_at = NOW()
+      WHERE id = ?
+    `, [resolved_by || req.user?.username || 'system', alertId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Alert not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Alert resolved successfully',
+      data: {
+        id: alertId,
+        resolved: true,
+        resolved_by: resolved_by || req.user?.username || 'system',
+        resolved_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Resolve System Alert Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to resolve system alert',
+      message: error.message
+    });
+  }
 };
 
 // Get department performance
@@ -382,6 +553,72 @@ const getDepartmentPerformance = async (req, res) => {
   }
 };
 
+// Get performance metrics from system_metrics table
+const getPerformanceMetrics = async (req, res) => {
+  try {
+    const { hours = 24, metric_name } = req.query;
+    
+    const db = require('../config/db');
+    
+    let query = `
+      SELECT 
+        id,
+        metric_name,
+        metric_value,
+        metric_unit,
+        tags,
+        recorded_at
+      FROM system_metrics
+      WHERE recorded_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+    `;
+    
+    const params = [parseInt(hours)];
+    
+    if (metric_name) {
+      query += ` AND metric_name = ?`;
+      params.push(metric_name);
+    }
+    
+    query += ` ORDER BY recorded_at DESC LIMIT 100`;
+    
+    const [metrics] = await db.query(query, params);
+    
+    // Parse JSON tags for each metric
+    const parsedMetrics = metrics.map(metric => ({
+      ...metric,
+      tags: metric.tags ? JSON.parse(metric.tags) : null
+    }));
+    
+    // Get aggregated statistics
+    const [stats] = await db.query(`
+      SELECT 
+        metric_name,
+        COUNT(*) as count,
+        AVG(metric_value) as avg_value,
+        MIN(metric_value) as min_value,
+        MAX(metric_value) as max_value
+      FROM system_metrics
+      WHERE recorded_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+      GROUP BY metric_name
+    `, [parseInt(hours)]);
+
+    res.json({
+      success: true,
+      data: {
+        metrics: parsedMetrics,
+        statistics: stats
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get Performance Metrics Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch performance metrics',
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   getMonitoringStats,
   getActivityLogs,
@@ -390,5 +627,6 @@ module.exports = {
   getSystemAlerts,
   createSystemAlert,
   resolveSystemAlert,
-  getDepartmentPerformance
+  getDepartmentPerformance,
+  getPerformanceMetrics
 };

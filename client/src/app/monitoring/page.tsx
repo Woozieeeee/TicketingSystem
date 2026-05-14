@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { IT_TEAM, getStatsForRange } from "./constants/teamData";
+import { IT_TEAM } from "./constants/teamData";
 import Header from "./components/Header";
 import PersonnelList from "./components/PersonnelList";
 import StatsDashboard from "./components/StatsDashboard";
@@ -96,12 +96,18 @@ export default function ITHeadViewDashboard() {
   }, [displayDate, todayFormatted]);
 
   useEffect(() => {
-    if (selectedUser) setCurrentStats(getStatsForRange());
-  }, [selectedUser, timeRange, displayDate]);
+    if (selectedUser && monitoringStats?.ticketStats) {
+      setCurrentStats({
+        pending: monitoringStats.ticketStats.pending_tickets || 0,
+        ongoing: monitoringStats.ticketStats.ongoing_tickets || 0,
+        resolved: monitoringStats.ticketStats.resolved_tickets || 0,
+      });
+    }
+  }, [selectedUser, timeRange, displayDate, monitoringStats?.ticketStats]);
 
   // Database monitoring functions
   const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
     'Content-Type': 'application/json'
   });
 
@@ -109,7 +115,7 @@ export default function ITHeadViewDashboard() {
   const fetchMonitoringStats = async () => {
     try {
       console.log('🔍 Fetching monitoring stats from:', `${API_URL}/api/monitoring/stats`);
-      console.log('🔑 Auth token exists:', !!localStorage.getItem('authToken'));
+      console.log('🔑 Auth token exists:', !!localStorage.getItem('token'));
       
       const response = await fetch(`${API_URL}/api/monitoring/stats`, {
         headers: getAuthHeaders()

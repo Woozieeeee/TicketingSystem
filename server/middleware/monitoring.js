@@ -78,7 +78,7 @@ const detectSuspiciousActivity = (req, res, next) => {
 const logPerformance = (req, res, next) => {
   const startTime = Date.now();
   
-  res.on('finish', () => {
+  res.on('finish', async () => {
     const duration = Date.now() - startTime;
     const status = res.statusCode;
     
@@ -87,6 +87,27 @@ const logPerformance = (req, res, next) => {
     // Log slow requests (>1000ms)
     if (duration > 1000) {
       console.log(`🐌 SLOW REQUEST: ${req.method} ${req.originalUrl} took ${duration}ms`);
+    }
+    
+    // Store performance metrics in database
+    try {
+      await db.query(`
+        INSERT INTO system_metrics (metric_name, metric_value, metric_unit, tags, recorded_at)
+        VALUES (?, ?, ?, ?, NOW())
+      `, [
+        'request_duration',
+        duration,
+        'ms',
+        JSON.stringify({
+          method: req.method,
+          path: req.originalUrl,
+          status: status,
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        })
+      ]);
+    } catch (dbError) {
+      console.log('📝 Performance logging to DB skipped (table may not exist)');
     }
   });
   

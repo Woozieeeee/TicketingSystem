@@ -10,8 +10,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    // For now, we'll use a simple token validation
-    // In production, you should use JWT or similar
+    // Simple token validation (Replace with JWT for production)
     const user = await userModel.findByToken(token);
     
     if (!user) {
@@ -26,18 +25,23 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Authorization middleware - check if user is Admin or Staff
+/**
+ * Authorization middleware - check if user is Admin, Staff, or Head
+ * This allows the 'Head' role to access routes protected by requireAdminOrStaff
+ */
 const requireAdminOrStaff = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const userRole = req.user.role;
-  if (userRole !== 'Admin' && userRole !== 'Staff') {
-    return res.status(403).json({ error: 'Admin or Staff access required' });
+  const allowedRoles = ['Admin', 'Staff', 'Head'];
+  
+  if (allowedRoles.includes(req.user.role)) {
+    next();
+  } else {
+    // Standardizing JSON response to match your other middleware
+    res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
   }
-
-  next();
 };
 
 // Authorization middleware - check if user is Admin only

@@ -40,19 +40,25 @@ export function useUsers() {
   const [activeTab, setActiveTab] = useState<TabFilter>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [error, setError] = useState<string | null>(null); // Error state
-  const [loading, setLoading] = useState<boolean>(false); // Optional loading state
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const reloadUsers = async () => {
     setLoading(true);
     setError(null);
+  
+    // FIX: Changed 'authToken' to 'token'
+    const token = localStorage.getItem('token'); 
+
     try {
       const response = await fetch(`${API_URL}/api/users`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`
         },
       });
+      
       console.log(`Fetching users from: ${API_URL}/api/users, Status: ${response.status}`);
+      
       if (!response.ok) {
         if (response.status === 404) {
           console.error('Users endpoint not found (404)');
@@ -62,6 +68,7 @@ export function useUsers() {
         }
         throw new Error(`Unable to load users (${response.status})`);
       }
+      
       const data: DbUser[] = await response.json();
       setUsers(data.map(mapDbUserToUi));
     } catch (err) {
@@ -101,11 +108,12 @@ export function useUsers() {
 
   const addUser = async (name: string, email: string, role: User['role']) => {
     try {
+      const token = localStorage.getItem('token'); // FIX: Use 'token'
       const response = await fetch(`${API_URL}/api/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           username: name,
@@ -140,12 +148,14 @@ export function useUsers() {
 
   const deleteUser = async (id: string) => {
     try {
+      const token = localStorage.getItem('token'); // FIX: Use 'token'
       const response = await fetch(`${API_URL}/api/users/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
+      
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err?.error || 'Failed to delete user');
@@ -170,11 +180,12 @@ export function useUsers() {
 
   const editUser = async (updatedUser: User) => {
     try {
+      const token = localStorage.getItem('token'); // FIX: Use 'token'
       const response = await fetch(`${API_URL}/api/users/${updatedUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           username: updatedUser.name,
@@ -219,8 +230,8 @@ export function useUsers() {
     paginatedUsers,
     totalPages,
     tabCount,
-    error, // Expose error state
-    loading, // Optional: expose loading state
+    error,
+    loading,
     addUser,
     deleteUser,
     editUser,

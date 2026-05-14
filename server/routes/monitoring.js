@@ -30,6 +30,9 @@ router.get('/ticket-trends', authenticateToken, requireAdminOrStaff, monitoringC
 // Get department performance
 router.get('/department-performance', authenticateToken, requireAdminOrStaff, monitoringController.getDepartmentPerformance);
 
+// Get performance metrics
+router.get('/performance', authenticateToken, requireAdminOrStaff, monitoringController.getPerformanceMetrics);
+
 // Get system alerts
 router.get('/alerts', authenticateToken, requireAdminOrStaff, monitoringController.getSystemAlerts);
 
