@@ -1,7 +1,7 @@
 const userModel = require("../models/user");
 const { v4: uuidv4 } = require("uuid");
-const db = require("../config/db");
-const { logSecurityEvent } = require("../middleware/monitoring");
+const activity = require("../lib/activityLogger");
+const security = require("../lib/securityAlerts");
 
 /**
  * Get all users
@@ -11,13 +11,13 @@ const getAllUsers = async (req, res) => {
     const users = await userModel.getAll();
     res.json(users);
   } catch (err) {
-    console.error("❌ Get Users Error:", err);
+    console.error("Get Users Error:", err);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 };
 
 /**
- * Register a new user
+ * Register a new user (admin action)
  */
 const registerUser = async (req, res) => {
   try {
@@ -27,7 +27,6 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Check if user already exists
     const existingUser = await userModel.findByUsername(username);
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
@@ -37,25 +36,17 @@ const registerUser = async (req, res) => {
     const userData = {
       id: userId,
       username,
-      password, // Will be hashed in the model
+      password,
       role,
       dept: dept || "General",
     };
 
     await userModel.create(userData);
-
-    // Log activity
-    try {
-      await db.query(
-        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user?.username || 'system', 'USER_CREATED', 'USER', userId, JSON.stringify({ newUser: username, role, dept: dept || 'General' }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
-      );
-    } catch (logErr) { /* silent */ }
+    await activity.userCreated(req, { userId, newUser: username, role, dept: dept || "General" });
 
     res.status(201).json({ userId, message: "User created successfully" });
   } catch (err) {
-    console.error("❌ Register User Error:", err);
+    console.error("Register User Error:", err);
     res.status(500).json({ error: "Failed to create user" });
   }
 };
@@ -68,36 +59,33 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const { username, role, dept } = req.body;
 
-    // Check if user exists
     const existingUser = await userModel.findById(id);
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const userData = { username, role, dept };
-    await userModel.updateById(id, userData);
+    await userModel.updateById(id, { username, role, dept });
 
-    // Log activity + security event for role changes
-    try {
-      await db.query(
-        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user?.username || 'system', 'USER_UPDATED', 'USER', id, JSON.stringify({ targetUser: username, role, dept, previousRole: existingUser.role }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
-      );
-      if (existingUser.role !== role) {
-        await logSecurityEvent('ROLE_CHANGED', {
-          username: req.user?.username || 'system',
-          targetUser: username,
-          previousRole: existingUser.role,
-          newRole: role,
-          message: `Role changed for ${username}: ${existingUser.role} → ${role}`
-        });
-      }
-    } catch (logErr) { /* silent */ }
+    await activity.userUpdated(req, {
+      userId: id,
+      targetUser: username,
+      role,
+      dept,
+      previousRole: existingUser.role,
+    });
+
+    if (existingUser.role !== role) {
+      await security.roleChanged({
+        actor: req.user?.username || "system",
+        targetUser: username,
+        previousRole: existingUser.role,
+        newRole: role,
+      });
+    }
 
     res.json({ message: "User updated successfully" });
   } catch (err) {
-    console.error("❌ Update User Error:", err);
+    console.error("Update User Error:", err);
     res.status(500).json({ error: "Failed to update user" });
   }
 };
@@ -114,7 +102,7 @@ const getUserById = async (req, res) => {
     }
     res.json(user);
   } catch (err) {
-    console.error("❌ Get User Error:", err);
+    console.error("Get User Error:", err);
     res.status(500).json({ error: "Failed to fetch user" });
   }
 };
@@ -126,7 +114,6 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user exists
     const existingUser = await userModel.findById(id);
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
@@ -134,24 +121,21 @@ const deleteUser = async (req, res) => {
 
     await userModel.deleteById(id);
 
-    // Log activity + security event
-    try {
-      await db.query(
-        `INSERT INTO activity_logs (username, action, resource, resource_id, details, ip_address, user_agent, role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.user?.username || 'system', 'USER_DELETED', 'USER', id, JSON.stringify({ deletedUser: existingUser.username, role: existingUser.role }), req.ip, req.get('User-Agent'), req.user?.role || 'Admin']
-      );
-      await logSecurityEvent('USER_DELETED', {
-        username: req.user?.username || 'system',
-        deletedUser: existingUser.username,
-        deletedRole: existingUser.role,
-        message: `User ${existingUser.username} (${existingUser.role}) was deleted`
-      });
-    } catch (logErr) { /* silent */ }
+    await activity.userDeleted(req, {
+      userId: id,
+      deletedUser: existingUser.username,
+      deletedRole: existingUser.role,
+    });
+
+    await security.userDeleted({
+      actor: req.user?.username || "system",
+      deletedUser: existingUser.username,
+      deletedRole: existingUser.role,
+    });
 
     res.json({ message: "User deleted successfully" });
   } catch (err) {
-    console.error("❌ Delete User Error:", err);
+    console.error("Delete User Error:", err);
     res.status(500).json({ error: "Failed to delete user" });
   }
 };
@@ -172,13 +156,11 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Verify password using bcrypt
     const isValidPassword = await userModel.verifyPassword(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Generate and store auth token
     const token = uuidv4();
     await userModel.updateToken(user.id, token);
 
@@ -190,7 +172,7 @@ const loginUser = async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error("❌ Login User Error:", err);
+    console.error("Login User Error:", err);
     res.status(500).json({ error: "Failed to login user" });
   }
 };

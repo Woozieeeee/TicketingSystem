@@ -4,7 +4,10 @@ import { IT_TEAM } from "./constants/teamData";
 import Header from "./components/Header";
 import PersonnelList from "./components/PersonnelList";
 import StatsDashboard from "./components/StatsDashboard";
+import ActivityFeed from "./components/ActivityFeed";
+import AlertsPanel from "./components/AlertsPanel";
 import { TeamMember, DashboardView } from "./types/monitoring";
+import type { ActivityLog, SecurityAlert } from "./types/monitoring";
 import { API_URL } from "../../config/api.js";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
@@ -22,7 +25,6 @@ import {
   User as UserIcon,
   Calendar,
   Clock,
-  ShieldCheck,
   Download,
   RotateCcw,
   Search,
@@ -65,22 +67,10 @@ export default function ITHeadViewDashboard() {
   
   // Database monitoring state
   const [monitoringStats, setMonitoringStats] = useState<any>(null);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activityFilter, setActivityFilter] = useState("ALL");
-  const [alertFilter, setAlertFilter] = useState("ALL");
-
-  const filteredActivities = useMemo(() => {
-    if (activityFilter === "ALL") return activities;
-    return activities.filter(a => a.action === activityFilter);
-  }, [activities, activityFilter]);
-
-  const filteredAlerts = useMemo(() => {
-    if (alertFilter === "ALL") return alerts;
-    return alerts.filter(a => a.severity === alertFilter);
-  }, [alerts, alertFilter]);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
@@ -430,113 +420,11 @@ export default function ITHeadViewDashboard() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={activityFilter}
-                      onChange={(e) => setActivityFilter(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="ALL">All Actions</option>
-                      <option value="LOGIN_SUCCESS">Logins</option>
-                      <option value="LOGOUT">Logouts</option>
-                      <option value="TICKET_CREATED">Tickets Created</option>
-                      <option value="TICKET_STATUS_CHANGED">Status Changes</option>
-                      <option value="TICKET_UPDATED">Ticket Updates</option>
-                      <option value="USER_REGISTERED">Registrations</option>
-                      <option value="USER_CREATED">Users Created</option>
-                      <option value="USER_UPDATED">Users Updated</option>
-                      <option value="USER_DELETED">Users Deleted</option>
-                    </select>
-                    <button
-                      onClick={fetchActivities}
-                      className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-                {loading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin w-8 h-8 border-b-2 border-blue-500 rounded-full mx-auto"></div>
-                    <p className="text-gray-500 mt-2">Loading activities...</p>
-                  </div>
-                ) : filteredActivities.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Clock className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h4 className="text-gray-700 font-medium mb-1">No Activities Yet</h4>
-                    <p className="text-sm text-gray-500">Activities will appear here as users interact with the system.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
-                    {filteredActivities.map((activity, index) => {
-                      const actionConfig: Record<string, { icon: string; color: string; bg: string }> = {
-                        'LOGIN_SUCCESS': { icon: '🔑', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
-                        'LOGOUT': { icon: '🚪', color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200' },
-                        'TICKET_CREATED': { icon: '📝', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-                        'TICKET_STATUS_CHANGED': { icon: '🔄', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
-                        'TICKET_UPDATED': { icon: '✏️', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
-                        'USER_REGISTERED': { icon: '👤', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-                        'USER_CREATED': { icon: '➕', color: 'text-teal-700', bg: 'bg-teal-50 border-teal-200' },
-                        'USER_UPDATED': { icon: '📋', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-                        'USER_DELETED': { icon: '🗑️', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-                        'MONITORING_ACCESS': { icon: '📊', color: 'text-cyan-700', bg: 'bg-cyan-50 border-cyan-200' },
-                      };
-                      const config = actionConfig[activity.action] || { icon: '📌', color: 'text-gray-700', bg: 'bg-gray-50 border-gray-200' };
-
-                      const getDescription = (act: any) => {
-                        const details = act.details;
-                        switch (act.action) {
-                          case 'LOGIN_SUCCESS': return `Logged in successfully (Login #${details?.login_count || '?'})`;
-                          case 'LOGOUT': return 'Logged out of the system';
-                          case 'TICKET_CREATED': return `Created ticket "${details?.title || 'N/A'}" in ${details?.dept || 'N/A'}`;
-                          case 'TICKET_STATUS_CHANGED': return `Changed ticket status: ${details?.oldStatus || '?'} → ${details?.newStatus || '?'}`;
-                          case 'TICKET_UPDATED': return `Updated ticket "${details?.title || 'N/A'}"`;
-                          case 'USER_REGISTERED': return `Registered as ${details?.role || 'User'} in ${details?.dept || 'N/A'}`;
-                          case 'USER_CREATED': return `Created user "${details?.newUser || 'N/A'}" (${details?.role || 'User'})`;
-                          case 'USER_UPDATED': return `Updated user "${details?.targetUser || 'N/A'}"${details?.previousRole !== details?.role ? ` (role: ${details?.previousRole} → ${details?.role})` : ''}`;
-                          case 'USER_DELETED': return `Deleted user "${details?.deletedUser || 'N/A'}" (${details?.role || 'N/A'})`;
-                          default: return `${act.action} - ${act.resource || 'N/A'}`;
-                        }
-                      };
-
-                      return (
-                        <motion.div
-                          key={activity.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.03, duration: 0.2 }}
-                          className={`flex items-start gap-3 p-3.5 rounded-lg border transition-colors hover:shadow-sm ${config.bg}`}
-                        >
-                          <div className="text-xl flex-shrink-0 mt-0.5">{config.icon}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-semibold text-sm ${config.color}`}>{activity.username}</span>
-                              <span className="px-2 py-0.5 text-[10px] font-medium bg-white/70 border border-gray-200 rounded-full text-gray-600">
-                                {activity.role || 'N/A'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700 mt-0.5">{getDescription(activity)}</p>
-                            <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(activity.created_at).toLocaleString()}
-                              </span>
-                              {activity.ip_address && (
-                                <span className="text-gray-400">IP: {activity.ip_address}</span>
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <ActivityFeed
+                activities={activities}
+                loading={loading}
+                onRefresh={fetchActivities}
+              />
             </motion.div>
           )}
 
@@ -549,140 +437,11 @@ export default function ITHeadViewDashboard() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Security Alerts</h3>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={alertFilter}
-                      onChange={(e) => setAlertFilter(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="ALL">All Severities</option>
-                      <option value="CRITICAL">Critical</option>
-                      <option value="HIGH">High</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="LOW">Low</option>
-                    </select>
-                    <button
-                      onClick={fetchAlerts}
-                      className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                {/* Alert Summary Cards */}
-                {alerts.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                    {[
-                      { label: 'Critical', severity: 'CRITICAL', color: 'bg-red-500', textColor: 'text-red-700', bgLight: 'bg-red-50' },
-                      { label: 'High', severity: 'HIGH', color: 'bg-orange-500', textColor: 'text-orange-700', bgLight: 'bg-orange-50' },
-                      { label: 'Medium', severity: 'MEDIUM', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgLight: 'bg-yellow-50' },
-                      { label: 'Low', severity: 'LOW', color: 'bg-blue-500', textColor: 'text-blue-700', bgLight: 'bg-blue-50' },
-                    ].map(({ label, severity, color, textColor, bgLight }) => {
-                      const count = alerts.filter(a => a.severity === severity).length;
-                      return (
-                        <div key={severity} className={`${bgLight} rounded-lg p-3 border border-gray-100`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
-                            <span className="text-xs font-medium text-gray-500">{label}</span>
-                          </div>
-                          <span className={`text-2xl font-bold ${textColor}`}>{count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {loading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin w-8 h-8 border-b-2 border-blue-500 rounded-full mx-auto"></div>
-                    <p className="text-gray-500 mt-2">Loading alerts...</p>
-                  </div>
-                ) : filteredAlerts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ShieldCheck className="w-8 h-8 text-green-500" />
-                    </div>
-                    <h4 className="text-gray-700 font-medium mb-1">All Clear</h4>
-                    <p className="text-sm text-gray-500">No security alerts at this time. The system is operating normally.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[calc(100vh-420px)] overflow-y-auto pr-1">
-                    {filteredAlerts.map((alert, index) => {
-                      const severityConfig: Record<string, { icon: string; border: string; bg: string; badge: string; badgeText: string }> = {
-                        'CRITICAL': { icon: '🔴', border: 'border-red-300', bg: 'bg-red-50', badge: 'bg-red-100', badgeText: 'text-red-800' },
-                        'HIGH': { icon: '🟠', border: 'border-orange-300', bg: 'bg-orange-50', badge: 'bg-orange-100', badgeText: 'text-orange-800' },
-                        'MEDIUM': { icon: '🟡', border: 'border-yellow-300', bg: 'bg-yellow-50', badge: 'bg-yellow-100', badgeText: 'text-yellow-800' },
-                        'LOW': { icon: '🔵', border: 'border-blue-300', bg: 'bg-blue-50', badge: 'bg-blue-100', badgeText: 'text-blue-800' },
-                      };
-                      const config = severityConfig[alert.severity] || severityConfig['LOW'];
-
-                      const typeLabels: Record<string, string> = {
-                        'FAILED_LOGIN': 'Failed Login',
-                        'BRUTE_FORCE_SUSPECTED': 'Brute Force Detected',
-                        'ROLE_CHANGED': 'Role Changed',
-                        'USER_DELETED': 'User Deleted',
-                        'PERMISSION_VIOLATION': 'Permission Violation',
-                        'SECURITY_EVENT': 'Security Event',
-                        'SUSPICIOUS_ACTIVITY': 'Suspicious Activity',
-                      };
-
-                      return (
-                        <motion.div
-                          key={alert.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.03, duration: 0.2 }}
-                          className={`p-4 rounded-lg border-l-4 ${config.border} ${config.bg} transition-colors hover:shadow-sm`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-lg">{config.icon}</span>
-                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${config.badge} ${config.badgeText}`}>
-                                  {alert.severity}
-                                </span>
-                                <span className="px-2 py-0.5 text-[10px] font-medium bg-white border border-gray-200 rounded-full text-gray-600">
-                                  {typeLabels[alert.type] || alert.type}
-                                </span>
-                              </div>
-                              <p className="text-sm font-medium text-gray-900 mt-1">{alert.message}</p>
-                              {alert.details && (
-                                <div className="mt-2 text-xs text-gray-600 bg-white/50 rounded p-2 border border-gray-100">
-                                  {alert.details.username && <span>User: <strong>{alert.details.username}</strong></span>}
-                                  {alert.details.ip && <span className="ml-3">IP: {alert.details.ip}</span>}
-                                  {alert.details.reason && <span className="ml-3">Reason: {alert.details.reason}</span>}
-                                  {alert.details.attempts && <span className="ml-3">Attempts: {alert.details.attempts}</span>}
-                                  {alert.details.previousRole && alert.details.newRole && (
-                                    <span className="ml-3">Role: {alert.details.previousRole} → {alert.details.newRole}</span>
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {new Date(alert.created_at).toLocaleString()}
-                                </span>
-                                {alert.username && alert.username !== 'system' && (
-                                  <span>By: {alert.username}</span>
-                                )}
-                                {alert.resolved && (
-                                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-medium">
-                                    Resolved {alert.resolved_by ? `by ${alert.resolved_by}` : ''}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <AlertsPanel
+                alerts={alerts}
+                loading={loading}
+                onRefresh={fetchAlerts}
+              />
             </motion.div>
           )}
         </AnimatePresence>

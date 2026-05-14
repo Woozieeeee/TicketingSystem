@@ -1,179 +1,155 @@
-const db = require('../config/db');
+/**
+ * Monitoring Middleware
+ *
+ * Express middleware and utility functions for request-level monitoring:
+ *   - logActivity        — middleware: logs the current request as an activity
+ *   - detectSuspiciousActivity — middleware: flags suspicious user-agents / URLs
+ *   - logPerformance     — middleware: records request duration to system_metrics
+ *   - logLoginAttempt    — standalone: records a login attempt to login_attempts
+ *   - logSecurityEvent   — standalone: writes to system_alerts (delegated to securityAlerts service)
+ */
 
-// Log user activities
+const db = require('../config/db');
+const security = require('../lib/securityAlerts');
+
+// ---------------------------------------------------------------------------
+// Middleware: log the current request as a user activity
+// ---------------------------------------------------------------------------
+
 const logActivity = (action, resource = null) => {
-  return async (req, res, next) => {
+  return async (req, _res, next) => {
     try {
-      const user = req.user;
+      const user     = req.user;
       const username = user?.username || 'anonymous';
-      const userId = user?.id || null;
-      const role = user?.role || 'guest';
-      
-      // For now, just log to console since monitoring tables might not exist
-      console.log(`🔍 ACTIVITY: ${username} (${role}) - ${action} - ${resource || 'N/A'}`);
-      
-      // Try to log to database if tables exist
-      try {
-        await db.query(`
-          INSERT INTO activity_logs (username, action, resource, details, ip_address, user_agent, role)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
+      const role     = user?.role     || 'guest';
+
+      await db.query(
+        `INSERT INTO activity_logs
+           (username, action, resource, details, ip_address, user_agent, role)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
           username,
           action,
           resource,
-          JSON.stringify({
-            method: req.method,
-            url: req.originalUrl,
-            timestamp: new Date().toISOString()
-          }),
+          JSON.stringify({ method: req.method, url: req.originalUrl }),
           req.ip,
           req.get('User-Agent'),
-          role
-        ]);
-      } catch (dbError) {
-        // Silently ignore if monitoring tables don't exist
-        console.log('📝 Activity logging to DB skipped (tables may not exist)');
-      }
-      
-      next();
-    } catch (error) {
-      console.error('❌ Activity logging error:', error);
-      next();
+          role,
+        ],
+      );
+    } catch (err) {
+      console.error(`[monitoring] logActivity failed (${action}):`, err.message);
     }
+
+    next();
   };
 };
 
-// Detect suspicious activities
-const detectSuspiciousActivity = (req, res, next) => {
-  try {
-    const user = req.user;
-    const ip = req.ip;
-    const userAgent = req.get('User-Agent');
-    
-    // Simple suspicious activity detection
-    const suspiciousPatterns = [
-      /bot/i,
-      /crawl/i,
-      /scan/i,
-      /sql/i,
-      /script/i
-    ];
-    
-    const isSuspicious = suspiciousPatterns.some(pattern => 
-      pattern.test(userAgent) || pattern.test(req.originalUrl)
-    );
-    
-    if (isSuspicious) {
-      console.log(`🚨 SUSPICIOUS ACTIVITY: ${ip} - ${userAgent}`);
-    }
-    
-    next();
-  } catch (error) {
-    console.error('❌ Suspicious activity detection error:', error);
-    next();
-  }
-};
+// ---------------------------------------------------------------------------
+// Middleware: flag suspicious user-agents / URL patterns
+// ---------------------------------------------------------------------------
 
-// Log performance metrics
-const logPerformance = (req, res, next) => {
-  const startTime = Date.now();
-  
-  res.on('finish', async () => {
-    const duration = Date.now() - startTime;
-    const status = res.statusCode;
-    
-    console.log(`⚡ PERFORMANCE: ${req.method} ${req.originalUrl} - ${status} - ${duration}ms`);
-    
-    // Log slow requests (>1000ms)
-    if (duration > 1000) {
-      console.log(`🐌 SLOW REQUEST: ${req.method} ${req.originalUrl} took ${duration}ms`);
-    }
-    
-    // Store performance metrics in database
-    try {
-      await db.query(`
-        INSERT INTO system_metrics (metric_name, metric_value, metric_unit, tags, recorded_at)
-        VALUES (?, ?, ?, ?, NOW())
-      `, [
-        'request_duration',
-        duration,
-        'ms',
-        JSON.stringify({
-          method: req.method,
-          path: req.originalUrl,
-          status: status,
+const SUSPICIOUS_PATTERNS = [/bot/i, /crawl/i, /scan/i, /sql/i, /script/i];
+
+const detectSuspiciousActivity = (req, _res, next) => {
+  try {
+    const userAgent = req.get('User-Agent') || '';
+    const url       = req.originalUrl      || '';
+
+    const isSuspicious = SUSPICIOUS_PATTERNS.some(
+      (p) => p.test(userAgent) || p.test(url),
+    );
+
+    if (isSuspicious) {
+      security
+        .raise('SUSPICIOUS_ACTIVITY', {
           ip: req.ip,
-          userAgent: req.get('User-Agent')
+          userAgent,
+          url,
+          message: `Suspicious request detected from ${req.ip}`,
         })
-      ]);
-    } catch (dbError) {
-      console.log('📝 Performance logging to DB skipped (table may not exist)');
+        .catch(() => {});
     }
-  });
-  
+  } catch (err) {
+    console.error('[monitoring] detectSuspiciousActivity error:', err.message);
+  }
+
   next();
 };
 
-// Log login attempts
+// ---------------------------------------------------------------------------
+// Middleware: record request duration
+// ---------------------------------------------------------------------------
+
+const SLOW_REQUEST_MS = 1000;
+
+const logPerformance = (req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', async () => {
+    const duration = Date.now() - start;
+
+    if (duration > SLOW_REQUEST_MS) {
+      console.warn(
+        `[monitoring] slow request: ${req.method} ${req.originalUrl} — ${duration}ms`,
+      );
+    }
+
+    try {
+      await db.query(
+        `INSERT INTO system_metrics
+           (metric_name, metric_value, metric_unit, tags, recorded_at)
+         VALUES (?, ?, ?, ?, NOW())`,
+        [
+          'request_duration',
+          duration,
+          'ms',
+          JSON.stringify({
+            method: req.method,
+            path: req.originalUrl,
+            status: res.statusCode,
+          }),
+        ],
+      );
+    } catch (err) {
+      // Best-effort — don't break the response
+    }
+  });
+
+  next();
+};
+
+// ---------------------------------------------------------------------------
+// Standalone: record a login attempt
+// ---------------------------------------------------------------------------
+
 const logLoginAttempt = async (username, success, ip, userAgent, failureReason = null) => {
   try {
-    console.log(`🔐 LOGIN ATTEMPT: ${username} - ${success ? 'SUCCESS' : 'FAILED'} - ${ip}`);
-    
-    // Try to log to database
-    try {
-      await db.query(`
-        INSERT INTO login_attempts (username, success, ip_address, user_agent, failure_reason)
-        VALUES (?, ?, ?, ?, ?)
-      `, [username, success, ip, userAgent, failureReason]);
-    } catch (dbError) {
-      console.log('📝 Login attempt logging to DB skipped (tables may not exist)');
-    }
-  } catch (error) {
-    console.error('❌ Login attempt logging error:', error);
+    await db.query(
+      `INSERT INTO login_attempts
+         (username, success, ip_address, user_agent, failure_reason)
+       VALUES (?, ?, ?, ?, ?)`,
+      [username, success, ip, userAgent, failureReason],
+    );
+  } catch (err) {
+    console.error('[monitoring] logLoginAttempt failed:', err.message);
   }
 };
 
-// Log security events
-const logSecurityEvent = async (event, details = {}) => {
-  try {
-    console.log(`🛡️ SECURITY EVENT: ${event}`, details);
+// ---------------------------------------------------------------------------
+// Standalone: delegate to securityAlerts service (kept for backward compat)
+// ---------------------------------------------------------------------------
 
-    // Determine severity based on event type
-    const severityMap = {
-      'FAILED_LOGIN': 'LOW',
-      'BRUTE_FORCE_SUSPECTED': 'CRITICAL',
-      'ROLE_CHANGED': 'HIGH',
-      'USER_DELETED': 'MEDIUM',
-      'PERMISSION_VIOLATION': 'HIGH',
-      'SUSPICIOUS_ACTIVITY': 'HIGH',
-    };
-    const severity = severityMap[event] || 'MEDIUM';
-    const message = details.message || event;
-    
-    // Try to log to database
-    try {
-      await db.query(`
-        INSERT INTO system_alerts (type, severity, message, details, username)
-        VALUES (?, ?, ?, ?, ?)
-      `, [
-        event,
-        severity,
-        message,
-        JSON.stringify(details),
-        details.username || 'system'
-      ]);
-    } catch (dbError) {
-      console.log('📝 Security event logging to DB skipped (tables may not exist)');
-    }
-  } catch (error) {
-    console.error('❌ Security event logging error:', error);
-  }
-};
+const logSecurityEvent = (event, details = {}) => security.raise(event, details);
+
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
 
 module.exports = {
   logActivity,
   detectSuspiciousActivity,
   logPerformance,
   logLoginAttempt,
-  logSecurityEvent
+  logSecurityEvent,
 };

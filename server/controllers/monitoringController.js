@@ -1,5 +1,27 @@
 const { logSecurityEvent } = require('../middleware/monitoring');
 
+/**
+ * Detect the timestamp column name for a given table.
+ * Checks for 'createdAt', then 'created_at'. Returns null if neither exists.
+ */
+const _tsColCache = {};
+async function getTimestampCol(db, table) {
+  if (table in _tsColCache) return _tsColCache[table];
+  try {
+    const [cols] = await db.query(
+      `SHOW COLUMNS FROM \`${table}\` WHERE Field IN ('createdAt','created_at')`,
+    );
+    if (cols.length > 0) {
+      _tsColCache[table] = cols[0].Field;
+    } else {
+      _tsColCache[table] = null;
+    }
+  } catch {
+    _tsColCache[table] = null;
+  }
+  return _tsColCache[table];
+}
+
 // Get monitoring statistics and analytics
 const getMonitoringStats = async (req, res) => {
   try {
@@ -7,14 +29,18 @@ const getMonitoringStats = async (req, res) => {
 
     // Get database connection
     const db = require('../config/db');
+
+    // Detect column names
+    const uCol = await getTimestampCol(db, 'users');
+    const tCol = await getTimestampCol(db, 'tickets');
     
     console.log('📊 Fetching monitoring stats...');
     
     // Get all users with their login counts
     const [allUsers] = await db.query(`
-      SELECT username, role, login_count, createdAt, dept 
+      SELECT username, role, login_count, ${uCol ? `${uCol} AS createdAt,` : ''} dept 
       FROM users 
-      ORDER BY login_count DESC, createdAt DESC
+      ORDER BY login_count DESC${uCol ? `, ${uCol} DESC` : ''}
     `);
     
     console.log('👥 Users found:', allUsers.length);
@@ -27,7 +53,7 @@ const getMonitoringStats = async (req, res) => {
         COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
         COUNT(CASE WHEN status = 'RESOLVED' THEN 1 END) as resolved_tickets,
         COUNT(CASE WHEN status = 'FINISHED' THEN 1 END) as finished_tickets,
-        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as tickets_today,
+        ${tCol ? `COUNT(CASE WHEN ${tCol} >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END)` : '0'} as tickets_today,
         COUNT(CASE WHEN reminder_flag = 1 THEN 1 END) as pending_reminders
       FROM tickets
     `);
@@ -41,15 +67,15 @@ const getMonitoringStats = async (req, res) => {
         u.role,
         u.dept,
         u.login_count,
-        u.createdAt as account_created,
+        ${uCol ? `u.${uCol} as account_created,` : 'NULL as account_created,'}
         COUNT(t.id) as total_tickets_created,
         COUNT(CASE WHEN t.status = 'PENDING' THEN 1 END) as pending_tickets,
         COUNT(CASE WHEN t.status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
         COUNT(CASE WHEN t.status = 'RESOLVED' THEN 1 END) as resolved_tickets,
-        MAX(t.createdAt) as last_ticket_created
+        ${tCol ? `MAX(t.${tCol}) as last_ticket_created` : 'NULL as last_ticket_created'}
       FROM users u
       LEFT JOIN tickets t ON u.username = t.createdBy
-      GROUP BY u.id, u.username, u.role, u.dept, u.login_count, u.createdAt
+      GROUP BY u.id, u.username, u.role, u.dept, u.login_count${uCol ? `, u.${uCol}` : ''}
       ORDER BY total_tickets_created DESC, u.login_count DESC
       LIMIT 20
     `);
@@ -64,11 +90,11 @@ const getMonitoringStats = async (req, res) => {
         t.status,
         t.createdBy,
         t.dept,
-        t.createdAt,
+        ${tCol ? `t.${tCol} AS createdAt,` : 'NULL AS createdAt,'}
         u.role as user_role
       FROM tickets t
       JOIN users u ON t.createdBy = u.username
-      ORDER BY t.createdAt DESC
+      ORDER BY ${tCol ? `t.${tCol} DESC` : 't.id DESC'}
       LIMIT 10
     `);
     
@@ -136,7 +162,7 @@ const getMonitoringStats = async (req, res) => {
     `);
     const recentSecurityEvents = recentSecurityEventsData.map(alert => ({
       ...alert,
-      details: alert.details ? JSON.parse(alert.details) : null
+      details: alert.details ? (typeof alert.details === "string" ? JSON.parse(alert.details) : alert.details) : null
     }));
 
     res.json({
@@ -225,7 +251,7 @@ const getActivityLogs = async (req, res) => {
     // Parse JSON details for each activity
     const parsedActivities = activities.map(activity => ({
       ...activity,
-      details: activity.details ? JSON.parse(activity.details) : null
+      details: activity.details ? (typeof activity.details === "string" ? JSON.parse(activity.details) : activity.details) : null
     }));
 
     // Get total count
@@ -257,6 +283,8 @@ const getUserTicketStats = async (req, res) => {
     const { username } = req.query;
     
     const db = require('../config/db');
+    const uCol = await getTimestampCol(db, 'users');
+    const tCol = await getTimestampCol(db, 'tickets');
     
     let query = `
       SELECT 
@@ -269,8 +297,8 @@ const getUserTicketStats = async (req, res) => {
         COUNT(CASE WHEN t.status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
         COUNT(CASE WHEN t.status = 'RESOLVED' THEN 1 END) as resolved_tickets,
         COUNT(CASE WHEN t.status = 'FINISHED' THEN 1 END) as finished_tickets,
-        MAX(t.createdAt) as last_ticket_created,
-        u.createdAt as account_created
+        ${tCol ? `MAX(t.${tCol}) as last_ticket_created` : 'NULL as last_ticket_created'},
+        ${uCol ? `u.${uCol} as account_created` : 'NULL as account_created'}
       FROM users u
       LEFT JOIN tickets t ON u.username = t.createdBy
     `;
@@ -282,7 +310,7 @@ const getUserTicketStats = async (req, res) => {
       params.push(username);
     }
     
-    query += ` GROUP BY u.id, u.username, u.role, u.dept, u.login_count, u.createdAt
+    query += ` GROUP BY u.id, u.username, u.role, u.dept, u.login_count${uCol ? `, u.${uCol}` : ''}
       ORDER BY total_tickets_created DESC`;
 
     const [results] = await db.query(query, params);
@@ -308,19 +336,25 @@ const getTicketTrends = async (req, res) => {
     
     const db = require('../config/db');
     
-    const [trends] = await db.query(`
-      SELECT 
-        DATE(createdAt) as date,
-        COUNT(*) as total_tickets,
-        COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_tickets,
-        COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
-        COUNT(CASE WHEN status = 'RESOLVED' THEN 1 END) as resolved_tickets,
-        COUNT(CASE WHEN status = 'FINISHED' THEN 1 END) as finished_tickets
-      FROM tickets 
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-      GROUP BY DATE(createdAt)
-      ORDER BY date ASC
-    `, [parseInt(days)]);
+    const tCol = await getTimestampCol(db, 'tickets');
+
+    let trends = [];
+    if (tCol) {
+      const [rows] = await db.query(`
+        SELECT 
+          DATE(${tCol}) as date,
+          COUNT(*) as total_tickets,
+          COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_tickets,
+          COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
+          COUNT(CASE WHEN status = 'RESOLVED' THEN 1 END) as resolved_tickets,
+          COUNT(CASE WHEN status = 'FINISHED' THEN 1 END) as finished_tickets
+        FROM tickets 
+        WHERE ${tCol} >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        GROUP BY DATE(${tCol})
+        ORDER BY date ASC
+      `, [parseInt(days)]);
+      trends = rows;
+    }
 
     res.json({
       success: true,
@@ -396,7 +430,7 @@ const getSystemAlerts = async (req, res) => {
     // Parse JSON details for each alert
     const parsedAlerts = alerts.map(alert => ({
       ...alert,
-      details: alert.details ? JSON.parse(alert.details) : null
+      details: alert.details ? (typeof alert.details === "string" ? JSON.parse(alert.details) : alert.details) : null
     }));
 
     // Get total count
@@ -521,6 +555,7 @@ const resolveSystemAlert = async (req, res) => {
 const getDepartmentPerformance = async (req, res) => {
   try {
     const db = require('../config/db');
+    const tCol = await getTimestampCol(db, 'tickets');
     
     const [deptPerformance] = await db.query(`
       SELECT 
@@ -530,9 +565,9 @@ const getDepartmentPerformance = async (req, res) => {
         COUNT(CASE WHEN t.status = 'IN_PROGRESS' THEN 1 END) as ongoing_tickets,
         COUNT(CASE WHEN t.status = 'RESOLVED' THEN 1 END) as resolved_tickets,
         COUNT(CASE WHEN t.status = 'FINISHED' THEN 1 END) as finished_tickets,
-        AVG(CASE WHEN t.status IN ('RESOLVED', 'FINISHED') 
-            THEN TIMESTAMPDIFF(HOUR, t.createdAt, t.updatedAt) 
-            ELSE NULL END) as avg_resolution_time_hours,
+        ${tCol ? `AVG(CASE WHEN t.status IN ('RESOLVED', 'FINISHED') 
+            THEN TIMESTAMPDIFF(HOUR, t.${tCol}, t.updatedAt) 
+            ELSE NULL END)` : 'NULL'} as avg_resolution_time_hours,
         COUNT(DISTINCT t.createdBy) as unique_users
       FROM tickets t
       GROUP BY t.dept
@@ -586,7 +621,7 @@ const getPerformanceMetrics = async (req, res) => {
     // Parse JSON tags for each metric
     const parsedMetrics = metrics.map(metric => ({
       ...metric,
-      tags: metric.tags ? JSON.parse(metric.tags) : null
+      tags: metric.tags ? (typeof metric.tags === "string" ? JSON.parse(metric.tags) : metric.tags) : null
     }));
     
     // Get aggregated statistics
