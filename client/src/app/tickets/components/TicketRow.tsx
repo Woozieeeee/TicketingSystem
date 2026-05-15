@@ -16,6 +16,9 @@ interface TicketRowProps {
   onEdit: (ticket: Ticket) => void;
   getStatusData: (status: string) => { bg: string; border: string; text: string; dot: string };
   deptAccent: DeptAccent;
+  isSelected: boolean;
+  onSelectToggle: (globalId: string | number) => void;
+  showCheckbox: boolean;
 }
 
 const TicketRow: React.FC<TicketRowProps> = ({
@@ -30,6 +33,10 @@ const TicketRow: React.FC<TicketRowProps> = ({
   onEdit,
   getStatusData,
   deptAccent,
+  // FIXED: Destructured these missing props
+  isSelected,
+  onSelectToggle,
+  showCheckbox,
 }) => {
   const isHighlighted = highlightId === String(ticket.globalId);
   const hasIConfirmed =
@@ -77,8 +84,20 @@ const TicketRow: React.FC<TicketRowProps> = ({
       onClick={() => onSelect(ticket)}
       className={`group transition-all duration-300 cursor-pointer border-l-[3px] hover:bg-slate-50 ${borderClass} ${rowAnimationClass} ${
         hasIConfirmed && ticket.status === "Resolved" ? "opacity-60 bg-slate-50/50" : ""
-      }`}
+      } ${isSelected ? "bg-rose-50/30" : ""}`} // Added a subtle background when selected
     >
+      {/* FIXED: Moved to the very top to match the header order */}
+      {showCheckbox && (
+        <td className="px-2 sm:px-6 py-2.5 sm:py-3" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onSelectToggle(ticket.globalId)}
+            className="w-4 h-4 rounded border-slate-300 accent-rose-500 cursor-pointer"
+          />
+        </td>
+      )}
+
       {user.role === "Head" && (
         <td className="px-2 sm:px-6 py-2.5 sm:py-3">
           <div className="flex flex-col">
@@ -91,6 +110,7 @@ const TicketRow: React.FC<TicketRowProps> = ({
           </div>
         </td>
       )}
+
       <td className="px-2 sm:px-6 py-2.5 sm:py-3">
         <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full bg-slate-100 text-slate-500 text-[7px] sm:text-[10px] font-black uppercase tracking-widest">
           {ticket.category?.slice(0, 8)}
@@ -141,7 +161,7 @@ const TicketRow: React.FC<TicketRowProps> = ({
         />
       </td>
     </tr>
-  )
+  );
 };
 
 export default TicketRow;

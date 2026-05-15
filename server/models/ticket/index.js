@@ -8,4 +8,5 @@ module.exports = {
   update: require("./update"),
   updateReminderStatus: require("./updateReminderStatus"),
   getDepartmentHeads: require("./getDepartmentHeads"),
+  deleteTicket: require("./deleteTIckets"),
 };

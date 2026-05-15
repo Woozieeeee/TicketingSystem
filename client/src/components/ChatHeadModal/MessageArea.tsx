@@ -1,7 +1,7 @@
-import React from "react"; 
+import React from "react";
 import { motion } from "framer-motion";
 import { Trash2, Ban } from "lucide-react";
-import { CustomAudioPlayer } from "./CustomAudioPlayer";
+import { CustomAudioPlayer, parseAttachment } from "./CustomStyles";
 
 interface MessageAreaProps {
   messages: any[];
@@ -10,7 +10,6 @@ interface MessageAreaProps {
   chatContainerRef: React.RefObject<HTMLDivElement | null>; 
   deleteMessage: (id: any) => void;
   setFullScreenImage: (src: string | null) => void;
-  parseAttachment: (attachmentStr: string | null | undefined) => { type: string | null; src: string | null };
 }
 
 export const MessageArea = ({
@@ -20,54 +19,49 @@ export const MessageArea = ({
   chatContainerRef,
   deleteMessage,
   setFullScreenImage,
-  parseAttachment,
 }: MessageAreaProps) => {
-
   return (
     <div
       ref={chatContainerRef}
-      className="flex-1 p-3 sm:p-4 overflow-y-auto bg-gray-50/50 z-10 relative flex flex-col-reverse gap-4"
+      className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
     >
       {[...messages].reverse().map((msg) => {
-        const isSystemMsg =
-          msg.sender?.toLowerCase() === "system" ||
-          msg.message?.toLowerCase().startsWith("system:");
-
-        if (isSystemMsg) {
-          const displayMessage = msg.message.replace(/^System:\s*/i, "");
+        const isSystemMsg = msg.sender === "System";
+        if (isSystemMsg)
           return (
-            <div key={msg.id} className="flex justify-center my-2 w-full">
-              <span className="bg-white text-gray-500 text-[10px] sm:text-[11px] px-4 py-1.5 rounded-full font-medium border border-gray-200 shadow-sm text-center max-w-[90%]">
-                {displayMessage}
-              </span>
+            <div
+              key={msg.id}
+              className="text-center text-xs text-gray-400 my-2"
+            >
+              {msg.message}
             </div>
           );
-        }
 
-        const isMe =
-          user.role === "Head"
-            ? msg.sender !== activeTicket?.user
-            : msg.sender === user.username;
+        const isMe = msg.sender === user?.username;
         const isDeleted = msg.message === "[DELETED]";
-        const { type: attachType, src: attachSrc } = parseAttachment(msg.attachment);
+        const { type: attachType, src: attachSrc } = parseAttachment(
+          msg.attachment,
+        );
 
         return (
           <div
             key={msg.id}
-            className={`flex items-center group gap-2 ${isMe ? "justify-end" : "justify-start"} w-full`}
+            className={`flex group items-end ${isMe ? "justify-end gap-2" : "justify-start gap-2"} w-full mt-4`}
           >
-            {/* Delete Button */}
-            {isMe && activeTicket?.status !== "Finished" && !isDeleted && (
-              <button
-                onClick={() => deleteMessage(msg.id)}
-                className="opacity-0 group-hover:opacity-100 transition-all p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0"
-                title="Delete message"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-
-            <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[85%] sm:max-w-[80%]`}>
+            {isMe &&
+              activeTicket?.status !== "Finished" &&
+              !isDeleted && (
+                <button
+                  onClick={() => deleteMessage(msg.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0"
+                  title="Delete message"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            <div
+              className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[80%] md:max-w-md`}
+            >
               {!isMe && (
                 <span className="text-[10px] font-bold text-gray-400 ml-1 mb-1">
                   {msg.sender}
@@ -76,52 +70,40 @@ export const MessageArea = ({
 
               {isDeleted ? (
                 <div
-                  className={`p-2.5 px-4 rounded-2xl shadow-sm text-[11px] italic flex items-center gap-1.5 ${
-                    isMe 
-                      ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" 
-                      : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"
-                  }`}
+                  className={`p-2.5 px-4 rounded-2xl shadow-sm text-[11px] italic flex items-center gap-1.5 ${isMe ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"}`}
                 >
-                  <Ban size={12} className="opacity-70" /> {isMe ? "You" : msg.sender} deleted a message
+                  <Ban size={12} className="opacity-70" />{" "}
+                  {isMe ? "You" : msg.sender} deleted a message
                 </div>
               ) : (
-                <motion.div
-                  initial={{ scale: 0.95, opacity: 0, y: 5 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  className={`p-3 sm:p-3.5 rounded-2xl text-[13px] sm:text-[14px] leading-relaxed shadow-sm whitespace-pre-wrap break-words ${
-                    isMe
-                      ? "bg-green-700 text-white rounded-tr-none"
-                      : "bg-white text-gray-700 rounded-tl-none border border-gray-100"
-                  }`}
+                <div
+                  className={`p-3 rounded-2xl shadow-sm relative leading-relaxed ${isMe ? "bg-green-600 text-white rounded-tr-none" : "bg-white border border-amber-200 text-slate-900 rounded-tl-none"}`}
                 >
-                  {/* RENDER ATTACHMENTS */}
-                  {attachSrc && (
-                    <div className="mb-2">
-                      {attachType === "image" && (
-                        <img
-                          src={attachSrc}
-                          alt="Attachment"
-                          className="max-h-[140px] sm:max-h-[180px] w-auto object-contain rounded-lg bg-black/5 cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setFullScreenImage(attachSrc)}
-                        />
-                      )}
-                      
-                      {attachType === "video" && (
-                        <video
-                          src={attachSrc}
-                          controls
-                          className="max-h-[180px] w-auto rounded-lg border border-black/10 bg-black"
-                        />
-                      )}
-
-                      {attachType === "audio" && (
-                        <CustomAudioPlayer src={attachSrc} isMe={isMe} />
-                      )}
-                    </div>
+                  {attachType === "image" && attachSrc && (
+                    <img
+                      src={attachSrc}
+                      alt="Attachment"
+                      className="max-h-[160px] sm:max-h-[200px] w-auto rounded-lg mb-1.5 cursor-pointer border border-black/10 active:opacity-50 object-contain bg-black/5"
+                      onClick={() => setFullScreenImage(attachSrc)}
+                    />
                   )}
-                  
-                  {msg.message && <span>{msg.message}</span>}
-                </motion.div>
+                  {attachType === "video" && attachSrc && (
+                    <video
+                      src={attachSrc}
+                      controls
+                      className="max-h-[200px] w-auto rounded-lg mb-1.5 border border-black/10 bg-black"
+                    />
+                  )}
+                  {attachType === "audio" && attachSrc && (
+                    <CustomAudioPlayer src={attachSrc} isMe={isMe} />
+                  )}
+
+                  {msg.message && (
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {msg.message}
+                    </p>
+                  )}
+                </div>
               )}
 
               <span className="text-[9px] text-gray-400 mt-1 mx-1">
@@ -137,8 +119,8 @@ export const MessageArea = ({
 
       {/* Empty State */}
       {activeTicket && messages.length === 0 && (
-        <div className="w-full h-full flex items-center justify-center flex-col mt-10">
-          <p className="text-center text-xs text-gray-400">No messages yet. Say hello!</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 italic text-sm bg-slate-50/50">
+          <p className="font-semibold text-sm">No messages yet. Say hello!</p>
         </div>
       )}
 

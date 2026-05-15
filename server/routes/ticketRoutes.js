@@ -22,4 +22,5 @@ router.put("/:id", ticket.updateTicket);
 // PUT send reminder for ticket
 router.put("/:id/remind", ticket.remindTicket);
 
+router.delete('/:id', ticket.deleteTicket);
 module.exports = router;

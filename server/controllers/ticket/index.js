@@ -5,4 +5,5 @@ module.exports = {
   getTicketById: require("./getTicketById"),
   updateTicket: require("./updateTicket"),
   remindTicket: require("./remindTicket"),
+  deleteTicket: require("./deleteTicket"),
 };

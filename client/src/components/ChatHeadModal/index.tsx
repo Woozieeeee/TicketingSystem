@@ -1,4 +1,5 @@
 "use client";
+"use client";
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageArea } from "./MessageArea";
@@ -6,39 +7,38 @@ import { ChatInput } from "./ChatInput";
 import { ChatTrigger } from "./ChatTrigger";
 import { useChatLogic } from "./useChatLogic";
 import { ChatHeader } from "./ChatHeader";
-
+import { parseAttachment } from "./CustomStyles"; // ADD THIS LINE
 export default function ChatHeadModal() {
   const {
-    isOpen, setIsOpen,
-    showTicketList, setShowTicketList,
-    fullScreenImage, setFullScreenImage,
-    input, setInput,
-    isSending,
-    filePreview, setFilePreview,
-    fileType, setFileType,
-    user, tickets, activeTicket, setActiveTicket,
-    messages,
-    sendMessage, deleteMessage, parseAttachment,
-    constraintsRef, chatContainerRef,
-    // Galing sa hook para sa attachment at voice recording
-    isAttachmentMenuOpen, setIsAttachmentMenuOpen,
-    isRecording, setIsRecording,
-    recordingTime,
-    stopRecording
-  } = useChatLogic();
+  isOpen, setIsOpen,
+  showTicketList, setShowTicketList,
+  fullScreenImage, setFullScreenImage,
+  input, setInput,
+  isSending,
+  filePreview, setFilePreview,
+  fileType, setFileType,
+  user, tickets, activeTicket, setActiveTicket,
+  messages, unreadCount,
+  sendMessage, deleteMessage, handleFileSelect, fetchTickets,
+  constraintsRef, chatContainerRef,
+  // Galing sa hook para sa attachment at voice recording
+  isAttachmentMenuOpen, setIsAttachmentMenuOpen,
+  isRecording, setIsRecording,
+  recordingTime,
+  stopRecording,
+  loading
+} = useChatLogic();
 
   // Refs para sa file inputs
   const galleryInputRef = React.useRef<HTMLInputElement>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
   const videoInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) console.log("File selected:", file.name);
-  };
+  
 
   if (!user) return null;
 
+  if (!user || loading) return null;
   return (
     <>
       <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[9999]">
@@ -66,15 +66,14 @@ export default function ChatHeadModal() {
                     setActiveTicket={setActiveTicket}
                   />
 
-                  <MessageArea 
-                    messages={messages}
-                    user={user}
-                    activeTicket={activeTicket}
-                    chatContainerRef={chatContainerRef}
-                    deleteMessage={deleteMessage}
-                    setFullScreenImage={setFullScreenImage}
-                    parseAttachment={parseAttachment}
-                  />
+  <MessageArea 
+  messages={messages}
+  user={user}
+  activeTicket={activeTicket}
+  chatContainerRef={chatContainerRef}
+  deleteMessage={deleteMessage}
+  setFullScreenImage={setFullScreenImage}
+/>
 
                   <ChatInput 
                     input={input}
@@ -105,7 +104,7 @@ export default function ChatHeadModal() {
           <ChatTrigger 
             isOpen={isOpen} 
             setIsOpen={setIsOpen} 
-            unseenCount={tickets.length} 
+            unseenCount={unreadCount}
           />
         </motion.div>
       </div>

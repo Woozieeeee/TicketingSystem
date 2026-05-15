@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useTickets } from "./hooks/useTickets";
 import TicketTable from "./components/TicketTable";
 import TicketPagination from "./components/TicketPagination";
 import TicketDetailModal from "./components/TicketDetailModal";
 import CreateTicketModal from "../../components/createTicketModal";
 import EditTicketModal from "../../components/editTicketModal";
+import BulkActionBar from "./components/BulkActionBar";
 
 import { Search, RotateCcw, ArrowLeft, Plus } from "lucide-react";
 
@@ -47,6 +49,78 @@ export default function TicketsPage() {
     fetchTickets,
     router,
   } = useTickets();
+
+  // New Selection States
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedTickets, setSelectedTickets] = useState<Set<string | number>>(new Set());
+
+  // Selection Handlers
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Selects only the Finished tickets currently visible on the page
+      setSelectedTickets(new Set(currentTickets.filter(t => t.status === "Finished").map(t => t.globalId)));
+    } else {
+      setSelectedTickets(new Set());
+    }
+  };
+
+  const handleToggleSelect = (globalId: string | number) => {
+    setSelectedTickets(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(globalId)) {
+        newSet.delete(globalId);
+      } else {
+        newSet.add(globalId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTickets(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    setShowDeleteModal(true);
+  };
+
+  // FIXED: Inayos ang connection sa backend API port 5000
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    
+    try {
+      const idsToDelete = Array.from(selectedTickets);
+      
+      // I-map ang bawat ID para sa DELETE request sa iyong backend controller
+      const deletePromises = idsToDelete.map(globalId => 
+        fetch(`http://localhost:3001/api/tickets/${globalId}`, { 
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+      
+      // Hintayin matapos ang lahat ng requests
+      const results = await Promise.all(deletePromises);
+      
+      // I-check kung may failed requests
+      const failed = results.filter(res => !res.ok);
+      if (failed.length > 0) {
+        console.error(`${failed.length} tickets failed to delete.`);
+      }
+
+      // I-refresh ang data mula sa server (gamit ang existing hook function mo)
+      await fetchTickets(user);
+      
+      // Linisin ang checkboxes
+      setSelectedTickets(new Set());
+      
+    } catch (error) {
+      console.error('Error deleting tickets:', error);
+      alert("Nagkaroon ng error sa pag-delete ng tickets.");
+    }
+  };
 
   const getStatusData = (status: string) => {
     switch (status) {
@@ -102,7 +176,6 @@ export default function TicketsPage() {
 
         {/* Main Card */}
         <div className="bg-white rounded-none sm:rounded-xl border-x-0 sm:border-x border-y sm:border-y border-slate-200 shadow-sm overflow-hidden flex flex-col w-full max-w-full">
-          {/* Tabs */}
           <div className="px-3 sm:px-6 pt-2 sm:pt-5 border-b border-slate-200 w-full overflow-hidden">
             <div className="flex gap-3 sm:gap-6 overflow-x-auto pb-0 smooth-scroll w-full" role="tablist">
               {availableTabs.map((tab) => {
@@ -124,7 +197,16 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Bulk Action Bar - Sticky positioning between Tabs and Table */}
+          <div className="px-3 sm:px-6 pt-3"> 
+            <BulkActionBar 
+              selectedCount={selectedTickets.size} 
+              onDelete={handleBulkDelete} 
+              onClear={handleClearSelection} 
+            />
+          </div>
+
+          {/* Table Section */}
           <div className="overflow-x-auto w-full smooth-scroll min-h-[480px] lg:min-h-[550px] flex flex-col justify-between">
             <TicketTable
               tickets={currentTickets}
@@ -138,20 +220,28 @@ export default function TicketsPage() {
               onRemind={handleSendReminder}
               getStatusData={getStatusData}
               deptAccent={deptAccent}
+              onToggleSelectAll={handleToggleSelectAll}
+              selectedTickets={selectedTickets}
+              handleToggleSelect={handleToggleSelect}
+              handleBulkDelete={handleBulkDelete}
+              handleClearSelection={handleClearSelection}
+              showDeleteModal={showDeleteModal}
+              setShowDeleteModal={setShowDeleteModal}
+              confirmDelete={confirmDelete}
             />
           </div>
 
           {/* Pagination */}
-        <TicketPagination
-  currentPage={currentPage}
-  totalPages={totalPages}
-  ticketsPerPage={ticketsPerPage}
-  totalCount={sortedTickets.length}     // binago: totalTickets -> totalCount
-  startIndex={indexOfFirstTicket}       // binago: indexOfFirstTicket -> startIndex
-  endIndex={indexOfLastTicket}         // binago: indexOfLastTicket -> endIndex
-  onPageChange={setCurrentPage}
-  onRowsPerPageChange={setTicketsPerPage} // binago: onTicketsPerPageChange -> onRowsPerPageChange
-/>
+          <TicketPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            ticketsPerPage={ticketsPerPage}
+            totalCount={sortedTickets.length}
+            startIndex={indexOfFirstTicket}
+            endIndex={indexOfLastTicket}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={setTicketsPerPage}
+          />
         </div>
 
         {/* Modals */}

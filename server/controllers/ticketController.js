@@ -300,7 +300,23 @@ exports.remindTicket = async (req, res) => {
         });
       }
     }
+// controllers/ticketController.js
+const ticketModel = require('../models/ticket');
 
+const deleteTicket = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await ticketModel.deleteTicket(id);
+        res.status(200).json({ message: "Ticket deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = {
+    // ... existing controllers
+    deleteTicket
+};
     return res.status(200).json({ success: true, message: "Reminder sent" });
   } catch (error) {
     console.error("❌ Remind Error:", error.message);

@@ -5,11 +5,10 @@ import type { FormData } from "../types";
 
 interface Step1FormProps {
   formData: FormData;
-  onChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void;
+onChange: (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+) => void;
 }
-
 export default function Step1Form({ formData, onChange }: Step1FormProps) {
   return (
     <>
@@ -47,16 +46,22 @@ export default function Step1Form({ formData, onChange }: Step1FormProps) {
           <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-2 sm:mb-2.5 uppercase tracking-wide">
             Category
           </label>
-          <input
-            type="text"
-            name="category"
-            required
-            title="What type of issue is this? (e.g., Hardware, Software, Network)"
-            value={formData.category}
-            onChange={onChange}
-            className="w-full px-4 py-3 sm:py-3.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm text-sm sm:text-base font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400"
-            placeholder="e.g. Hardware, Network, Urgent Fix..."
-          />
+          <select
+  name="category"
+  required
+  title="What type of issue is this?"
+  value={formData.category}
+  onChange={onChange}
+  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm text-sm sm:text-base font-semibold text-slate-800"
+>
+  <option value="">Select a category...</option>
+  <option value="Hardware">Hardware</option>
+  <option value="Software">Software</option>
+  <option value="Network">Network</option>
+  <option value="Account & Access">Account & Access</option>
+  <option value="Request Service">Request Service</option>
+  <option value="Other">Other</option>
+</select>
         </div>
       </div>
 

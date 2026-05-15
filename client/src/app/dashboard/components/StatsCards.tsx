@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Bell, Calendar as CalendarIcon, BarChart3, ArrowRight } from "lucide-react";
+import { 
+  Bell, 
+  Calendar as CalendarIcon, 
+  BarChart3, 
+  ArrowRight, 
+  CheckCircle, 
+  CheckSquare 
+} from "lucide-react";
 
 interface StatsCardsProps {
   remindersCount: number;
@@ -64,13 +71,14 @@ export default function StatsCards({
         const isReminder = card.label === "Reminders";
         const isPending = card.label === "Pending";
 
+        // UI FIX: Ginawa nating parehas ang border logic ng Reminder at Pending para lumitaw ang kulay sa taas
         let borderClasses =
           "border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+        
         if (isReminder) {
-          borderClasses = "border-2 border-rose-500 z-10 hover:-translate-y-1";
+          borderClasses = "border-x border-b border-slate-200 border-t-4 border-t-rose-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
         } else if (isPending) {
-          borderClasses =
-            "border-x border-b border-slate-200 border-t-4 border-t-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+          borderClasses = "border-x border-b border-slate-200 border-t-4 border-t-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
         }
 
         return (
@@ -81,7 +89,7 @@ export default function StatsCards({
             style={
               isReminder
                 ? {
-                    animation: `slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * (i + 1)}s both, urgentGlow 2s ${0.05 * (i + 1) + 0.6}s infinite ease-in-out`,
+                    animation: `slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * (i + 1)}s both`,
                   }
                 : {
                     animationDelay: `${0.05 * (i + 1)}s`,
@@ -89,58 +97,21 @@ export default function StatsCards({
                   }
             }
           >
+            {/* Lalabas lang itong bar na 'to sa In-Progress, Resolved, at Finished */}
             {!isReminder && !isPending && (
               <div
                 className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}
               />
             )}
 
-            <div
-              className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform hover:scale-110`}
-            >
-              {i === 0 ? (
-                <Bell
-                  size={18}
-                  className={`text-${card.color}-500 animate-wiggle`}
-                />
-              ) : i === 1 ? (
-                <CalendarIcon
-                  size={18}
-                  className={`text-${card.color}-500`}
-                />
-              ) : i === 2 ? (
-                <BarChart3 size={18} className={`text-${card.color}-500`} />
-              ) : i === 3 ? (
-                <svg
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={`text-${card.color}-500`}
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={`text-${card.color}-500`}
-                  viewBox="0 0 24 24"
-                >
-                  <polyline points="9 11 12 14 22 4"></polyline>
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                </svg>
-              )}
+            <div className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3`}>
+              {i === 0 ? <Bell size={18} className="text-rose-500 animate-wiggle" /> :
+               i === 1 ? <CalendarIcon size={18} className="text-amber-500" /> :
+               i === 2 ? <BarChart3 size={18} className="text-indigo-500" /> :
+               i === 3 ? <CheckCircle size={18} className="text-green-500" /> : 
+               <CheckSquare size={18} className="text-cyan-500" />}
             </div>
+
             <p className="text-4xl font-black text-slate-900 mb-2">
               {card.count}
             </p>
