@@ -1,5 +1,5 @@
 "use client";
-
+import { Filter } from "lucide-react";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getRelativeTime } from "../../lib/utils";
@@ -11,8 +11,7 @@ import UserSidebar from "./components/UserSidebar";
 import VisualProgressChart from "./components/VisualProgressChart";
 import DigitalClock from "./components/DigitalClock";
 import DashboardCalendar from "./components/DashboardCalendar";
-
-import { Filter } from "lucide-react";
+import { getAuthHeaders } from "../../lib/apiClient";
 
 export default function RoleBasedDashboard() {
   // --- STATES ---
@@ -42,8 +41,10 @@ export default function RoleBasedDashboard() {
       if (parsedUser?.dept) params.set("dept", parsedUser.dept);
       if (parsedUser?.username) params.set("username", parsedUser.username);
 
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`);
-
+      // TAMA (tickets page):
+const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+  headers: getAuthHeaders(),
+});
       if (res.ok) {
         const allTickets = await res.json();
         if (!Array.isArray(allTickets)) {

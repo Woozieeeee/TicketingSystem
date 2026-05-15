@@ -8,6 +8,8 @@ import TicketDetailModal from "./components/TicketDetailModal";
 import CreateTicketModal from "../../components/createTicketModal";
 import EditTicketModal from "../../components/editTicketModal";
 import BulkActionBar from "./components/BulkActionBar";
+import { getAuthHeaders } from "../../lib/apiClient";
+import { API_URL } from "../../config/api";
 
 import { Search, RotateCcw, ArrowLeft, Plus } from "lucide-react";
 
@@ -93,12 +95,10 @@ export default function TicketsPage() {
       
       // I-map ang bawat ID para sa DELETE request sa iyong backend controller
       const deletePromises = idsToDelete.map(globalId => 
-        fetch(`http://localhost:3001/api/tickets/${globalId}`, { 
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
+       fetch(`${API_URL}/api/tickets/${globalId}`, { 
+  method: 'DELETE',
+  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+})
       );
       
       // Hintayin matapos ang lahat ng requests
