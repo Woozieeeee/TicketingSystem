@@ -24,8 +24,14 @@ export default function RegisterForm() {
 
   const getStrength = (password: string) => {
     if (password.length === 0) return { width: "0%", color: "bg-transparent", textColor: "text-transparent", label: "" };
-    if (password.length < 6) return { width: "33%", color: "bg-red-500", textColor: "text-red-500", label: "Too short" };
-    if (password.length < 10) return { width: "66%", color: "bg-yellow-500", textColor: "text-yellow-500", label: "Medium" };
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const isLongEnough = password.length >= 8;
+    const score = [hasUpper, hasLower, hasNumber, isLongEnough].filter(Boolean).length;
+    if (score <= 1) return { width: "25%", color: "bg-red-500", textColor: "text-red-500", label: "Weak — need 8+ chars, uppercase, lowercase, number" };
+    if (score <= 2) return { width: "50%", color: "bg-orange-500", textColor: "text-orange-500", label: "Fair — still missing requirements" };
+    if (score === 3) return { width: "75%", color: "bg-yellow-500", textColor: "text-yellow-500", label: "Almost — one more requirement" };
     return { width: "100%", color: "bg-green-500", textColor: "text-green-600", label: "Strong" };
   };
 
@@ -50,7 +56,8 @@ export default function RegisterForm() {
         throw new Error(data.error || "Registration failed");
       }
     } catch (error: any) {
-      Swal.fire({ icon: "error", title: "Oops...", text: error.message });
+      const details = error.details ? `\n${error.details.join("\n")}` : "";
+      Swal.fire({ icon: "error", title: "Oops...", text: error.message + details });
     } finally {
       setSubmitting(false);
     }

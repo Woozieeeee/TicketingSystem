@@ -107,7 +107,6 @@ exports.login = async (req, res) => {
       role: updatedUser.role,
       dept: updatedUser.dept,
       login_count: updatedUser.login_count,
-      tokenExpires: expires,
     });
   } catch (error) {
     console.error("Login error:", error);

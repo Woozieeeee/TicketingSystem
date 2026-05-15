@@ -44,8 +44,13 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
     setPasswordError('');
 
     if (newPassword) {
-      if (newPassword.length < 6) {
-        setPasswordError('Password must be at least 6 characters');
+      const errors: string[] = [];
+      if (newPassword.length < 8) errors.push('at least 8 characters');
+      if (!/[A-Z]/.test(newPassword)) errors.push('one uppercase letter');
+      if (!/[a-z]/.test(newPassword)) errors.push('one lowercase letter');
+      if (!/[0-9]/.test(newPassword)) errors.push('one number');
+      if (errors.length > 0) {
+        setPasswordError(`Password needs: ${errors.join(', ')}`);
         return;
       }
       if (newPassword !== confirmPassword) {
