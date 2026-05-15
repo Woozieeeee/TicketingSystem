@@ -43,6 +43,7 @@ export default function Navbar({ user }: NavbarProps) {
     try {
       const res = await fetch(
         `${API_URL}/api/notifications/${encodeURIComponent(user.username)}`,
+        { credentials: "include" },
       );
       if (res.ok) {
         const data = await res.json();
@@ -72,7 +73,8 @@ export default function Navbar({ user }: NavbarProps) {
         prev.map((n) => (n.id === notifId ? { ...n, is_read: 1 } : n)),
       );
       await fetch(`${API_URL}/api/notifications/${notifId}/read`, {
-        method: "PATCH",
+        method: "PUT",
+        credentials: "include",
       });
       router.push(`/tickets?highlight=${ticketGlobalId}`);
     } catch (error) {

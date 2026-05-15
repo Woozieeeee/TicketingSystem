@@ -12,8 +12,8 @@ const {
 // GET notifications for a user
 router.get("/:username", getUserNotifications);
 
-// PATCH mark as read
-router.patch("/:notificationId/read", markAsRead);
+// PUT mark as read
+router.put("/:notificationId/read", markAsRead);
 
 // POST create notification
 router.post("/", createNotification);

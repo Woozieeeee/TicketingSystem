@@ -67,7 +67,20 @@ module.exports = async (req, res) => {
       const sysMsg =
         statusMessages[newStatus] || `System: Ticket status updated to ${newStatus}`;
 
-      await chatModel.saveSystemMessage(id, sysMsg);
+      const chatId = await chatModel.saveSystemMessage(id, sysMsg);
+
+      const io = req.app.get("io");
+      if (io) {
+        io.to(id).emit("receive_message", {
+          id: chatId,
+          ticketId: id,
+          sender: "System",
+          message: sysMsg,
+          created_at: new Date(),
+        });
+        io.emit("ticket_status_changed", { id, status: newStatus });
+        io.emit("user_typing_lock", { ticketId: id, username: null });
+      }
 
       await activity.ticketStatusChanged(req, {
         id,

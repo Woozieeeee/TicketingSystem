@@ -31,6 +31,9 @@ router.post('/register', requireAdminOrStaff, userController.registerUser);
 // Update existing user (Admin/Staff/Head only)
 router.put('/:id', requireAdminOrStaff, userController.updateUser);
 
+// Toggle user status - suspend/activate (Admin/Staff/Head only)
+router.put('/:id/status', requireAdminOrStaff, userController.toggleUserStatus);
+
 // Delete user (Admin/Staff/Head only)
 router.delete('/:id', requireAdminOrStaff, userController.deleteUser);
 

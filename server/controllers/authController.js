@@ -17,12 +17,12 @@ exports.register = async (req, res) => {
 
     const cleanDept = dept.trim().toUpperCase();
 
-    const [existingDeptMembers] = await db.query(
-      "SELECT id FROM users WHERE dept = ?",
+    const [existingHeads] = await db.query(
+      "SELECT id FROM users WHERE dept = ? AND role = 'Head'",
       [cleanDept],
     );
 
-    const assignedRole = existingDeptMembers.length === 0 ? "Head" : "User";
+    const assignedRole = existingHeads.length === 0 ? "Head" : "User";
     const hashedPassword = await bcrypt.hash(password, 10);
     const id = `u_${Date.now()}`;
 
@@ -62,6 +62,12 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
+
+    if (user.status === 'Suspended') {
+      await logLoginAttempt(username, false, req.ip, req.get("User-Agent"), "Account suspended");
+      return res.status(403).json({ message: "Your account has been suspended. Contact your administrator." });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -86,13 +92,21 @@ exports.login = async (req, res) => {
     await logLoginAttempt(updatedUser.username, true, req.ip, req.get("User-Agent"));
     await activity.loginSuccess(req, updatedUser);
 
+    // Set httpOnly cookie with the auth token
+    res.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
     return res.status(200).json({
       id: updatedUser.id,
       username: updatedUser.username,
       role: updatedUser.role,
       dept: updatedUser.dept,
       login_count: updatedUser.login_count,
-      token,
       tokenExpires: expires,
     });
   } catch (error) {
@@ -104,5 +118,14 @@ exports.login = async (req, res) => {
 // --- LOGOUT ---
 exports.logout = async (req, res) => {
   await activity.logout(req, req.body?.username);
+
+  // Clear the httpOnly cookie
+  res.clearCookie("auth_token", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+  });
+
   return res.status(200).json({ success: true, message: "Logged out successfully" });
 };

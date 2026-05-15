@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { API_URL } from '../../../config/api';
 import { User, TabFilter } from '../types';
 
@@ -10,12 +11,19 @@ type DbUser = {
   role: string;
   dept: string;
   login_count: number;
+  status?: string;
 };
 
 const normalizeRole = (role: string): User['role'] => {
-  if (role === 'Admin' || role === 'Head') return 'Admin';
+  if (role === 'Head') return 'Head';
+  if (role === 'Admin') return 'Admin';
   if (role === 'Staff') return 'Staff';
   return 'User';
+};
+
+const normalizeStatus = (dbUser: DbUser): User['status'] => {
+  if (dbUser.status === 'Suspended') return 'Suspended';
+  return dbUser.login_count > 0 ? 'Active' : 'Pending';
 };
 
 const buildEmail = (username: string) => {
@@ -28,11 +36,19 @@ const mapDbUserToUi = (dbUser: DbUser): User => ({
   name: dbUser.username,
   email: buildEmail(dbUser.username),
   role: normalizeRole(dbUser.role),
-  status: dbUser.login_count > 0 ? 'Active' : 'Pending',
+  status: normalizeStatus(dbUser),
   joinedDate: 'Unknown',
   dept: dbUser.dept,
   loginCount: dbUser.login_count,
 });
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+};
 
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -46,29 +62,22 @@ export function useUsers() {
   const reloadUsers = async () => {
     setLoading(true);
     setError(null);
-  
-    // FIX: Changed 'authToken' to 'token'
-    const token = localStorage.getItem('token'); 
 
     try {
       const response = await fetch(`${API_URL}/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
-      
-      console.log(`Fetching users from: ${API_URL}/api/users, Status: ${response.status}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          console.error('Users endpoint not found (404)');
           setUsers([]);
           setError('User endpoint not found (404). Please check the API URL.');
           return;
         }
         throw new Error(`Unable to load users (${response.status})`);
       }
-      
+
       const data: DbUser[] = await response.json();
       setUsers(data.map(mapDbUserToUi));
     } catch (err) {
@@ -106,20 +115,17 @@ export function useUsers() {
     currentPage * rowsPerPage,
   );
 
-  const addUser = async (name: string, email: string, role: User['role']) => {
+  const addUser = async (name: string, email: string, role: User['role'], dept: string) => {
     try {
-      const token = localStorage.getItem('token'); // FIX: Use 'token'
       const response = await fetch(`${API_URL}/api/users/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify({
           username: name,
           password: 'ChangeMe123!',
           role,
-          dept: 'General',
+          dept,
         }),
       });
 
@@ -134,64 +140,112 @@ export function useUsers() {
         name,
         email,
         role,
-        status: 'Active',
+        status: 'Pending',
         joinedDate: new Date().toISOString().split('T')[0],
-        dept: 'General',
+        dept,
         loginCount: 0,
       };
       setUsers((prev) => [newUser, ...prev]);
       setCurrentPage(1);
-    } catch (error) {
-      console.error('Failed to add user:', error);
+
+      Swal.fire({ icon: 'success', title: 'User Created', text: `${name} has been added successfully.`, timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error('Failed to add user:', err);
+      Swal.fire({ icon: 'error', title: 'Failed to Create User', text: err instanceof Error ? err.message : 'Unknown error' });
     }
   };
 
   const deleteUser = async (id: string) => {
+    const target = users.find((u) => u.id === id);
+    const result = await Swal.fire({
+      title: 'Delete User?',
+      text: `Are you sure you want to delete ${target?.name || 'this user'}? This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
-      const token = localStorage.getItem('token'); // FIX: Use 'token'
       const response = await fetch(`${API_URL}/api/users/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
-      
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err?.error || 'Failed to delete user');
       }
+
       setUsers((prev) => prev.filter((u) => u.id !== id));
-    } catch (error) {
-      console.error('Failed to delete user:', error);
+      Swal.fire({ icon: 'success', title: 'Deleted', text: `${target?.name || 'User'} has been deleted.`, timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      Swal.fire({ icon: 'error', title: 'Failed to Delete', text: err instanceof Error ? err.message : 'Unknown error' });
     }
   };
 
-  const toggleStatus = (id: string, currentStatus: string) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === id) {
-          const nextStatus: User['status'] = currentStatus === 'Active' ? 'Suspended' : 'Active';
-          return { ...u, status: nextStatus };
-        }
-        return u;
-      }),
-    );
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const target = users.find((u) => u.id === id);
+    const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
+    const action = newStatus === 'Suspended' ? 'suspend' : 'activate';
+
+    const result = await Swal.fire({
+      title: `${newStatus === 'Suspended' ? 'Suspend' : 'Activate'} User?`,
+      text: `Are you sure you want to ${action} ${target?.name || 'this user'}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: newStatus === 'Suspended' ? '#dc2626' : '#059669',
+      confirmButtonText: newStatus === 'Suspended' ? 'Suspend' : 'Activate',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/${id}/status`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err?.error || `Failed to ${action} user`);
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, status: newStatus as User['status'] } : u)),
+      );
+
+      Swal.fire({ icon: 'success', title: newStatus === 'Suspended' ? 'Suspended' : 'Activated', text: `${target?.name || 'User'} has been ${action}d.`, timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error(`Failed to ${action} user:`, err);
+      Swal.fire({ icon: 'error', title: `Failed to ${action}`, text: err instanceof Error ? err.message : 'Unknown error' });
+    }
   };
 
-  const editUser = async (updatedUser: User) => {
+  const editUser = async (updatedUser: User, newPassword?: string) => {
     try {
-      const token = localStorage.getItem('token'); // FIX: Use 'token'
+      const payload: any = {
+        username: updatedUser.name,
+        role: updatedUser.role,
+        dept: updatedUser.dept ?? 'General',
+      };
+      if (newPassword) {
+        payload.password = newPassword;
+      }
+
       const response = await fetch(`${API_URL}/api/users/${updatedUser.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username: updatedUser.name,
-          role: updatedUser.role,
-          dept: updatedUser.dept ?? 'General',
-        }),
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -200,8 +254,14 @@ export function useUsers() {
       }
 
       setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
-    } catch (error) {
-      console.error('Failed to edit user:', error);
+
+      const successMsg = newPassword
+        ? `${updatedUser.name} has been updated with a new password.`
+        : `${updatedUser.name} has been updated.`;
+      Swal.fire({ icon: 'success', title: 'User Updated', text: successMsg, timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error('Failed to edit user:', err);
+      Swal.fire({ icon: 'error', title: 'Failed to Update', text: err instanceof Error ? err.message : 'Unknown error' });
     }
   };
 

@@ -20,21 +20,54 @@ export default function ChatHeadModal() {
     messages,
     sendMessage, deleteMessage, parseAttachment,
     constraintsRef, chatContainerRef,
-    // Galing sa hook para sa attachment at voice recording
     isAttachmentMenuOpen, setIsAttachmentMenuOpen,
-    isRecording, setIsRecording,
+    isRecording,
     recordingTime,
+    startRecording,
     stopRecording
   } = useChatLogic();
 
-  // Refs para sa file inputs
   const galleryInputRef = React.useRef<HTMLInputElement>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
   const videoInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const scale = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) console.log("File selected:", file.name);
+    if (file) {
+      const reader = new FileReader();
+      if (file.type.startsWith("video/")) {
+        reader.onload = (event) => {
+          setFilePreview(event.target?.result as string);
+          setFileType("video");
+        };
+      } else if (file.type.startsWith("image/")) {
+        reader.onload = async (event) => {
+          const originalBase64 = event.target?.result as string;
+          const compressed = await compressImage(originalBase64);
+          setFilePreview(compressed);
+          setFileType("image");
+        };
+      }
+      reader.readAsDataURL(file);
+    }
+    setIsAttachmentMenuOpen(false);
   };
 
   if (!user) return null;
@@ -56,7 +89,6 @@ export default function ChatHeadModal() {
                   exit={{ opacity: 0, scale: 0.8, y: 20 }}
                   className="w-[320px] sm:w-[384px] h-[500px] sm:h-[550px] bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
                 >
-                  {/* Ginamit ang setIsOpen para sa pag-close ng modal */}
                   <ChatHeader 
                     activeTicket={activeTicket}
                     showTicketList={showTicketList}
@@ -84,7 +116,7 @@ export default function ChatHeadModal() {
                     sendMessage={sendMessage}
                     filePreview={filePreview}
                     fileType={fileType}
-                    removeFile={() => setFilePreview(null)}
+                    removeFile={() => { setFilePreview(null); setFileType(null); }}
                     handleFileSelect={handleFileSelect}
                     isAttachmentMenuOpen={isAttachmentMenuOpen}
                     setIsAttachmentMenuOpen={setIsAttachmentMenuOpen}
@@ -93,7 +125,7 @@ export default function ChatHeadModal() {
                     videoInputRef={videoInputRef}
                     isRecording={isRecording}
                     recordingTime={recordingTime}
-                    startRecording={() => setIsRecording(true)}
+                    startRecording={startRecording}
                     stopRecording={stopRecording} 
                     formatTime={(s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`}
                   />
@@ -110,7 +142,6 @@ export default function ChatHeadModal() {
         </motion.div>
       </div>
 
-      {/* Full Screen Image Overlay */}
       {fullScreenImage && (
         <div 
           className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-4 cursor-pointer" 

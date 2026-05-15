@@ -32,7 +32,8 @@ interface ChatWindowProps {
   startRecording: () => void;
   stopRecording: () => void;
   formatTime: (seconds: number) => string;
-  CustomAudioPlayer: any; // O i-pass ang component mismo
+  CustomAudioPlayer: any;
+  currentUsername?: string;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -64,7 +65,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   startRecording,
   stopRecording,
   formatTime,
-  CustomAudioPlayer
+  CustomAudioPlayer,
+  currentUsername,
 }) => {
   return (
     <div
@@ -133,7 +135,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 );
               }
 
-              const isMe = msg.sender === "Support Admin";
+              const isMe = currentUsername ? msg.sender === currentUsername : msg.sender !== selectedTicket.user;
               const isDeleted = msg.message === "[DELETED]";
               const { type: attachType, src: attachSrc } = parseAttachment(msg.attachment);
 

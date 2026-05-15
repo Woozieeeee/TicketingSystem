@@ -1,6 +1,6 @@
 import { TabFilter } from '../types';
 
-const tabs: TabFilter[] = ['All', 'Admin', 'Staff', 'User', 'Suspended'];
+const tabs: TabFilter[] = ['All', 'Head', 'Admin', 'Staff', 'User', 'Suspended'];
 
 interface UserTabsProps {
   activeTab: TabFilter;

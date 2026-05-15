@@ -97,12 +97,11 @@ export function useCreateTicket(
         date: mysqlDate,
       };
 
-      const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/tickets`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
         },
         body: JSON.stringify(payload),
         signal: controller.signal,

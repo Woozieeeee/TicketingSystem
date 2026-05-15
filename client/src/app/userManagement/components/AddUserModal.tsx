@@ -3,17 +3,18 @@ import { User } from '../types';
 
 interface AddUserModalProps {
   onClose: () => void;
-  onAdd: (name: string, email: string, role: User['role']) => void;
+  onAdd: (name: string, email: string, role: User['role'], dept: string) => void;
 }
 
 export default function AddUserModal({ onClose, onAdd }: AddUserModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<User['role']>('User');
+  const [dept, setDept] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAdd(name, email, role);
+    onAdd(name, email, role, dept.trim().toUpperCase() || 'GENERAL');
     onClose();
   };
 
@@ -45,6 +46,17 @@ export default function AddUserModal({ onClose, onAdd }: AddUserModalProps) {
             />
           </div>
           <div>
+            <label className="block mb-1 text-xs font-medium uppercase text-neutral-400">Department</label>
+            <input
+              type="text"
+              required
+              value={dept}
+              onChange={(e) => setDept(e.target.value)}
+              className="w-full px-3 py-2 text-sm border rounded-lg border-neutral-200 focus:border-neutral-400 focus:outline-none"
+              placeholder="e.g. INFORMATION AND TECHNOLOGY OFFICE"
+            />
+          </div>
+          <div>
             <label className="block mb-1 text-xs font-medium uppercase text-neutral-400">Role</label>
             <select
               value={role}
@@ -52,6 +64,7 @@ export default function AddUserModal({ onClose, onAdd }: AddUserModalProps) {
               className="w-full px-3 py-2 text-sm border rounded-lg border-neutral-200 focus:border-neutral-400 focus:outline-none"
             >
               <option value="User">User</option>
+              <option value="Head">Head (Department Head)</option>
               <option value="Staff">Staff</option>
               <option value="Admin">Admin</option>
             </select>

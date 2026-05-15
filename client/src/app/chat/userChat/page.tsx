@@ -73,6 +73,7 @@ export default function UserChatPage() {
     try {
       const res = await fetch(
         `${API_URL}/api/tickets?role=User&username=${currentUser.username}`,
+        { credentials: "include" },
       );
       if (res.ok) {
         const data = await res.json();
@@ -108,7 +109,9 @@ export default function UserChatPage() {
 
   const fetchMessages = useCallback(async (ticketId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`);
+      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`, {
+        credentials: "include",
+      });
       if (res.ok) setChatHistory(await res.json());
     } catch (error: any) {}
   }, []);
@@ -126,6 +129,7 @@ export default function UserChatPage() {
       await fetch(`${API_URL}/api/chat/${ticket.globalId}/read`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ reader: readerName }),
       });
       setTickets((prev) =>
@@ -233,6 +237,7 @@ export default function UserChatPage() {
       fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/typing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username: currentUsername, isTyping: true }),
       });
     }
@@ -242,6 +247,7 @@ export default function UserChatPage() {
       fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/typing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username: currentUsername, isTyping: false }),
       });
     }, 2500);
@@ -282,12 +288,14 @@ export default function UserChatPage() {
       await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/typing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username: currentUsername, isTyping: false }),
       });
 
       await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       fetchMessages(selectedTicket.globalId);
@@ -312,6 +320,7 @@ export default function UserChatPage() {
       try {
         const res = await fetch(`${API_URL}/api/chat/messages/${messageId}`, {
           method: "DELETE",
+          credentials: "include",
         });
         if (res.ok) {
           setChatHistory((prev) =>
@@ -356,6 +365,7 @@ export default function UserChatPage() {
       try {
         const res = await fetch(
           `${API_URL}/api/chat/${selectedTicket.globalId}/typing?currentUser=${user.username}`,
+          { credentials: "include" },
         );
         if (res.ok) {
           const data = await res.json();

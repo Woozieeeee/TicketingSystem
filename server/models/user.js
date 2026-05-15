@@ -6,10 +6,16 @@ const User = {
   getAll: async () => {
     try {
       const [rows] = await db.query(
-        'SELECT id, username, role, dept, login_count FROM users ORDER BY username'
+        'SELECT id, username, role, dept, login_count, COALESCE(status, "Active") AS status FROM users ORDER BY username'
       );
       return rows;
     } catch (err) {
+      if (err.code === 'ER_BAD_FIELD_ERROR') {
+        const [rows] = await db.query(
+          'SELECT id, username, role, dept, login_count, "Active" AS status FROM users ORDER BY username'
+        );
+        return rows;
+      }
       console.error('❌ Get All Users Error:', err.message);
       throw err;
     }
@@ -66,7 +72,14 @@ const User = {
   // Update user by ID
   updateById: async (id, userData) => {
     try {
-      const { username, role, dept } = userData;
+      const { username, role, dept, password } = userData;
+      if (password) {
+        const [result] = await db.query(
+          'UPDATE users SET username = ?, role = ?, dept = ?, password = ? WHERE id = ?',
+          [username, role, dept || 'General', password, id]
+        );
+        return result;
+      }
       const [result] = await db.query(
         'UPDATE users SET username = ?, role = ?, dept = ? WHERE id = ?',
         [username, role, dept || 'General', id]
@@ -87,6 +100,9 @@ const User = {
       );
       return result;
     } catch (err) {
+      if (err.code === 'ER_BAD_FIELD_ERROR') {
+        throw new Error('STATUS_COLUMN_MISSING');
+      }
       console.error('❌ Update User Status Error:', err.message);
       throw err;
     }

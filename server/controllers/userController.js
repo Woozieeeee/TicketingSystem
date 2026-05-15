@@ -57,14 +57,20 @@ const registerUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, role, dept } = req.body;
+    const { username, role, dept, password } = req.body;
 
     const existingUser = await userModel.findById(id);
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    await userModel.updateById(id, { username, role, dept });
+    let hashedPassword = null;
+    if (password) {
+      const bcrypt = require("bcrypt");
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    await userModel.updateById(id, { username, role, dept, password: hashedPassword });
 
     await activity.userUpdated(req, {
       userId: id,
@@ -141,6 +147,37 @@ const deleteUser = async (req, res) => {
 };
 
 /**
+ * Toggle user status (suspend/activate)
+ */
+const toggleUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['Active', 'Suspended'].includes(status)) {
+      return res.status(400).json({ error: "Status must be 'Active' or 'Suspended'" });
+    }
+
+    const existingUser = await userModel.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await userModel.updateStatus(id, status);
+
+    res.json({ message: `User ${status === 'Suspended' ? 'suspended' : 'activated'} successfully` });
+  } catch (err) {
+    if (err.message === 'STATUS_COLUMN_MISSING') {
+      return res.status(500).json({
+        error: "Status column not found. Run: ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'Active';"
+      });
+    }
+    console.error("Toggle Status Error:", err);
+    res.status(500).json({ error: "Failed to update user status" });
+  }
+};
+
+/**
  * Login user
  */
 const loginUser = async (req, res) => {
@@ -184,4 +221,5 @@ module.exports = {
   deleteUser,
   getUserById,
   loginUser,
+  toggleUserStatus,
 };

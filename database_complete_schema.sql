@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     login_count INT DEFAULT 0,
     auth_token VARCHAR(255) DEFAULT NULL,
     token_expires DATETIME DEFAULT NULL,
+    status VARCHAR(20) DEFAULT 'Active',
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -199,3 +200,37 @@ INSERT INTO login_attempts (username, success, ip_address, failure_reason) VALUE
 ('admin', TRUE, '127.0.0.1', NULL),
 ('unknown', FALSE, '192.168.1.100', 'Invalid credentials'),
 ('unknown', FALSE, '192.168.1.100', 'Invalid credentials');
+
+-- ============================================
+-- SAFE COLUMN ADDITIONS (for existing databases)
+-- Uses procedures to avoid errors if columns already exist
+-- ============================================
+
+DELIMITER //
+CREATE PROCEDURE IF NOT EXISTS add_column_if_missing()
+BEGIN
+    -- Add createdAt to users if missing
+    IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'createdAt'
+    ) THEN
+        ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+
+    -- Add status to users if missing
+    IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'status'
+    ) THEN
+        ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'Active';
+    END IF;
+
+    -- Set createdAt for existing records that don't have it
+    UPDATE users SET createdAt = NOW() WHERE createdAt IS NULL;
+END //
+DELIMITER ;
+
+CALL add_column_if_missing();
+DROP PROCEDURE IF EXISTS add_column_if_missing;
+
+SELECT 'Migration completed successfully' AS status;

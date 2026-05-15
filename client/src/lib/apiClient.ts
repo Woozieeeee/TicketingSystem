@@ -1,23 +1,14 @@
-// API client utility with token authentication
+// API client utility with cookie-based authentication
 import { API_URL } from "../config/api";
 
-// Get auth headers for API requests
+// Get default headers for API requests (no token needed — cookie is sent automatically)
 export function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
+  return {
     "Content-Type": "application/json",
   };
-
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-  }
-
-  return headers;
 }
 
-// Authenticated fetch wrapper
+// Authenticated fetch wrapper — sends httpOnly cookie automatically
 export async function authFetch(
   endpoint: string,
   options: RequestInit = {}
@@ -32,10 +23,11 @@ export async function authFetch(
   return fetch(url, {
     ...options,
     headers,
+    credentials: "include",
   });
 }
 
-// Get stored user data
+// Get stored user data (user info only, no token)
 export function getStoredUser(): any | null {
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem("user");
@@ -51,22 +43,16 @@ export function clearAuth(): void {
   localStorage.removeItem("ticket_draft");
 }
 
-// Validate token with server
+// Validate token with server (using cookie)
 export async function validateToken(): Promise<boolean> {
   if (typeof window === "undefined") return false;
 
-  const token = localStorage.getItem("token");
-  if (!token) return false;
-
   try {
     const res = await fetch(`${API_URL}/api/auth/validate`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      credentials: "include",
     });
 
     if (!res.ok) {
-      // Token is invalid or expired
       clearAuth();
       return false;
     }
@@ -78,11 +64,8 @@ export async function validateToken(): Promise<boolean> {
   }
 }
 
-// Store auth data after login
+// Store auth data after login (user info only — token is in httpOnly cookie)
 export function storeAuth(userData: any): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("user", JSON.stringify(userData));
-  if (userData.token) {
-    localStorage.setItem("token", userData.token);
-  }
 }

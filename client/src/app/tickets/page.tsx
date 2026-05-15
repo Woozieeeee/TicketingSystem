@@ -110,7 +110,7 @@ export default function TicketsPage() {
                 if (tab === "All") count = filteredByRole.filter((t) => t.status !== "Finished").length;
                 else if (tab === "Reminders") count = filteredByRole.filter((t) => t.status === "Pending" && t.reminder_flag).length;
                 else if (tab === "Pending") count = filteredByRole.filter((t) => t.status === "Pending" && !t.reminder_flag).length;
-                else if (tab === "In Progress") count = filteredByRole.filter((t) => t.status === "In Progress" || t.status === "Resolved").length;
+                else if (tab === "In Progress") count = filteredByRole.filter((t) => t.status === "In Progress").length;
                 else count = filteredByRole.filter((t) => t.status === tab).length;
 
                 const isActive = activeTab === tab;

@@ -42,7 +42,9 @@ export default function RoleBasedDashboard() {
       if (parsedUser?.dept) params.set("dept", parsedUser.dept);
       if (parsedUser?.username) params.set("username", parsedUser.username);
 
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`);
+      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+        credentials: "include",
+      });
 
       if (res.ok) {
         const allTickets = await res.json();

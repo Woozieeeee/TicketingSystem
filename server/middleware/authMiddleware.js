@@ -9,22 +9,38 @@ function generateToken() {
 }
 
 /**
+ * Extract token from request — cookie first, then Authorization header
+ */
+function extractToken(req) {
+  // 1. Check httpOnly cookie
+  if (req.cookies && req.cookies.auth_token) {
+    return req.cookies.auth_token;
+  }
+
+  // 2. Fallback to Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+
+  return null;
+}
+
+/**
  * Middleware to verify token on protected routes
  */
 exports.verifyToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = extractToken(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
       });
     }
 
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
-
-    // Check if token exists and is not expired (using raw query for complex condition)
+    // Check if token exists and is not expired
     const [rows] = await db.query(
       "SELECT * FROM users WHERE auth_token = ? AND (token_expires IS NULL OR token_expires > NOW())",
       [token]
@@ -56,7 +72,7 @@ exports.verifyToken = async (req, res, next) => {
 exports.generateAndSaveToken = async (userId) => {
   const token = generateToken();
   const expires = new Date();
-  expires.setHours(expires.getHours() + 24); // Token expires in 24 hours
+  expires.setHours(expires.getHours() + 24);
 
   await User.updateToken(userId, token, expires);
 
@@ -75,18 +91,16 @@ exports.clearToken = async (userId) => {
  */
 exports.validateSession = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = extractToken(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "No token provided",
       });
     }
 
-    const token = authHeader.substring(7);
-
-    // Check token validity (using raw query for complex condition)
+    // Check token validity
     const [rows] = await db.query(
       "SELECT id, username, role, dept FROM users WHERE auth_token = ? AND (token_expires IS NULL OR token_expires > NOW())",
       [token]

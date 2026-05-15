@@ -65,6 +65,7 @@ export function useTickets() {
 
       const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       });
 
       if (res.ok) {
@@ -172,6 +173,7 @@ export function useTickets() {
 };
 
   const handleSendReminder = async (globalId: string | number) => {
+    const previousTickets = [...tickets];
     setTickets((prev) =>
       prev.map((t) =>
         String(t.globalId) === String(globalId) ? { ...t, reminder_flag: true } : t
@@ -181,6 +183,7 @@ export function useTickets() {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}/remind`, {
         method: "PUT",
         headers: getAuthHeaders(),
+        credentials: "include",
       });
       if (res.ok) {
         const Swal = (await import("sweetalert2")).default;
@@ -192,9 +195,12 @@ export function useTickets() {
           showConfirmButton: false,
           timer: 2000,
         });
+      } else {
+        setTickets(previousTickets);
       }
     } catch (error) {
       console.error("Failed to send reminder");
+      setTickets(previousTickets);
     }
   };
 
@@ -204,38 +210,30 @@ export function useTickets() {
   };
 
   const handleTicketAction = async (globalId: string | number, payload: any) => {
-  setIsUpdating(true);
-    // 1. I-normalize ang payload (string man o object)
+    setIsUpdating(true);
     const normalizedPayload = typeof payload === "string" ? { status: payload } : payload;
     let finalStatusToDB = "";
 
+    const previousTickets = [...tickets];
+
     const updatedTickets = tickets.map((ticket) => {
       if (String(ticket.globalId) === String(globalId)) {
-        // I-merge ang dating data sa bagong payload
         const t = {
           ...ticket,
           ...normalizedPayload,
           lastUpdated: new Date().toISOString(),
         };
 
-        // PRIORIDAD 1: Kung ang mismong payload ay may status (galing sa button click)
-       if (normalizedPayload.status) {
-  // Kung may pinasang status ang button (e.g., "Resolved"), ito ang masusunod.
-  t.status = normalizedPayload.status;
-} 
-else if (t.userMarkedDone && t.headMarkedDone) {
-  t.status = "Finished";
-} 
-else if (t.userMarkedDone || t.headMarkedDone) {
-  t.status = "Resolved";
-}
-else if (normalizedPayload.status === "Pending") {
-  setActiveTab("Pending");
-}
-        // Siguraduhin ang format para sa Database (UPPERCASE)
+        if (normalizedPayload.status) {
+          t.status = normalizedPayload.status;
+        } else if (t.userMarkedDone && t.headMarkedDone) {
+          t.status = "Finished";
+        } else if (t.userMarkedDone || t.headMarkedDone) {
+          t.status = "Resolved";
+        }
+
         finalStatusToDB = t.status.toUpperCase().replace(" ", "_");
 
-        // Reset markers kung ibinalik sa Pending
         if (t.status === "Pending") {
           t.userMarkedDone = false;
           t.headMarkedDone = false;
@@ -247,29 +245,27 @@ else if (normalizedPayload.status === "Pending") {
       return ticket;
     });
 
-    // Update local state agad para lumipat ng tab sa UI
     setTickets(updatedTickets);
     localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
     if (normalizedPayload.status === "Resolved") {
-  setActiveTab("Resolved");
-}
+      setActiveTab("Resolved");
+    }
 
-    // Ihanda ang data para sa fetch
     let dbPayload: any = { ...normalizedPayload };
 
-if (normalizedPayload.status) {
-  dbPayload.status = finalStatusToDB;
-} else if (dbPayload.headMarkedDone || dbPayload.userMarkedDone) {
-  // recompute correct status for backend
-  const updatedTicket = updatedTickets.find(t => String(t.globalId) === String(globalId));
-  if (updatedTicket) {
-    dbPayload.status = updatedTicket.status.toUpperCase().replace(" ", "_");
-  }
-}
+    if (normalizedPayload.status) {
+      dbPayload.status = finalStatusToDB;
+    } else if (dbPayload.headMarkedDone || dbPayload.userMarkedDone) {
+      const updatedTicket = updatedTickets.find(t => String(t.globalId) === String(globalId));
+      if (updatedTicket) {
+        dbPayload.status = updatedTicket.status.toUpperCase().replace(" ", "_");
+      }
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}`, {
         method: "PUT",
+        credentials: "include",
         headers: { 
           ...getAuthHeaders(), 
           "Content-Type": "application/json" 
@@ -279,11 +275,14 @@ if (normalizedPayload.status) {
 
       if (res.ok) {
         handleCloseModal();
-        // Don't call fetchTickets here - let the optimistic update persist
-        // The 5-second polling interval will sync with backend eventually
+      } else {
+        setTickets(previousTickets);
+        localStorage.setItem("myTickets", JSON.stringify(previousTickets));
       }
     } catch (error) {
       console.error("Error updating ticket on server:", error);
+      setTickets(previousTickets);
+      localStorage.setItem("myTickets", JSON.stringify(previousTickets));
     } finally {
       setIsUpdating(false);
     }

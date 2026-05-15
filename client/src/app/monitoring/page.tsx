@@ -120,7 +120,8 @@ export default function ITHeadViewDashboard() {
       console.log('🔑 Auth token exists:', !!localStorage.getItem('token'));
       
       const response = await fetch(`${API_URL}/api/monitoring/stats`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       
       console.log('📡 Response status:', response.status);
@@ -154,7 +155,8 @@ export default function ITHeadViewDashboard() {
   const fetchUserTicketStats = async () => {
     try {
       const response = await fetch(`${API_URL}/api/monitoring/user-tickets`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -175,7 +177,8 @@ export default function ITHeadViewDashboard() {
     try {
       console.log('🔄 Fetching users directly from users API...');
       const response = await fetch(`${API_URL}/api/users`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       
       if (response.ok) {
@@ -213,7 +216,8 @@ export default function ITHeadViewDashboard() {
   const fetchActivities = async () => {
     try {
       const response = await fetch(`${API_URL}/api/monitoring/activities?limit=100`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -228,7 +232,8 @@ export default function ITHeadViewDashboard() {
   const fetchAlerts = async () => {
     try {
       const response = await fetch(`${API_URL}/api/monitoring/alerts?limit=50&resolved=all`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();

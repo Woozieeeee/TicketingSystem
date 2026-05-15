@@ -4,6 +4,7 @@ import { useState, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
+import { getAuthHeaders } from "../../../lib/apiClient";
 import type { FormData, User } from "../types";
 
 export function useEditTicket(
@@ -56,7 +57,8 @@ export function useEditTicket(
     try {
       const res = await fetch(`${API_URL}/api/tickets/${ticket.globalId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify(formData),
         signal: controller.signal,
       });

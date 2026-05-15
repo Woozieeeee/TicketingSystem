@@ -6,10 +6,9 @@ const db = require("../../config/db");
 module.exports = async () => {
   try {
     const sql = `
-      SELECT t.*, u.username as createdBy, u.dept 
+      SELECT t.*
       FROM tickets t 
-      LEFT JOIN users u ON t.userId = u.id 
-      ORDER BY t.createdAt DESC
+      ORDER BY t.date DESC
     `;
     const [rows] = await db.query(sql);
     return rows;

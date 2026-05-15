@@ -3,14 +3,19 @@ const userModel = require('../models/user');
 // Authentication middleware
 const authenticateToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    // Read token from httpOnly cookie first, fallback to Authorization header
+    let token = null;
+    if (req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    } else {
+      const authHeader = req.headers['authorization'];
+      token = authHeader && authHeader.split(' ')[1];
+    }
 
     if (!token) {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    // Simple token validation (Replace with JWT for production)
     const user = await userModel.findByToken(token);
     
     if (!user) {
