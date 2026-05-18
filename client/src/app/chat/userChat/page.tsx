@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
+import { getUser } from "../../../lib/apiClient";
 
 // Components
 import ChatList from "./components/ChatList";
@@ -339,14 +340,17 @@ export default function UserChatPage() {
 
   // --- USE EFFECTS ---
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      fetchTickets(parsedUser);
-      const ticketInterval = setInterval(() => fetchTickets(parsedUser), 5000);
-      return () => clearInterval(ticketInterval);
-    }
+    const loadUser = async () => {
+      const userData = await getUser();
+      if (userData) {
+        setUser(userData);
+        fetchTickets(userData);
+        const ticketInterval = setInterval(() => fetchTickets(userData), 5000);
+        return () => clearInterval(ticketInterval);
+      }
+    };
+
+    loadUser();
   }, [fetchTickets]);
 
   useEffect(() => {

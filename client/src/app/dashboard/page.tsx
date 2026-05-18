@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getRelativeTime } from "../../lib/utils";
 import CreateTicketModal from "../../components/createTicketModal";
 import { API_URL } from "../../config/api";
+import { getUser } from "../../lib/apiClient";
 
 import StatsCards from "./components/StatsCards";
 import UserSidebar from "./components/UserSidebar";
@@ -32,15 +33,13 @@ export default function RoleBasedDashboard() {
 
   // --- FUNCTIONS ---
   const loadTickets = useCallback(async () => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
-    const parsedUser = JSON.parse(storedUser);
+    if (!user) return;
 
     try {
       const params = new URLSearchParams();
-      if (parsedUser?.role) params.set("role", parsedUser.role);
-      if (parsedUser?.dept) params.set("dept", parsedUser.dept);
-      if (parsedUser?.username) params.set("username", parsedUser.username);
+      if (user?.role) params.set("role", user.role);
+      if (user?.dept) params.set("dept", user.dept);
+      if (user?.username) params.set("username", user.username);
 
       const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
         credentials: "include",
@@ -95,19 +94,22 @@ export default function RoleBasedDashboard() {
   }, [lastUpdated]);
 
   // 3. Main Logic: Auth + Initial Load + Focus Refresh
- useEffect(() => {
+  useEffect(() => {
     // A. Check Auth
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      console.log("No user found, redirecting...");
-      router.push("/login");
-      return;
-    }
+    const checkAuth = async () => {
+      const userData = await getUser();
+      if (!userData) {
+        console.log("No user found, redirecting...");
+        router.push("/login");
+        return;
+      }
 
-    // B. Set User and Load Data
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
-    loadTickets();
+      // B. Set User and Load Data
+      setUser(userData);
+      loadTickets();
+    };
+
+    checkAuth();
 
     // C. Window Focus Refresh
     const handleFocus = () => {
@@ -117,24 +119,22 @@ export default function RoleBasedDashboard() {
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-    
-    // PALITAN MO ITONG LINE SA BABA:
-  }, []); // Sinama ang loadTickets para safe pero stable ito dahil sa useCallback
+  }, [router, loadTickets]);
 
   // Dito na magpapatuloy yung filters and return/interface mo...
 
   // 1. Siguraduhin na may tickets bago mag-sort para hindi mag-error
-const latestTicket = tickets && tickets.length > 0 
-  ? [...tickets].sort((a, b) => {
-      const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
-      const dateB = b.activityDate ? new Date(b.activityDate).getTime() : 0;
-      return dateB - dateA;
-    })[0]
-  : null;
+  const latestTicket = tickets && tickets.length > 0
+    ? [...tickets].sort((a, b) => {
+        const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
+        const dateB = b.activityDate ? new Date(b.activityDate).getTime() : 0;
+        return dateB - dateA;
+      })[0]
+    : null;
 
-// 2. Eto yung part na nag-re-red sa iyo, lagyan natin ng "?" (Optional Chaining)
-const displayDate = latestTicket?.activityDate 
-    ? latestTicket.activityDate 
+  // 2. Eto yung part na nag-re-red sa iyo, lagyan natin ng "?" (Optional Chaining)
+  const displayDate = latestTicket?.activityDate
+    ? latestTicket.activityDate
     : new Date().toISOString();
 
   const deptAccent =
@@ -154,7 +154,7 @@ const displayDate = latestTicket?.activityDate
           borderTw: "border-green-200",
         };
 
- const stats = useMemo<any>(() => {
+  const stats = useMemo<any>(() => {
     let filtered = tickets || [];
     const now = new Date().getTime();
     const currentYear = time.getFullYear();

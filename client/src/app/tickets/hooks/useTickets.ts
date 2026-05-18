@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL } from "../../../config/api";
-import { getAuthHeaders } from "../../../lib/apiClient";
+import { getAuthHeaders, getUser } from "../../../lib/apiClient";
 import type { Ticket, SortConfig, User } from "../types/tickets";
 
 export function useTickets() {
@@ -122,15 +122,18 @@ export function useTickets() {
 
   // Initialize user on mount
   useEffect(() => {
-    setMounted(true);
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsLoading(true);
-    } else {
-      router.push("/login");
-    }
+    const loadUser = async () => {
+      setMounted(true);
+      const userData = await getUser();
+      if (userData) {
+        setUser(userData);
+        setIsLoading(true);
+      } else {
+        router.push("/login");
+      }
+    };
+
+    loadUser();
   }, [router]);
 
   // Handle body scroll lock

@@ -8,7 +8,7 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/sidebar"; 
 // Inayos ang path base sa explorer: components/ChatHeadModal/index.tsx
 import ChatHeadModal from "../components/ChatHeadModal";
-import { validateToken, clearAuth } from "../lib/apiClient";
+import { validateToken, clearAuth, getUser } from "../lib/apiClient";
 
 interface RootLayoutProps {
   children: React.ReactNode;
@@ -22,15 +22,19 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
   // Handle Initial Mount and Initial User Load
   useEffect(() => {
-    setMounted(true);
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const loadUser = async () => {
+      setMounted(true);
+      try {
+        const userData = await getUser();
+        if (userData) {
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
       }
-    } catch (error) {
-      console.error("Failed to parse stored user:", error);
-    }
+    };
+
+    loadUser();
   }, []);
 
   // Authentication Logic Wrapper
@@ -42,8 +46,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
       if (isAuthPage) {
         try {
-          const storedUser = localStorage.getItem("user");
-          setUser(storedUser ? JSON.parse(storedUser) : null);
+          const userData = await getUser();
+          setUser(userData);
         } catch (error) {
           setUser(null);
         }
@@ -60,10 +64,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
         return;
       }
 
-      // Token is valid, reload user data from storage
+      // Token is valid, reload user data from server
       try {
-        const storedUser = localStorage.getItem("user");
-        setUser(storedUser ? JSON.parse(storedUser) : null);
+        const userData = await getUser();
+        setUser(userData);
       } catch (error) {
         setUser(null);
       }

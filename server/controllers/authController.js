@@ -92,21 +92,46 @@ exports.login = async (req, res) => {
     await logLoginAttempt(updatedUser.username, true, req.ip, req.get("User-Agent"));
     await activity.loginSuccess(req, updatedUser);
 
-    // Set httpOnly cookie with the auth token
-    res.cookie("auth_token", token, {
+    // Set httpOnly cookies for sensitive data
+    res.cookie('user_id', updatedUser.id, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-      path: "/",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
     });
 
+    res.cookie('user_role', updatedUser.role, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.cookie('user_dept', updatedUser.dept, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.cookie('login_count', updatedUser.login_count, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    // Set auth token cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    // Only return username in response body
     return res.status(200).json({
-      id: updatedUser.id,
       username: updatedUser.username,
-      role: updatedUser.role,
-      dept: updatedUser.dept,
-      login_count: updatedUser.login_count,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -118,13 +143,12 @@ exports.login = async (req, res) => {
 exports.logout = async (req, res) => {
   await activity.logout(req, req.body?.username);
 
-  // Clear the httpOnly cookie
-  res.clearCookie("auth_token", {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-    path: "/",
-  });
+  // Clear all httpOnly cookies
+  res.clearCookie('auth_token');
+  res.clearCookie('user_id');
+  res.clearCookie('user_role');
+  res.clearCookie('user_dept');
+  res.clearCookie('login_count');
 
   return res.status(200).json({ success: true, message: "Logged out successfully" });
 };

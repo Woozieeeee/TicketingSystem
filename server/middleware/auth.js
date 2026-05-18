@@ -62,8 +62,30 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+/**
+ * Authorization middleware - check if user is Head of INFORMATION AND TECHNOLOGY OFFICE only
+ * This restricts access to only the head of the IT department
+ */
+const requireITHead = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const isHead = req.user.role === 'Head';
+  const isITDept = req.user.dept === 'INFORMATION AND TECHNOLOGY OFFICE';
+
+  if (!isHead || !isITDept) {
+    return res.status(403).json({ 
+      error: 'Forbidden: Access restricted to Head of INFORMATION AND TECHNOLOGY OFFICE only' 
+    });
+  }
+
+  next();
+};
+
 module.exports = {
   authenticateToken,
   requireAdminOrStaff,
-  requireAdmin
+  requireAdmin,
+  requireITHead
 };

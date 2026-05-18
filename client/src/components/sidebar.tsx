@@ -73,14 +73,12 @@ export default function Sidebar({ user }: { user: any }) {
   const handleLogout = async () => {
     try {
       // Call backend to clear token
-      const user = localStorage.getItem("user");
-      if (user) {
-        const userData = JSON.parse(user);
+      if (user?.id) {
         await fetch(`${API_URL}/api/auth/logout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ userId: userData.id }),
+          body: JSON.stringify({ userId: user.id }),
         });
       }
 

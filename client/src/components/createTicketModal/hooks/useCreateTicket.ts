@@ -3,6 +3,7 @@
 import { useState, useEffect, ChangeEvent } from "react";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
+import { getUser } from "../../../lib/apiClient";
 import type { FormData, User } from "../types";
 
 export function useCreateTicket(
@@ -27,35 +28,35 @@ export function useCreateTicket(
 
   // Restore draft on open
   useEffect(() => {
-    if (isOpen) {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (error) {
-          console.error("Error parsing user:", error);
+    const loadUser = async () => {
+      if (isOpen) {
+        const userData = await getUser();
+        if (userData) {
+          setUser(userData);
         }
-      }
 
-      const savedDraft = localStorage.getItem("ticket_draft");
-      if (savedDraft) {
-        try {
-          const parsed = JSON.parse(savedDraft);
-          setFormData(parsed);
-          Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "info",
-            title: "Draft restored",
-            showConfirmButton: false,
-            timer: 1500,
-          });
-        } catch (e) {
-          console.error("Draft restore failed");
+        const savedDraft = localStorage.getItem("ticket_draft");
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            setFormData(parsed);
+            Swal.fire({
+              toast: true,
+              position: "top-end",
+              icon: "info",
+              title: "Draft restored",
+              showConfirmButton: false,
+              timer: 1500,
+            });
+          } catch (e) {
+            console.error("Draft restore failed");
+          }
         }
+        setStep(1);
       }
-      setStep(1);
-    }
+    };
+
+    loadUser();
   }, [isOpen]);
 
   // Auto-save draft as user types

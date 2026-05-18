@@ -1,7 +1,7 @@
 // server/routes/users.js
 
 const express = require('express');
-const { authenticateToken, requireAdminOrStaff } = require('../middleware/auth');
+const { authenticateToken, requireITHead } = require('../middleware/auth');
 const { requireStrongPassword } = require('../middleware/security');
 
 const router = express.Router();
@@ -13,22 +13,22 @@ router.post('/login', userController.loginUser);
 // Protected routes - require authentication
 router.use(authenticateToken);
 
-// Get all users (Admin/Staff/Head only)
-router.get('/', requireAdminOrStaff, userController.getAllUsers);
+// Get all users (IT Head only)
+router.get('/', requireITHead, userController.getAllUsers);
 
-// Get user by ID (Admin/Staff/Head only)
-router.get('/:id', requireAdminOrStaff, userController.getUserById);
+// Get user by ID (IT Head only)
+router.get('/:id', requireITHead, userController.getUserById);
 
-// Register new user (Admin/Staff/Head only) — password strength enforced
-router.post('/register', requireAdminOrStaff, requireStrongPassword, userController.registerUser);
+// Register new user (IT Head only) — password strength enforced
+router.post('/register', requireITHead, requireStrongPassword, userController.registerUser);
 
-// Update existing user (Admin/Staff/Head only) — password strength enforced if changing password
-router.put('/:id', requireAdminOrStaff, requireStrongPassword, userController.updateUser);
+// Update existing user (IT Head only) — password strength enforced if changing password
+router.put('/:id', requireITHead, requireStrongPassword, userController.updateUser);
 
-// Toggle user status - suspend/activate (Admin/Staff/Head only)
-router.put('/:id/status', requireAdminOrStaff, userController.toggleUserStatus);
+// Toggle user status - suspend/activate (IT Head only)
+router.put('/:id/status', requireITHead, userController.toggleUserStatus);
 
-// Delete user (Admin/Staff/Head only)
-router.delete('/:id', requireAdminOrStaff, userController.deleteUser);
+// Delete user (IT Head only)
+router.delete('/:id', requireITHead, userController.deleteUser);
 
 module.exports = router;

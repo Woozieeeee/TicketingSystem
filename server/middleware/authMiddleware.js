@@ -102,7 +102,7 @@ exports.validateSession = async (req, res) => {
 
     // Check token validity
     const [rows] = await db.query(
-      "SELECT id, username, role, dept FROM users WHERE auth_token = ? AND (token_expires IS NULL OR token_expires > NOW())",
+      "SELECT id, username FROM users WHERE auth_token = ? AND (token_expires IS NULL OR token_expires > NOW())",
       [token]
     );
 
@@ -113,9 +113,16 @@ exports.validateSession = async (req, res) => {
       });
     }
 
+    // Return user data from cookies (sensitive data) and database (username)
     return res.status(200).json({
       success: true,
-      user: rows[0],
+      user: {
+        id: req.cookies.user_id,
+        username: rows[0].username,
+        role: req.cookies.user_role,
+        dept: req.cookies.user_dept,
+        login_count: req.cookies.login_count,
+      },
     });
   } catch (error) {
     console.error("Session validation error:", error);

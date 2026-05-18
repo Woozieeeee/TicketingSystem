@@ -109,7 +109,6 @@ export default function ITHeadViewDashboard() {
 
   // Database monitoring functions
   const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
     'Content-Type': 'application/json'
   });
 
@@ -117,7 +116,6 @@ export default function ITHeadViewDashboard() {
   const fetchMonitoringStats = async () => {
     try {
       console.log('🔍 Fetching monitoring stats from:', `${API_URL}/api/monitoring/stats`);
-      console.log('🔑 Auth token exists:', !!localStorage.getItem('token'));
       
       const response = await fetch(`${API_URL}/api/monitoring/stats`, {
         headers: getAuthHeaders(),

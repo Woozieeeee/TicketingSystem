@@ -43,10 +43,8 @@ const mapDbUserToUi = (dbUser: DbUser): User => ({
 });
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
   };
 };
 
@@ -73,6 +71,12 @@ export function useUsers() {
         if (response.status === 404) {
           setUsers([]);
           setError('User endpoint not found (404). Please check the API URL.');
+          return;
+        }
+        if (response.status === 403) {
+          // User lacks permission - clear users and set error without throwing
+          setUsers([]);
+          setError('Access denied. User management is restricted to IT Department Head only.');
           return;
         }
         throw new Error(`Unable to load users (${response.status})`);

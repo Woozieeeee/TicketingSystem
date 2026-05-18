@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { API_URL } from "../../config/api";
-import { getAuthHeaders } from "../../lib/apiClient";
+import { getAuthHeaders, getUser } from "../../lib/apiClient";
 
 const formatStatus = (raw: string) => {
   if (!raw) return "Pending";
@@ -37,12 +37,16 @@ export const useChatLogic = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load user from localStorage
+  // Load user from server
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const loadUser = async () => {
+      const userData = await getUser();
+      if (userData) {
+        setUser(userData);
+      }
+    };
+
+    loadUser();
   }, []);
 
   // Fetch tickets from API

@@ -27,18 +27,38 @@ export async function authFetch(
   });
 }
 
-// Get stored user data (user info only, no token)
+// Get stored username only (sensitive data is in httpOnly cookies)
 export function getStoredUser(): any | null {
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem("user");
   return stored ? JSON.parse(stored) : null;
 }
 
+// Get full user data from server (reads from httpOnly cookies)
+export async function getUser(): Promise<any | null> {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const res = await fetch(`${API_URL}/api/auth/validate`, {
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    return data.success ? data.user : null;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return null;
+  }
+}
+
 // Clear auth data on logout
 export function clearAuth(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("user");
-  localStorage.removeItem("token");
   localStorage.removeItem("myTickets");
   localStorage.removeItem("ticket_draft");
 }
@@ -64,8 +84,8 @@ export async function validateToken(): Promise<boolean> {
   }
 }
 
-// Store auth data after login (user info only — token is in httpOnly cookie)
+// Store auth data after login (only username — sensitive data is in httpOnly cookies)
 export function storeAuth(userData: any): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem("user", JSON.stringify(userData));
+  localStorage.setItem("user", JSON.stringify({ username: userData.username }));
 }

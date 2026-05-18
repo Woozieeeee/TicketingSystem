@@ -4,7 +4,7 @@ import { useState, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { API_URL } from "../../../config/api";
-import { getAuthHeaders } from "../../../lib/apiClient";
+import { getAuthHeaders, getUser } from "../../../lib/apiClient";
 import type { FormData, User } from "../types";
 
 export function useEditTicket(
@@ -29,15 +29,19 @@ export function useEditTicket(
   }, []);
 
   useEffect(() => {
-    if (isOpen && ticket) {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) setUser(JSON.parse(storedUser));
-      setFormData({
-        title: ticket.title || "",
-        description: ticket.description || "",
-        category: ticket.category || "",
-      });
-    }
+    const loadUser = async () => {
+      if (isOpen && ticket) {
+        const userData = await getUser();
+        if (userData) setUser(userData);
+        setFormData({
+          title: ticket.title || "",
+          description: ticket.description || "",
+          category: ticket.category || "",
+        });
+      }
+    };
+
+    loadUser();
   }, [isOpen, ticket]);
 
   const handleChange = (

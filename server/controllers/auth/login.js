@@ -30,14 +30,46 @@ module.exports = async (req, res) => {
     // Get updated user data with new login count
     const updatedUser = await User.findById(user.id);
 
+    // Set httpOnly cookies for sensitive data
+    res.cookie('user_id', updatedUser.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    res.cookie('user_role', updatedUser.role, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.cookie('user_dept', updatedUser.dept, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.cookie('login_count', updatedUser.login_count, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    // Set auth token cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    // Only return username in response body
     return res.status(200).json({
-      id: updatedUser.id,
       username: updatedUser.username,
-      role: updatedUser.role,
-      dept: updatedUser.dept,
-      login_count: updatedUser.login_count,
-      token: token,
-      token_expires: expires,
     });
   } catch (error) {
     console.error("❌ Login Error:", error.message);
