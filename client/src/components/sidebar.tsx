@@ -100,11 +100,15 @@ export default function Sidebar({ user }: { user: any }) {
       path: "/dashboard",
       icon: <LayoutDashboard size={20} className="lg:w-[22px] lg:h-[22px]" />,
     },
-    {
-          name: "User Management",
-          path: "/userManagement",
-          icon: <Users size={20} className="lg:w-[22px] lg:h-[22px]" />,
-        },
+    ...(user?.role === "Head"
+      ? [
+          {
+            name: "User Management",
+            path: "/userManagement",
+            icon: <Users size={20} className="lg:w-[22px] lg:h-[22px]" />,
+          },
+        ]
+      : []),
     {
       name: "Tickets",
       path: "/tickets",

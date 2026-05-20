@@ -299,7 +299,7 @@ export default function Page() {
 
   return (
     <>
-      {/* 🟢 TANGGAL ANG LAHAT NG GAP PROPERTIES DITO SA WRAPPER PARA DI MASIRA ANG SIDEBARS */}
+      {/* 🟢 fixing issue ng gap */}
       <div className="flex h-screen w-full overflow-hidden bg-white">
         {/* LEFT SIDEBAR */}
         <ChatList

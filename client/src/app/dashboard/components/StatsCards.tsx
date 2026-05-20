@@ -71,7 +71,7 @@ export default function StatsCards({
         const isReminder = card.label === "Reminders";
         const isPending = card.label === "Pending";
 
-        // UI FIX: Ginawa nating parehas ang border logic ng Reminder at Pending para lumitaw ang kulay sa taas
+        // UI FIX: border logic of Reminder at Pending color
         let borderClasses =
           "border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
         
@@ -97,7 +97,7 @@ export default function StatsCards({
                   }
             }
           >
-            {/* Lalabas lang itong bar na 'to sa In-Progress, Resolved, at Finished */}
+            {/* only appeard for 'In-Progress, Resolved, at Finished */}
             {!isReminder && !isPending && (
               <div
                 className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}

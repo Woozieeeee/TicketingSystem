@@ -41,7 +41,7 @@ export default function RoleBasedDashboard() {
       if (parsedUser?.dept) params.set("dept", parsedUser.dept);
       if (parsedUser?.username) params.set("username", parsedUser.username);
 
-      // TAMA (tickets page):
+      // (tickets page):
 const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
   headers: getAuthHeaders(),
 });
@@ -127,9 +127,9 @@ const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
     };
   }, [loadTickets]);
 
-  // Dito na magpapatuloy yung filters and return/interface mo...
+  //  filters and return/interface 
 
-  // 1. Siguraduhin na may tickets bago mag-sort para hindi mag-error
+  // sort 
 const latestTicket = tickets && tickets.length > 0 
   ? [...tickets].sort((a, b) => {
       const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
@@ -138,7 +138,7 @@ const latestTicket = tickets && tickets.length > 0
     })[0]
   : null;
 
-// 2. Eto yung part na nag-re-red sa iyo, lagyan natin ng "?" (Optional Chaining)
+//  "?" (Optional Chaining)
 const displayDate = latestTicket?.activityDate 
     ? latestTicket.activityDate 
     : new Date().toISOString();
@@ -227,7 +227,7 @@ const displayDate = latestTicket?.activityDate
     };
   }, [tickets, timeFilter, time, selectedDate]);
 
-  // Ito ang mga variables na gagamitin ng interface mo sa baba
+  // variables  ng interface  sa baba
   const remindersCount = stats?.rem || 0;
   const pendingCount = stats?.pen || 0;
   const inProgressCount = stats?.inp || 0;

@@ -111,3 +111,31 @@ exports.validateSession = async (req, res) => {
     });
   }
 };
+
+/**
+ * 🟢 Authorization middleware - check if user is Head of INFORMATION AND TECHNOLOGY OFFICE only
+ * Restricts access to administrative endpoints (User Management)
+ */
+exports.requireITHead = (req, res, next) => {
+  // 1. Siguraduhing dumaan muna sa verifyToken at may nakuhang req.user
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required. Please log in.",
+    });
+  }
+
+  // 2. I-validate ang Role at Departamento ng user
+  const isHead = req.user.role === "Head";
+  const isITDept = req.user.dept === "INFORMATION AND TECHNOLOGY OFFICE";
+
+  if (!isHead || !isITDept) {
+    return res.status(403).json({
+      success: false,
+      message: "Forbidden: Access restricted to Head of INFORMATION AND TECHNOLOGY OFFICE only.",
+    });
+  }
+
+  // Lulusot sa susunod na function/controller kapag pumasa ang validation
+  next();
+};

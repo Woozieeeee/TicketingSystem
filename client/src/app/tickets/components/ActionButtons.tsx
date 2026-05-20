@@ -64,7 +64,7 @@ export default function ActionButtons({
         </>
       )}
 
-      {/* 2. LALABAS LANG PAG RESOLVED (Nasa labas na ng Pending block) */}
+      {/* 2. only appeared when ticket is RESOLVED ( labas ng Pending block) */}
       {ticket.status === "Resolved" && !ticket.userMarkedDone && (
         <button 
           className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-blue-500 hover:bg-blue-600 transition-colors"
@@ -83,7 +83,7 @@ export default function ActionButtons({
       {/* HEAD ACTIONS: Accept and Resolve only */}
       {user?.role === "Head" && (
         <>
-          {/* Pag Pending, Accept lang ang button */}
+          {/* if pending, only accept button will show */}
           {ticket.status === "Pending" && (
             <button
               className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest"
@@ -98,7 +98,7 @@ export default function ActionButtons({
             </button>
           )}
 
-          {/* Pag In Progress, Follow Up at Resolve lang ang button */}
+          {/* if In Progress, Follow Up at Resolve lang ang button */}
           {ticket.status === "In Progress" && (
             <>
               
@@ -116,7 +116,7 @@ export default function ActionButtons({
             </>
           )}
 
-          {/* Dito natin ilalagay ang Confirm, lalabas lang siya kapag RESOLVED na ang ticket */}
+          {/*  Confirm Button, it will show or appeared if tickets are RESOLVED*/}
           
           {ticket.status === "Resolved" && !ticket.headMarkedDone && (
   <>
@@ -124,7 +124,7 @@ export default function ActionButtons({
       className="flex items-center gap-0.5 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded text-white font-black text-[7px] sm:text-[9px] uppercase tracking-widest bg-amber-500 hover:bg-amber-600 transition-colors"
       onClick={(e) => {
         e.stopPropagation();
-        // Palitan ang "Follow Up" ng "Pending"
+        // for now it will change in "Follow Up" of "Pending"
         onAction(ticket.globalId, { status: "Pending" });
       }}
     >
