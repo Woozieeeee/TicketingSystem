@@ -5,7 +5,6 @@ import ChatList, { Ticket } from "../adminChat/components/ChatList";
 import ChatWindow from "../adminChat/components/ChatWindow";
 import TicketDetails from "../adminChat/components/TicketDetails";
 
-
 // NOTE: You already have this in your original file
 import { API_URL } from "../../../config/api";
 import { getAuthHeaders } from "../../../lib/apiClient";
@@ -23,8 +22,10 @@ export default function Page() {
 
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [fileType, setFileType] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null); // Naka-sync sa file uploads
 
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null); // Naka-sync sa file selection
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -39,10 +40,13 @@ export default function Page() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null); // Naka-sync para sa document selections
 
   // ---------------- HELPERS ----------------
   const parseAttachment = (attachment: any) => {
     if (!attachment) return { type: "", src: "" };
+
+    const lowerSrc = attachment.toLowerCase();
 
     if (attachment.includes("image"))
       return { type: "image", src: attachment };
@@ -50,6 +54,17 @@ export default function Page() {
       return { type: "video", src: attachment };
     if (attachment.includes("audio"))
       return { type: "audio", src: attachment };
+    if (
+      lowerSrc.includes("pdf") || 
+      lowerSrc.includes("doc") || 
+      lowerSrc.includes("xls") || 
+      lowerSrc.includes("txt") || 
+      lowerSrc.includes("csv")
+    ) {
+      const decodedSrc = decodeURIComponent(attachment);
+      const fileNameExtract = decodedSrc.substring(decodedSrc.lastIndexOf("/") + 1);
+      return { type: "document", src: attachment, name: fileNameExtract || "Download Document" };
+    }
 
     return { type: "", src: "" };
   };
@@ -72,7 +87,7 @@ export default function Page() {
   };
 
   const handleSend = async () => {
-    if (!messageInput.trim() || !selectedTicket || isSending) return;
+    if (!messageInput.trim() && !selectedFile || !selectedTicket || isSending) return;
     setIsSending(true);
 
     const currentUsername = user?.username || "Admin";
@@ -92,6 +107,7 @@ export default function Page() {
     };
     setChatHistory((prev) => [...prev, optimisticMsg]);
     setMessageInput("");
+    removeFile();
 
     try {
       await fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/messages`, {
@@ -122,17 +138,22 @@ export default function Page() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
+    setFileName(file.name);
     const url = URL.createObjectURL(file);
     setFilePreview(url);
 
     if (file.type.startsWith("image")) setFileType("image");
     else if (file.type.startsWith("video")) setFileType("video");
     else if (file.type.startsWith("audio")) setFileType("audio");
+    else setFileType("document");
   };
 
   const removeFile = () => {
     setFilePreview(null);
     setFileType(null);
+    setSelectedFile(null);
+    setFileName(null);
   };
 
   const startRecording = () => {
@@ -149,7 +170,6 @@ export default function Page() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // Dummy Audio Player (since you passed it as prop)
   const CustomAudioPlayer = ({ src }: any) => (
     <audio controls src={src} />
   );
@@ -158,8 +178,12 @@ export default function Page() {
   const markAsRead = async (ticketId: string) => {
     try {
       await fetch(`${API_URL}/api/chat/${ticketId}/read`, {
-        method: "POST",
-        headers: getAuthHeaders(),
+        method: "PATCH",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reader: user?.username || "Admin" }),
       });
     } catch (error) {
       console.error("Error marking messages as read:", error);
@@ -167,10 +191,8 @@ export default function Page() {
   };
 
   const selectTicket = async (ticket: Ticket) => {
-    // If ticket has unread messages, mark them as read
     if (ticket.unreadCount > 0) {
       await markAsRead(ticket.globalId);
-      // Update local state to reset unread count
       setTickets((prev) =>
         prev.map((t) =>
           t.globalId === ticket.globalId ? { ...t, unreadCount: 0 } : t
@@ -183,7 +205,6 @@ export default function Page() {
   // ---------------- ACCEPT TICKET FUNCTION ----------------
   const handleAcceptTicket = async (ticket: any) => {
     try {
-      // Update ticket status to In Progress
       const res = await fetch(`${API_URL}/api/tickets/${ticket.globalId}`, {
         method: "PUT",
         headers: {
@@ -194,13 +215,11 @@ export default function Page() {
       });
 
       if (res.ok) {
-        // Update local ticket state
         setTickets((prev) =>
           prev.map((t) =>
             t.globalId === ticket.globalId ? { ...t, status: "In Progress" } : t
           )
         );
-        // Open the chat
         setSelectedTicket({ ...ticket, status: "In Progress" });
       }
     } catch (error) {
@@ -219,10 +238,8 @@ export default function Page() {
       const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
         headers: getAuthHeaders(),
       });
-      console.log("Tickets API response:", res.status, res.statusText);
       if (res.ok) {
         const data = await res.json();
-        console.log("Tickets data:", data);
         if (Array.isArray(data)) {
           const transformed = data.map((t: any) => ({
             ...t,
@@ -255,7 +272,6 @@ export default function Page() {
     }
   }, []);
 
-  // ---------------- USE EFFECTS ----------------
   // Auto-fetch tickets on mount with polling
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -272,16 +288,19 @@ export default function Page() {
   useEffect(() => {
     if (!selectedTicket) return;
     fetchMessages(selectedTicket.globalId);
-    const messageInterval = setInterval(
-      () => fetchMessages(selectedTicket.globalId),
-      3000
-    );
+    
+    if (selectedTicket.unreadCount > 0) {
+      markAsRead(selectedTicket.globalId);
+    }
+
+    const messageInterval = setInterval(() => fetchMessages(selectedTicket.globalId), 3000);
     return () => clearInterval(messageInterval);
   }, [selectedTicket, fetchMessages]);
 
   return (
     <>
-      <div className="flex h-screen w-full overflow-hidden">
+      {/* 🟢 TANGGAL ANG LAHAT NG GAP PROPERTIES DITO SA WRAPPER PARA DI MASIRA ANG SIDEBARS */}
+      <div className="flex h-screen w-full overflow-hidden bg-white">
         {/* LEFT SIDEBAR */}
         <ChatList
           tickets={tickets}
@@ -293,9 +312,9 @@ export default function Page() {
           setSelectedTicket={setSelectedTicket}
         />
 
-        {/* MAIN CHAT */}
+        {/* MAIN CHAT AREA */}
         {selectedTicket?.status === "Pending" ? (
-          <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+          <div className="flex-1 min-w-0 flex flex-col items-center justify-center bg-slate-50 h-full border-r border-slate-200">
             <div className="text-center p-8">
               <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,12 +324,12 @@ export default function Page() {
               <h3 className="text-lg font-semibold text-slate-700 mb-2">
                 Ticket Pending
               </h3>
-              <p className="text-slate-500 mb-4 max-w-sm">
+              <p className="text-slate-500 mb-4 max-w-sm text-sm">
                 This ticket needs to be accepted before starting the conversation.
               </p>
               <button
                 onClick={() => handleAcceptTicket(selectedTicket)}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto shadow-sm active:scale-95"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -344,6 +363,7 @@ export default function Page() {
             galleryInputRef={galleryInputRef}
             videoInputRef={videoInputRef}
             cameraInputRef={cameraInputRef}
+            documentInputRef={documentInputRef} // Ipinasa ang ref nang maayos
             handleFileSelect={handleFileSelect}
             isRecording={isRecording}
             recordingTime={recordingTime}
@@ -371,7 +391,7 @@ export default function Page() {
         >
           <img
             src={fullScreenImage}
-            className="max-w-full max-h-[90vh]"
+            className="max-w-full max-h-[90vh] object-contain"
             alt="Fullscreen preview"
           />
         </div>

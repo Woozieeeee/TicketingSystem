@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import {
   ArrowLeft,
   Info,
@@ -14,8 +14,9 @@ import {
   Send,
   Trash2,
   Ban,
+  FileText, // FIXED: Added FileText icon for documents
 } from "lucide-react";
-import { CustomAudioPlayer, parseAttachment, formatTime } from "./CustomStyles";
+import { CustomAudioPlayer, formatTime } from "./CustomStyles";
 
 interface Message {
   id: number;
@@ -39,14 +40,17 @@ interface ChatWindowProps {
   selectedTicket: Ticket | null;
   chatHistory: Message[];
   user: any;
+  currentUser?: any; // FIXED: Optional fallback property mapping parameter compatibility
   messageInput: string;
   isSending: boolean;
   isRecording: boolean;
   recordingTime: number;
   filePreview: string | null;
-  fileType: "image" | "video" | "audio" | null;
+  fileType: "image" | "video" | "audio" | "document" | string | null; // FIXED: Expanded to prevent structural runtime validation bypasses
   isAttachmentMenuOpen: boolean;
   isOpponentTyping: boolean;
+  parseAttachment: (attachment: any) => { type: string; src: string; name?: string }; // FIXED: Enforced explicit processing typing signature callbacks
+  getStatusColor?: (status: string) => string; // FIXED: Safe typing configuration fallback checks
   onBack: () => void;
   onOpenInfo: () => void;
   onSend: () => void;
@@ -61,6 +65,7 @@ interface ChatWindowProps {
   galleryInputRef: React.RefObject<HTMLInputElement>;
   cameraInputRef: React.RefObject<HTMLInputElement>;
   videoInputRef: React.RefObject<HTMLInputElement>;
+  documentInputRef: React.RefObject<HTMLInputElement>; // FIXED: Added documentInputRef type prop
   chatContainerRef: React.RefObject<HTMLDivElement>;
   onSetFullScreenImage: (src: string | null) => void;
 }
@@ -77,6 +82,7 @@ export default function ChatWindow({
   fileType,
   isAttachmentMenuOpen,
   isOpponentTyping,
+  parseAttachment, // FIXED: Destructured utility handlers
   onBack,
   onOpenInfo,
   onSend,
@@ -91,6 +97,7 @@ export default function ChatWindow({
   galleryInputRef,
   cameraInputRef,
   videoInputRef,
+  documentInputRef, // FIXED: Destructured documentInputRef
   chatContainerRef,
   onSetFullScreenImage,
 }: ChatWindowProps) {
@@ -132,7 +139,23 @@ export default function ChatWindow({
             ref={chatContainerRef}
             className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
           >
-            {[...chatHistory].reverse().map((msg) => {
+            {/* FIXED: Removed internal array level structural reversal when flex-col-reverse processing is already present */}
+            
+            {/* FIXED: Injected dynamic UI indicator node if the opponent operator is actively typing feedback updates */}
+            {isOpponentTyping && (
+              <div className="flex justify-start w-full items-center gap-2 mt-2 animate-pulse">
+                <div className="bg-white border border-amber-200 text-slate-500 text-xs px-4 py-2.5 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
+                  <span className="font-semibold text-green-600">Support Personnel</span> is typing
+                  <span className="inline-flex gap-0.5 ml-1">
+                    <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce"></span>
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {chatHistory.slice().reverse().map((msg) => {
               const isSystemMsg = msg.sender === "System";
               if (isSystemMsg)
                 return (
@@ -146,14 +169,15 @@ export default function ChatWindow({
 
               const isMe = msg.sender === user?.username;
               const isDeleted = msg.message === "[DELETED]";
-              const { type: attachType, src: attachSrc } = parseAttachment(
-                msg.attachment,
-              );
+              const parsed = parseAttachment(msg.attachment);
+              const attachType = parsed?.type;
+              const attachSrc = parsed?.src;
+              const attachName = parsed?.name || "Document Asset";
 
               return (
                 <div
                   key={msg.id}
-                  className={`flex group items-end ${isMe ? "justify-end gap-2" : "justify-start gap-2"} w-full mt-4`}
+                  className={`flex group items-end ${isMe ? "justify-end gap-2" : "justify-start gap-2"} w-full mt-1`}
                 >
                   {isMe &&
                     selectedTicket.status !== "Finished" &&
@@ -204,6 +228,23 @@ export default function ChatWindow({
                         {attachType === "audio" && attachSrc && (
                           <CustomAudioPlayer src={attachSrc} isMe={isMe} />
                         )}
+                        {/* Document Message Node Builder */}
+                        {attachType === "document" && attachSrc && (
+                          <a
+                            href={attachSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2 p-2 rounded-xl mb-1.5 border transition ${isMe ? "bg-green-700/50 border-green-500 text-white hover:bg-green-700" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"}`}
+                          >
+                            <FileText size={24} className={isMe ? "text-green-200" : "text-red-500"} />
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="text-xs font-semibold truncate max-w-[180px] sm:max-w-[220px]">
+                                {attachName}
+                              </span>
+                              <span className="text-[10px] opacity-75 uppercase font-bold">View Document</span>
+                            </div>
+                          </a>
+                        )}
 
                         {msg.message && (
                           <p className="custom-message-text text-sm whitespace-pre-wrap break-words">
@@ -248,6 +289,13 @@ export default function ChatWindow({
                         🎵 Audio Ready
                       </div>
                     )}
+                    {/* Document Input Preview Context */}
+                    {fileType === "document" && (
+                      <div className="h-10 px-4 bg-slate-100 rounded-full flex items-center border border-slate-200 text-xs font-bold text-slate-600 shadow-sm gap-2">
+                        <FileText size={14} className="text-red-500" />
+                        <span>📄 Document Selected</span>
+                      </div>
+                    )}
 
                     <button
                       onClick={onRemoveFile}
@@ -275,7 +323,7 @@ export default function ChatWindow({
                         }}
                         className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700"
                       >
-                        <ImageIcon size={16} className="text-blue-500" />{" "}
+                        <ImageIcon size={16} className="text-black-500" />{" "}
                         Photo
                       </button>
                       <button
@@ -285,8 +333,19 @@ export default function ChatWindow({
                         }}
                         className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
                       >
-                        <Video size={16} className="text-purple-500" />{" "}
+                        <Video size={16} className="text-black-500" />{" "}
                         Video
+                      </button>
+                      {/* FIXED: Document Selector Button Node */}
+                      <button
+                        onClick={() => {
+                          documentInputRef.current?.click();
+                          onCloseAttachmentMenu();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-xs font-bold text-slate-700 border-t border-slate-100"
+                      >
+                        <FileText size={16} className="text-black-500" />{" "}
+                        Document
                       </button>
                       <button
                         onClick={() => {
@@ -330,6 +389,14 @@ export default function ChatWindow({
                     ref={cameraInputRef}
                     onChange={onFileSelect}
                   />
+                  {/* FIXED: Hidden Document Native File Input */}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                    className="hidden"
+                    ref={documentInputRef}
+                    onChange={onFileSelect}
+                  />
 
                   {isRecording ? (
                     <div className="flex-1 flex items-center px-4 bg-slate-200/50 rounded-xl h-[42px] sm:h-[46px] animate-pulse mx-1">
@@ -354,11 +421,7 @@ export default function ChatWindow({
                       onClick={isRecording ? onStopRecording : onStartRecording}
                       disabled={!selectedTicket || isSending}
                       className={`custom-send-btn flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all relative z-10 mr-0.5 ${isRecording ? "bg-red-500 text-white shadow-md animate-pulse" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
-                      title={
-                        isRecording
-                          ? "Stop recording"
-                          : "Record voice message"
-                      }
+                      title={isRecording ? "Stop recording" : "Record voice message"}
                     >
                       {isRecording ? (
                         <Square size={14} fill="currentColor" />

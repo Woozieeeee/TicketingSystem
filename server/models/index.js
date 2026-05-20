@@ -7,4 +7,5 @@ module.exports = {
   Ticket: require("./ticket"),
   chatModel: require("./chat"),
   ticketLockModel: require("./ticketLock"),
+
 };

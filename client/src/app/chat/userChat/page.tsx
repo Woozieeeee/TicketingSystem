@@ -49,7 +49,9 @@ export default function UserChatPage() {
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<"image" | "video" | "audio" | null>(null);
+  const [fileType, setFileType] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
 
@@ -63,10 +65,51 @@ export default function UserChatPage() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPingRef = useRef<number>(0);
+
+  // --- HELPERS ---
+  const parseAttachment = (attachment: any) => {
+    if (!attachment) return { type: "", src: "" };
+
+    const lowerSrc = attachment.toLowerCase();
+
+    if (attachment.includes("image"))
+      return { type: "image", src: attachment };
+    if (attachment.includes("video"))
+      return { type: "video", src: attachment };
+    if (attachment.includes("audio"))
+      return { type: "audio", src: attachment };
+    if (
+      lowerSrc.includes("pdf") || 
+      lowerSrc.includes("doc") || 
+      lowerSrc.includes("xls") || 
+      lowerSrc.includes("txt") || 
+      lowerSrc.includes("csv")
+    ) {
+      const decodedSrc = decodeURIComponent(attachment);
+      const fileNameExtract = decodedSrc.substring(decodedSrc.lastIndexOf("/") + 1);
+      return { type: "document", src: attachment, name: fileNameExtract || "Download Document" };
+    }
+
+    return { type: "", src: "" };
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "In Progress":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "Finished":
+        return "bg-green-100 text-green-700 border-green-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
 
   // --- FUNCTIONS ---
   const fetchTickets = useCallback(async (currentUser: any) => {
@@ -129,19 +172,26 @@ export default function UserChatPage() {
     removeFile();
 
     await fetchMessages(ticket.globalId);
+
     try {
       const readerName = user?.username || "User";
       await fetch(`${API_URL}/api/chat/${ticket.globalId}/read`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", 
+        headers: { 
+          ...getAuthHeaders(),
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify({ reader: readerName }),
       });
+
       setTickets((prev) =>
         prev.map((t) =>
           t.globalId === ticket.globalId ? { ...t, unreadCount: 0 } : t,
         ),
       );
-    } catch (error) {}
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
   };
 
   const compressImage = (base64Str: string): Promise<string> => {
@@ -164,12 +214,16 @@ export default function UserChatPage() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
+      setFileName(file.name);
+      
       const reader = new FileReader();
       if (file.type.startsWith("video/")) {
         reader.onload = (event) => {
           setFilePreview(event.target?.result as string);
           setFileType("video");
         };
+        reader.readAsDataURL(file);
       } else if (file.type.startsWith("image/")) {
         reader.onload = async (event) => {
           const originalBase64 = event.target?.result as string;
@@ -177,8 +231,14 @@ export default function UserChatPage() {
           setFilePreview(compressed);
           setFileType("image");
         };
+        reader.readAsDataURL(file);
+      } else {
+        reader.onload = (event) => {
+          setFilePreview(event.target?.result as string);
+          setFileType("document");
+        };
+        reader.readAsDataURL(file);
       }
-      reader.readAsDataURL(file);
     }
     setIsAttachmentMenuOpen(false);
   };
@@ -201,6 +261,7 @@ export default function UserChatPage() {
         reader.onloadend = () => {
           setFilePreview(reader.result as string);
           setFileType("audio");
+          setFileName("VoiceNote.webm");
         };
         reader.readAsDataURL(audioBlob);
         stream.getTracks().forEach((track) => track.stop());
@@ -228,6 +289,8 @@ export default function UserChatPage() {
   const removeFile = () => {
     setFilePreview(null);
     setFileType(null);
+    setSelectedFile(null);
+    setFileName(null);
   };
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -352,14 +415,35 @@ export default function UserChatPage() {
   }, [fetchTickets]);
 
   useEffect(() => {
-    if (!selectedTicket) return;
+    if (!selectedTicket || !user) return;
+    
     fetchMessages(selectedTicket.globalId);
+
+    if (selectedTicket.unreadCount > 0) {
+      const readerName = user?.username || "User";
+      
+      fetch(`${API_URL}/api/chat/${selectedTicket.globalId}/read`, {
+        method: "PATCH",
+        headers: { 
+          ...getAuthHeaders(),
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ reader: readerName }),
+      });
+
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.globalId === selectedTicket.globalId ? { ...t, unreadCount: 0 } : t
+        )
+      );
+    }
+
     const messageInterval = setInterval(
       () => fetchMessages(selectedTicket.globalId),
       3000,
     );
     return () => clearInterval(messageInterval);
-  }, [selectedTicket, fetchMessages]);
+  }, [selectedTicket?.globalId, fetchMessages, user]);
 
   useEffect(() => {
     if (!selectedTicket || !user) return;
@@ -395,57 +479,60 @@ export default function UserChatPage() {
   // --- RENDER ---
   return (
     <>
-      <div
-        className="flex flex-col h-screen w-full bg-white overflow-hidden text-slate-900"
-      >
-        <div className="flex flex-1 overflow-hidden relative w-full h-full max-w-full">
-          {/* LEFT SIDEBAR - ChatList */}
-          <ChatList
-            tickets={tickets}
-            selectedTicket={selectedTicket}
-            activeTab={activeTab}
-            onSelectTicket={selectTicket}
-            onSetActiveTab={setActiveTab}
-          />
+      {/* 🟢 WALANG GAP O MARGIN PROPERTIES DITO PARA MAIWASAN ANG LAYOUT MISALIGNMENT AT SPACING BUGS */}
+      <div className="flex h-screen w-full bg-white overflow-hidden text-slate-900">
+        
+        {/* LEFT SIDEBAR - ChatList */}
+        <ChatList
+          tickets={tickets}
+          selectedTicket={selectedTicket}
+          activeTab={activeTab}
+          onSelectTicket={selectTicket}
+          onSetActiveTab={setActiveTab}
+        />
 
-          {/* CENTER - ChatWindow */}
-          <ChatWindow
-            selectedTicket={selectedTicket}
-            chatHistory={chatHistory}
-            user={user}
-            messageInput={messageInput}
-            isSending={isSending}
-            isRecording={isRecording}
-            recordingTime={recordingTime}
-            filePreview={filePreview}
-            fileType={fileType}
-            isAttachmentMenuOpen={isAttachmentMenuOpen}
-            isOpponentTyping={isOpponentTyping}
-            onBack={() => setSelectedTicket(null)}
-            onOpenInfo={() => setIsInfoOpen(true)}
-            onSend={handleSend}
-            onTyping={handleTyping}
-            onDeleteMessage={deleteMessage}
-            onToggleAttachmentMenu={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-            onCloseAttachmentMenu={() => setIsAttachmentMenuOpen(false)}
-            onRemoveFile={removeFile}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            onFileSelect={handleFileSelect}
-            galleryInputRef={galleryInputRef}
-            cameraInputRef={cameraInputRef}
-            videoInputRef={videoInputRef}
-            chatContainerRef={chatContainerRef}
-            onSetFullScreenImage={setFullScreenImage}
-          />
+        {/* CENTER - ChatWindow */}
+        <ChatWindow
+          selectedTicket={selectedTicket}
+          chatHistory={chatHistory}
+          user={user}
+          currentUser={user}
+          messageInput={messageInput}
+          isSending={isSending}
+          isRecording={isRecording}
+          recordingTime={recordingTime}
+          filePreview={filePreview}
+          fileType={fileType}
+          isAttachmentMenuOpen={isAttachmentMenuOpen}
+          isOpponentTyping={isOpponentTyping}
+          parseAttachment={parseAttachment}
+          getStatusColor={getStatusColor}
+          onBack={() => setSelectedTicket(null)}
+          onOpenInfo={() => setIsInfoOpen(true)}
+          onSend={handleSend}
+          onTyping={handleTyping}
+          onDeleteMessage={deleteMessage}
+          onToggleAttachmentMenu={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+          onCloseAttachmentMenu={() => setIsAttachmentMenuOpen(false)}
+          onRemoveFile={removeFile}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onFileSelect={handleFileSelect}
+          galleryInputRef={galleryInputRef}
+          cameraInputRef={cameraInputRef}
+          videoInputRef={videoInputRef}
+          documentInputRef={documentInputRef}
+          chatContainerRef={chatContainerRef}
+          onSetFullScreenImage={setFullScreenImage}
+        />
 
-          {/* RIGHT SIDEBAR - TicketDetails */}
-          <TicketDetails
-            selectedTicket={selectedTicket}
-            isInfoOpen={isInfoOpen}
-            onCloseInfo={() => setIsInfoOpen(false)}
-          />
-        </div>
+        {/* RIGHT SIDEBAR - TicketDetails */}
+        <TicketDetails
+          selectedTicket={selectedTicket}
+          isInfoOpen={isInfoOpen}
+          onCloseInfo={() => setIsInfoOpen(false)}
+          
+        />  
       </div>
 
       {/* FULL SCREEN IMAGE MODAL */}

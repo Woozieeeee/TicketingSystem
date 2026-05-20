@@ -11,5 +11,6 @@ module.exports = async (ticketId, reader) => {
     return true;
   } catch (error) {
     console.error("DB Error marking as read:", error);
+    throw error;
   }
 };

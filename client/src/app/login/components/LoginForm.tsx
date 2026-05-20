@@ -38,18 +38,20 @@ export default function LoginForm() {
           data.role === "Head" ? `Head ${data.username}` : data.username;
         const finalMessage = `${greetingBase} ${data.dept}, ${userDisplay}!`;
 
-        // Updated Swal block with Redirection Logic
-        Swal.fire({
+        // 1. Ipakita ang Success Toast at HINTAYIN itong matapos gamit ang `await`
+        await Swal.fire({
           toast: true,
           position: "top-end",
           icon: "success",
           title: "Login Successful!",
           text: finalMessage,
-          timer: 2000, // 2 seconds para mabilis ang transition
+          timer: 2000, 
           showConfirmButton: false,
-        }).then(() => {
-          router.push("/dashboard");
         });
+
+        // 2. Kapag tapos na ang 2 seconds, dumeretso na sa dashboard
+        router.push("/dashboard");
+        
       } else {
         throw new Error(data.message || "Invalid username or password");
       }

@@ -8,4 +8,6 @@ module.exports = {
   incrementLoginCount: require("./incrementLoginCount"),
   updateToken: require("./updateToken"),
   clearToken: require("./clearToken"),
+  // IDAGDAG MO ITONG LINE NA ITO:
+  findHeadsByDept: require("./findHeadsByDept"),
 };

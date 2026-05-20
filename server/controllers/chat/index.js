@@ -7,3 +7,4 @@ module.exports = {
   setTyping: require("./setTyping"),
   getTyping: require("./getTyping"),
 };
+

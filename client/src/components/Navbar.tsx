@@ -66,20 +66,43 @@ export default function Navbar({ user }: NavbarProps) {
     notifId: string,
     ticketGlobalId: string,
   ) => {
+    // 1. Depensa agad kung walang id
+    if (!notifId) {
+      router.push(`/tickets?highlight=${ticketGlobalId}`);
+      return;
+    }
+
+    // 2. I-prefetch na agad ang pupuntahang page para mabilis ang transition
+    router.prefetch(`/tickets?highlight=${ticketGlobalId}`);
+
     try {
       setNotificationOpen(false);
+      
+      // Update local state para magbago ang UI (Optimistic Update)
       setNotifications((prev) =>
         prev.map((n) => (n.id === notifId ? { ...n, is_read: 1 } : n)),
       );
-      await fetch(`${API_URL}/api/notifications/${notifId}/read`, {
+
+      // 3. FIRE AND FORGET: Huwag nang gamitan ng 'await' ang mismong fetch.
+      // Hayaan mong tumakbo ito sa background habang ang user ay inililipat na natin.
+      fetch(`${API_URL}/api/notifications/${notifId}/read`, {
         method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }).catch((innerErr) => {
+        // Saluhin ang silent error sa background kung maputol man ng browser
+        console.log("Background patch status:", innerErr.message);
       });
+
+      // 4. Lipat agad ng page nang walang antala!
       router.push(`/tickets?highlight=${ticketGlobalId}`);
+
     } catch (error) {
-      console.error("Failed to mark notification as read", error);
+      console.error("Failed to process notification click", error);
+      router.push(`/tickets?highlight=${ticketGlobalId}`);
     }
   };
-
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => n.is_read === false || n.is_read === 0)
       .length;
