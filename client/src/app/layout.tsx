@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 // Inayos ang path base sa explorer: components/sidebar/Sidebar.tsx
-import Sidebar from "../components/sidebar"; 
+import Sidebar from "../components/Sidebar"; 
 // Inayos ang path base sa explorer: components/ChatHeadModal/index.tsx
 import ChatHeadModal from "../components/ChatHeadModal";
 import { validateToken, clearAuth, getUser } from "../lib/apiClient";
