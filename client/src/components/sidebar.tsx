@@ -14,7 +14,6 @@ import {
   Activity,
   LogOut,
   MessageSquare,
-  Users, // 🟢 Added Users icon for User Management
 } from "lucide-react";
 
 export default function Sidebar({ user }: { user: any }) {
@@ -73,12 +72,13 @@ export default function Sidebar({ user }: { user: any }) {
   const handleLogout = async () => {
     try {
       // Call backend to clear token
-      if (user?.id) {
+      const user = localStorage.getItem("user");
+      if (user) {
+        const userData = JSON.parse(user);
         await fetch(`${API_URL}/api/auth/logout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ userId: user.id }),
+          body: JSON.stringify({ userId: userData.id }),
         });
       }
 
@@ -129,11 +129,6 @@ export default function Sidebar({ user }: { user: any }) {
             path: "/monitoring",
             icon: <Activity size={20} className="lg:w-[22px] lg:h-[22px]" />,
           },
-          {
-            name: "User Management",
-            path: "/userManagement",
-            icon: <Users size={20} className="lg:w-[22px] lg:h-[22px]" />,
-          },
         ]
       : []),
   ];
@@ -153,7 +148,7 @@ export default function Sidebar({ user }: { user: any }) {
       {/* 🟢 INVISIBLE BACKDROP */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-transparent lg:hidden"
+          className="lg:hidden fixed inset-0 z-30 bg-transparent"
           style={{ top: "56px" }}
           onClick={() => setIsMobileOpen(false)}
         />
@@ -181,7 +176,7 @@ export default function Sidebar({ user }: { user: any }) {
       >
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute z-50 items-center justify-center hidden w-8 h-8 text-green-700 transition-all bg-white border border-green-700 rounded-full shadow-lg cursor-pointer lg:flex -right-4 top-10 hover:bg-slate-50 hover:scale-105"
+          className="hidden lg:flex absolute -right-4 top-10 w-8 h-8 bg-white text-green-700 border border-green-700 rounded-full items-center justify-center shadow-lg hover:bg-slate-50 hover:scale-105 transition-all z-50 cursor-pointer"
         >
           {isCollapsed ? (
             <ChevronRight size={18} strokeWidth={2.5} />
@@ -217,8 +212,8 @@ export default function Sidebar({ user }: { user: any }) {
             </div>
 
             {!isCollapsed && (
-              <div className="flex flex-col flex-1 min-w-0">
-                <p className="text-base font-black leading-tight tracking-tight text-white truncate lg:text-lg">
+              <div className="flex flex-col min-w-0 flex-1">
+                <p className="text-base lg:text-lg font-black text-white truncate leading-tight tracking-tight">
                   {user?.username || "Guest Account"}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
@@ -282,7 +277,7 @@ export default function Sidebar({ user }: { user: any }) {
         </nav>
 
         {/* ── LOGOUT BUTTON ── */}
-        <div className="p-4 border-t lg:p-6 border-white-300 bg-black/5">
+        <div className="p-4 lg:p-6 border-t border-white-300 bg-black/5">
           <button
             onClick={handleLogout}
             className={`flex items-center justify-center gap-2 w-full py-2.5 lg:py-3.5 bg-red-500/90 hover:bg-red-500 text-white rounded-xl font-bold text-sm shadow-md border border-red-400/50 hover:shadow-[0_4px_15px_-3px_rgba(239,68,68,0.4)] transition-all active:scale-95 ${

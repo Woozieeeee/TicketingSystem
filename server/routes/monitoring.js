@@ -1,7 +1,7 @@
 // server/routes/monitoring.js
 
 const express = require('express');
-const { authenticateToken, requireAdminOrStaff } = require('../middleware/auth');
+const { authenticateToken, requireAdminOrHead } = require('../middleware/auth');
 const { 
   logActivity, 
   detectSuspiciousActivity,
@@ -16,31 +16,31 @@ router.use(logActivity('MONITORING_ACCESS', 'MONITORING'));
 router.use(logPerformance);
 
 // Get monitoring statistics and analytics
-router.get('/stats', authenticateToken, requireAdminOrStaff, monitoringController.getMonitoringStats);
+router.get('/stats', authenticateToken, requireAdminOrHead, monitoringController.getMonitoringStats);
 
 // Get activity logs with filtering
-router.get('/activities', authenticateToken, requireAdminOrStaff, monitoringController.getActivityLogs);
+router.get('/activities', authenticateToken, requireAdminOrHead, monitoringController.getActivityLogs);
 
 // Get user ticket statistics
-router.get('/user-tickets', authenticateToken, requireAdminOrStaff, monitoringController.getUserTicketStats);
+router.get('/user-tickets', authenticateToken, requireAdminOrHead, monitoringController.getUserTicketStats);
 
 // Get ticket trends over time
-router.get('/ticket-trends', authenticateToken, requireAdminOrStaff, monitoringController.getTicketTrends);
+router.get('/ticket-trends', authenticateToken, requireAdminOrHead, monitoringController.getTicketTrends);
 
 // Get department performance
-router.get('/department-performance', authenticateToken, requireAdminOrStaff, monitoringController.getDepartmentPerformance);
+router.get('/department-performance', authenticateToken, requireAdminOrHead, monitoringController.getDepartmentPerformance);
 
 // Get performance metrics
-router.get('/performance', authenticateToken, requireAdminOrStaff, monitoringController.getPerformanceMetrics);
+router.get('/performance', authenticateToken, requireAdminOrHead, monitoringController.getPerformanceMetrics);
 
 // Get system alerts
-router.get('/alerts', authenticateToken, requireAdminOrStaff, monitoringController.getSystemAlerts);
+router.get('/alerts', authenticateToken, requireAdminOrHead, monitoringController.getSystemAlerts);
 
 // Create system alert
-router.post('/alerts', authenticateToken, requireAdminOrStaff, monitoringController.createSystemAlert);
+router.post('/alerts', authenticateToken, requireAdminOrHead, monitoringController.createSystemAlert);
 
 // Resolve system alert
-router.patch('/alerts/:alertId/resolve', authenticateToken, requireAdminOrStaff, monitoringController.resolveSystemAlert);
+router.patch('/alerts/:alertId/resolve', authenticateToken, requireAdminOrHead, monitoringController.resolveSystemAlert);
 
 // Health check for monitoring system
 router.get('/health', (req, res) => {

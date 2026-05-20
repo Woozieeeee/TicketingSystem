@@ -17,7 +17,6 @@ type DbUser = {
 const normalizeRole = (role: string): User['role'] => {
   if (role === 'Head') return 'Head';
   if (role === 'Admin') return 'Admin';
-  if (role === 'Staff') return 'Staff';
   return 'User';
 };
 

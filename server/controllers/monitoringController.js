@@ -171,7 +171,7 @@ const getMonitoringStats = async (req, res) => {
         total: allUsers.length,
         byRole: [
           { role: 'Admin', count: allUsers.filter(u => u.role === 'Admin').length },
-          { role: 'Staff', count: allUsers.filter(u => u.role === 'Staff').length },
+          { role: 'Head', count: allUsers.filter(u => u.role === 'Head').length },
           { role: 'User', count: allUsers.filter(u => u.role === 'User').length }
         ],
         byAction: [

@@ -299,7 +299,7 @@ export default function ITHeadViewDashboard() {
       resolvedTickets: user.resolved_tickets,
       loginCount: user.login_count,
       createdAt: user.account_created,
-      color: user.role === 'Admin' ? '#10b981' : user.role === 'Staff' ? '#3b82f6' : '#6b7280',
+      color: user.role === 'Admin' ? '#10b981' : user.role === 'Head' ? '#8b5cf6' : '#6b7280',
       trend: [user.pending_tickets, user.ongoing_tickets, user.resolved_tickets]
     })) || [];
 

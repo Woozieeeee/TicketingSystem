@@ -14,7 +14,6 @@ const loginLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
 });
 
 // Registration: 3 accounts per hour per IP

@@ -31,15 +31,15 @@ const authenticateToken = async (req, res, next) => {
 };
 
 /**
- * Authorization middleware - check if user is Admin, Staff, or Head
- * This allows the 'Head' role to access routes protected by requireAdminOrStaff
+ * Authorization middleware - check if user is Admin or Head
+ * This allows the 'Head' role to access routes protected by requireAdminOrHead
  */
-const requireAdminOrStaff = (req, res, next) => {
+const requireAdminOrHead = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const allowedRoles = ['Admin', 'Staff', 'Head'];
+  const allowedRoles = ['Admin', 'Head'];
   
   if (allowedRoles.includes(req.user.role)) {
     next();
@@ -85,7 +85,7 @@ const requireITHead = (req, res, next) => {
 
 module.exports = {
   authenticateToken,
-  requireAdminOrStaff,
+  requireAdminOrHead,
   requireAdmin,
   requireITHead
 };

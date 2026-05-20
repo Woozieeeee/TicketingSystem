@@ -118,7 +118,6 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
             >
               <option value="User">User</option>
               <option value="Head">Head (Department Head)</option>
-              <option value="Staff">Staff</option>
               <option value="Admin">Admin</option>
             </select>
           </div>

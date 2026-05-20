@@ -65,7 +65,6 @@ export default function AddUserModal({ onClose, onAdd }: AddUserModalProps) {
             >
               <option value="User">User</option>
               <option value="Head">Head (Department Head)</option>
-              <option value="Staff">Staff</option>
               <option value="Admin">Admin</option>
             </select>
           </div>

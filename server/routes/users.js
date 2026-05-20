@@ -31,4 +31,7 @@ router.put('/:id/status', requireITHead, userController.toggleUserStatus);
 // Delete user (IT Head only)
 router.delete('/:id', requireITHead, userController.deleteUser);
 
+// Change password (authenticated users only)
+router.put('/change-password', authenticateToken, userController.changePassword);
+
 module.exports = router;

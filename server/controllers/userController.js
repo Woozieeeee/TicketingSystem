@@ -23,7 +23,7 @@ const registerUser = async (req, res) => {
   try {
     const { username, password, role, dept } = req.body;
 
-    if (!username || !password || !role) {
+    if (!username || !role) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -201,16 +201,64 @@ const loginUser = async (req, res) => {
     const token = uuidv4();
     await userModel.updateToken(user.id, token);
 
-    res.json({
+    const response = {
       id: user.id,
       username: user.username,
       role: user.role,
       dept: user.dept,
       token,
-    });
+    };
+
+    // Check if user needs to change password
+    if (user.password_change_required === 1) {
+      response.passwordChangeRequired = true;
+    }
+
+    res.json(response);
   } catch (err) {
     console.error("Login User Error:", err);
     res.status(500).json({ error: "Failed to login user" });
+  }
+};
+
+/**
+ * Change password
+ */
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current password and new password are required" });
+    }
+
+    // Get current user
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Verify current password
+    const isValidPassword = await userModel.verifyPassword(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const bcrypt = require("bcrypt");
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and clear password_change_required flag
+    await userModel.updateById(userId, { 
+      password: hashedPassword,
+      password_change_required: 0 
+    });
+
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    console.error("Change Password Error:", err);
+    res.status(500).json({ error: "Failed to change password" });
   }
 };
 
@@ -222,4 +270,5 @@ module.exports = {
   getUserById,
   loginUser,
   toggleUserStatus,
+  changePassword,
 };

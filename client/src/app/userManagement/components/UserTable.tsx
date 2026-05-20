@@ -9,7 +9,7 @@ interface UserTableProps {
 
 const roleColor = (role: User['role']) => {
   if (role === 'Admin') return 'bg-neutral-100 text-neutral-800';
-  if (role === 'Staff') return 'bg-blue-50 text-blue-700';
+  if (role === 'Head') return 'bg-purple-50 text-purple-700';
   return 'bg-green-50 text-green-700';
 };
 
