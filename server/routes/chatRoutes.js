@@ -2,12 +2,13 @@
 const express = require("express");
 const router = express.Router();
 const chatModel = require("../models/chatModel");
+const { validateId, preventSQLInjection } = require("../middleware/validation");
 
 // In-memory state for typing indicators
 const activeTypingStatus = {};
 
 // 1. GET Chat History
-router.get("/:ticketId/messages", async (req, res) => {
+router.get("/:ticketId/messages", validateId, async (req, res) => {
   try {
     const history = await chatModel.getMessagesByTicket(req.params.ticketId);
     res.json(history);
@@ -17,7 +18,7 @@ router.get("/:ticketId/messages", async (req, res) => {
 });
 
 // 2. POST New Message
-router.post("/:ticketId/messages", async (req, res) => {
+router.post("/:ticketId/messages", validateId, preventSQLInjection, async (req, res) => {
   const { sender, message, attachment } = req.body;
   const { ticketId } = req.params;
 
@@ -41,7 +42,7 @@ router.post("/:ticketId/messages", async (req, res) => {
 });
 
 // 3. PUT Mark as Read
-router.put("/:ticketId/read", async (req, res) => {
+router.put("/:ticketId/read", validateId, async (req, res) => {
   try {
     const { reader } = req.body;
     await chatModel.markAsRead(req.params.ticketId, reader);
@@ -52,7 +53,7 @@ router.put("/:ticketId/read", async (req, res) => {
 });
 
 // 4. DELETE Message
-router.delete("/messages/:messageId", async (req, res) => {
+router.delete("/messages/:messageId", validateId, async (req, res) => {
   try {
     await chatModel.deleteMessage(req.params.messageId);
     res.json({ success: true });
@@ -62,7 +63,7 @@ router.delete("/messages/:messageId", async (req, res) => {
 });
 
 // 5. POST Typing Status (Debounced)
-router.post("/:ticketId/typing", (req, res) => {
+router.post("/:ticketId/typing", validateId, (req, res) => {
   const { ticketId } = req.params;
   const { username, isTyping } = req.body;
 
@@ -80,7 +81,7 @@ router.post("/:ticketId/typing", (req, res) => {
 });
 
 // 6. GET Typing Status
-router.get("/:ticketId/typing", (req, res) => {
+router.get("/:ticketId/typing", validateId, (req, res) => {
   const { ticketId } = req.params;
   const { currentUser } = req.query;
 

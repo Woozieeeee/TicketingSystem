@@ -50,6 +50,24 @@ exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // Check for account lockout
+    const maxAttempts = parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5');
+    const lockoutDuration = parseInt(process.env.LOCKOUT_DURATION_MS || '900000'); // 15 minutes default
+
+    const [recentAttempts] = await db.query(
+      `SELECT COUNT(*) as count FROM login_attempts 
+       WHERE username = ? AND success = false 
+       AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)`,
+      [username, lockoutDuration / 1000]
+    );
+
+    if (recentAttempts[0].count >= maxAttempts) {
+      await logLoginAttempt(username, false, req.ip, req.get("User-Agent"), "Account locked");
+      return res.status(429).json({ 
+        message: "Account temporarily locked due to too many failed attempts. Please try again later." 
+      });
+    }
+
     const [rows] = await db.query(
       "SELECT * FROM users WHERE username = ?",
       [username],

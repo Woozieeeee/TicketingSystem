@@ -158,6 +158,26 @@ const userDeleted = async (req, { userId, deletedUser, deletedRole }) =>
   });
 
 // ---------------------------------------------------------------------------
+// Password reset events
+// ---------------------------------------------------------------------------
+
+const passwordResetRequested = async (req, { username }) =>
+  record({
+    username: username || 'unknown',
+    action: 'PASSWORD_RESET_REQUESTED',
+    resource: 'AUTH',
+    req,
+  });
+
+const passwordResetCompleted = async (req, { username }) =>
+  record({
+    username: username || 'unknown',
+    action: 'PASSWORD_RESET_COMPLETED',
+    resource: 'AUTH',
+    req,
+  });
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
@@ -172,4 +192,6 @@ module.exports = {
   userCreated,
   userUpdated,
   userDeleted,
+  passwordResetRequested,
+  passwordResetCompleted,
 };

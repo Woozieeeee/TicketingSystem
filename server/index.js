@@ -17,6 +17,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const userRoutes = require("./routes/users");
 const monitoringRoutes = require("./routes/monitoring");
+const passwordResetRoutes = require("./routes/passwordResetRoutes");
 
 const app = express();
 const PORT = 3001;
@@ -69,6 +70,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/monitoring", monitoringRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend Server is Running Successfully!");

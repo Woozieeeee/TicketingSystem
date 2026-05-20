@@ -242,3 +242,8 @@ CALL add_column_if_missing();
 DROP PROCEDURE IF EXISTS add_column_if_missing;
 
 SELECT 'Migration completed successfully' AS status;
+
+CALL add_password_reset_columns();
+DROP PROCEDURE IF EXISTS add_password_reset_columns;
+
+SELECT 'Password reset columns added successfully' AS status;
