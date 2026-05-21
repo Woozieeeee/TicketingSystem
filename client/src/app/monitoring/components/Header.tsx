@@ -4,8 +4,8 @@ import { ArrowLeft, Search, RotateCcw, Clock, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface HeaderProps {
-  view: "list" | "stats";
-  setView: (view: "list" | "stats") => void;
+  view: "list" | "stats" | "activities" | "alerts";
+  setView: (view: "list" | "stats" | "activities" | "alerts") => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   displayDate: string;
@@ -13,6 +13,11 @@ interface HeaderProps {
   liveTime: string;
   setDisplayDate: (date: string) => void;
   dateInputRef: React.RefObject<HTMLInputElement>;
+  monitoringStats?: any;
+  autoRefresh?: boolean;
+  setAutoRefresh?: (refresh: boolean) => void;
+  loadMonitoringData?: () => void;
+  loading?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -25,6 +30,11 @@ const Header: React.FC<HeaderProps> = ({
   liveTime,
   setDisplayDate,
   dateInputRef,
+  monitoringStats,
+  autoRefresh,
+  setAutoRefresh,
+  loadMonitoringData,
+  loading,
 }) => {
   // Inilipat sa loob ng component body para hindi mag-error
   const router = useRouter();
@@ -57,9 +67,35 @@ const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-            {view === "list" ? "Monitoring" : "Performance"}
-          </h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              {view === "list" ? "Monitoring" : 
+               view === "stats" ? "Performance" :
+               view === "activities" ? "Activities" : "Alerts"}
+            </h1>
+            
+            {/* Monitoring Tabs */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mt-2">
+              {[
+                { id: 'list', label: 'Personnel' },
+                { id: 'stats', label: 'Performance' },
+                { id: 'activities', label: 'Activities' },
+                { id: 'alerts', label: 'Alerts' }
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setView(id as any)}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    view === id
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* RIGHT SIDE - SEARCH & DATE */}
@@ -127,6 +163,50 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         </div>
+
+        {/* MONITORING CONTROLS */}
+        {monitoringStats && (
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Active Users:</span>
+              <span className="font-semibold text-green-600">{monitoringStats.activeUsers24h?.length || 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">24h Activities:</span>
+              <span className="font-semibold text-blue-600">{monitoringStats.recent24h || 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">Failed Logins:</span>
+              <span className="font-semibold text-red-600">{monitoringStats.failedLogins24h || 0}</span>
+            </div>
+            
+            {/* Auto-refresh toggle */}
+            {setAutoRefresh && (
+              <button
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`px-3 py-1 rounded-lg border transition-colors ${
+                  autoRefresh 
+                    ? 'bg-green-50 border-green-200 text-green-700' 
+                    : 'bg-gray-50 border-gray-200 text-gray-600'
+                }`}
+              >
+                <RotateCcw className={`w-4 h-4 mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
+                Auto Refresh
+              </button>
+            )}
+            
+            {/* Manual refresh button */}
+            {loadMonitoringData && (
+              <button
+                onClick={loadMonitoringData}
+                disabled={loading}
+                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

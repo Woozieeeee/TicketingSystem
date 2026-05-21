@@ -1,19 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from './types';
 import { useUsers } from './hooks/useUsers';
-import UserTabs from './components/UserTabs'
+import UserTabs from './components/UserTabs';
 import UserTable from './components/UserTable';
 import Pagination from './components/Pagination';
 import AddUserModal from './components/AddUserModal';
 import EditUserModal from './components/EditUserModal';
+import { getUser } from '../../lib/apiClient';
 
 export default function UserManagementPage() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const user = await getUser();
+      const isHead = user?.role === 'Head';
+      const isITDept = user?.dept === 'INFORMATION AND TECHNOLOGY OFFICE';
+
+      if (!isHead || !isITDept) {
+        router.push('/dashboard');
+      } else {
+        setIsAuthorized(true);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const {
     searchQuery,
@@ -34,6 +52,10 @@ export default function UserManagementPage() {
     setCurrentPage,
     ROWS_OPTIONS,
   } = useUsers();
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen p-6 bg-neutral-50/60 md:p-10">

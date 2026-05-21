@@ -1,11 +1,14 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { IT_TEAM, getStatsForRange } from "./constants/teamData";
+import { IT_TEAM } from "./constants/teamData";
 import Header from "./components/Header";
 import PersonnelList from "./components/PersonnelList";
 import StatsDashboard from "./components/StatsDashboard";
+import ActivityFeed from "./components/ActivityFeed";
+import AlertsPanel from "./components/AlertsPanel";
 import { TeamMember, DashboardView } from "./types/monitoring";
-// 1. IMPORT FRAMER MOTION
+import type { ActivityLog, SecurityAlert } from "./types/monitoring";
+import { API_URL } from "../../config/api.js";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
 import {
@@ -22,7 +25,6 @@ import {
   User as UserIcon,
   Calendar,
   Clock,
-  ShieldCheck,
   Download,
   RotateCcw,
   Search,
@@ -50,7 +52,7 @@ const itemVariants: Variants = {
 };
 
 export default function ITHeadViewDashboard() {
-  const [view, setView] = useState<"list" | "stats">("list");
+  const [view, setView] = useState<"list" | "stats" | "activities" | "alerts">("list");
   const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
   const [timeRange, setTimeRange] = useState("Today");
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,6 +64,13 @@ export default function ITHeadViewDashboard() {
   const [liveTime, setLiveTime] = useState("");
   const [displayDate, setDisplayDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Database monitoring state
+  const [monitoringStats, setMonitoringStats] = useState<any>(null);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
@@ -89,29 +98,265 @@ export default function ITHeadViewDashboard() {
   }, [displayDate, todayFormatted]);
 
   useEffect(() => {
-    if (selectedUser) setCurrentStats(getStatsForRange());
-  }, [selectedUser, timeRange, displayDate]);
+    if (selectedUser && monitoringStats?.ticketStats) {
+      setCurrentStats({
+        pending: monitoringStats.ticketStats.pending_tickets || 0,
+        ongoing: monitoringStats.ticketStats.ongoing_tickets || 0,
+        resolved: monitoringStats.ticketStats.resolved_tickets || 0,
+      });
+    }
+  }, [selectedUser, timeRange, displayDate, monitoringStats?.ticketStats]);
+
+  // Database monitoring functions
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''; 
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+    };
+  };
+
+  // Fetch monitoring stats from database
+  const fetchMonitoringStats = async () => {
+    try {
+      console.log('🔍 Fetching monitoring stats from:', `${API_URL}/api/monitoring/stats`);
+      
+      const response = await fetch(`${API_URL}/api/monitoring/stats`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 API Response:', data);
+        console.log('👥 User ticket stats:', data.data?.userTicketStats);
+        
+        setMonitoringStats(data.data);
+        
+        // Update current stats with real ticket data
+        if (data.data?.ticketStats) {
+          setCurrentStats({
+            pending: data.data.ticketStats.pending_tickets || 0,
+            ongoing: data.data.ticketStats.ongoing_tickets || 0,
+            resolved: data.data.ticketStats.resolved_tickets || 0,
+          });
+        }
+        return data.data; // 🟢 RETURN DATA FOR SYNC CHECK
+      } else {
+        const errorText = await response.text();
+        console.error('❌ API Error:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch monitoring stats:', error);
+    }
+    return null;
+  };
+
+  // Fetch user ticket statistics
+  const fetchUserTicketStats = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/monitoring/user-tickets`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('👤 User ticket stats response:', data);
+        setMonitoringStats(prev => ({
+          ...prev,
+          userTicketStats: data.data
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch user ticket stats:', error);
+    }
+  };
+
+  // Fallback: Fetch users directly if monitoring doesn't work
+  const fetchUsersDirectly = async () => {
+    try {
+      console.log('🔄 Fetching users directly from users API...');
+      const response = await fetch(`${API_URL}/api/users`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const users = await response.json();
+        console.log('👥 Direct users response:', users);
+        
+        const userTicketStats = users.map((user: any) => ({
+          username: user.username,
+          role: user.role,
+          dept: user.dept,
+          login_count: user.login_count || 0,
+          account_created: user.createdAt,
+          total_tickets_created: 0, 
+          pending_tickets: 0,
+          ongoing_tickets: 0,
+          resolved_tickets: 0
+        }));
+        
+        setMonitoringStats(prev => ({
+          ...prev,
+          userTicketStats
+        }));
+        
+        console.log('✅ Users loaded directly:', userTicketStats.length);
+        return userTicketStats;
+      } else {
+        console.error('❌ Failed to fetch users directly:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching users directly:', error);
+    }
+    return null;
+  };
+
+  // Fetch activities from database
+  const fetchActivities = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/monitoring/activities?limit=100`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActivities(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch activities:', error);
+    }
+  };
+
+  // Fetch alerts from database (both resolved and unresolved)
+  const fetchAlerts = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/monitoring/alerts?limit=50&resolved=all`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAlerts(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch alerts:', error);
+    }
+  };
+
+  // Load database monitoring data
+  const loadMonitoringData = async () => {
+    setLoading(true);
+    try {
+      // 🟢 Gumamit ng dynamic local reference para maiwasan ang stale async rendering lag
+      const statsData = await fetchMonitoringStats();
+      
+      if (!statsData?.userTicketStats || statsData.userTicketStats.length === 0) {
+        console.log('🔄 No user data from monitoring payload, routing fallback deployment...');
+        await fetchUsersDirectly();
+      }
+      
+      await Promise.all([
+        fetchUserTicketStats(),
+        fetchActivities(),
+        fetchAlerts()
+      ]);
+    } catch (error) {
+      console.error('❌ Error in loadMonitoringData:', error);
+      await fetchUsersDirectly();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load and auto-refresh orchestration
+  useEffect(() => {
+    loadMonitoringData();
+    
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        fetchMonitoringStats();
+        fetchActivities();
+        fetchAlerts();
+      }, 30000); 
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh]);
 
   const filteredTeam = useMemo(() => {
-    return IT_TEAM.filter(
-      (user) =>
+    const realUsers = monitoringStats?.userTicketStats?.map((user: any) => ({
+      id: user.username,
+      name: user.username,
+      role: user.role,
+      dept: user.dept,
+      totalTickets: user.total_tickets_created,
+      pendingTickets: user.pending_tickets,
+      ongoingTickets: user.ongoing_tickets,
+      resolvedTickets: user.resolved_tickets,
+      loginCount: user.login_count,
+      createdAt: user.account_created,
+      color: user.role === 'Admin' ? '#10b981' : user.role === 'Head' ? '#8b5cf6' : '#6b7280',
+      trend: [user.pending_tickets, user.ongoing_tickets, user.resolved_tickets]
+    })) || [];
+
+    return realUsers.filter(
+      (user: any) =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.role.toLowerCase().includes(searchQuery.toLowerCase()),
+        user.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.dept?.toLowerCase().includes(searchQuery.toLowerCase()),
     );
-  }, [searchQuery]);
+  }, [searchQuery, monitoringStats?.userTicketStats]);
 
   if (!isMounted) return <div className="min-h-screen bg-slate-50" />;
 
+  // Show loading state while fetching data
+  if (loading && !monitoringStats) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-b-2 border-blue-500 rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading monitoring data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no data state if no users found
+  if (!loading && (!monitoringStats?.userTicketStats || monitoringStats.userTicketStats.length === 0)) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📊</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">No User Data Available</h2>
+          <p className="text-gray-600 mb-4">No users found in the database.</p>
+          <button
+            onClick={loadMonitoringData}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Refresh Data
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 overflow-x-hidden">
-      {/* 2. WRAP MAIN IN MOTION.DIV FOR INITIAL PAGE FADE-IN */}
       <motion.main 
         initial="hidden"
         animate="visible"
         variants={containerVariants}
         className="flex-1 w-full h-screen overflow-hidden bg-slate-50 p-4 sm:p-6"
       >
-        {/* HEADER SECTION - WRAPPED IN ITEMVARIANTS */}
         <motion.div variants={itemVariants}>
           <Header 
             view={view} 
@@ -123,12 +368,15 @@ export default function ITHeadViewDashboard() {
             liveTime={liveTime}
             todayFormatted={todayFormatted}
             dateInputRef={dateInputRef}
+            monitoringStats={monitoringStats}
+            autoRefresh={autoRefresh}
+            setAutoRefresh={setAutoRefresh}
+            loadMonitoringData={loadMonitoringData}
+            loading={loading}
           />
         </motion.div>
 
-        {/* 3. USE ANIMATEPRESENCE FOR SMOOTH VIEW TRANSITIONS */}
         <AnimatePresence mode="wait">
-          {/* VIEW 1: PERSONNEL DIRECTORY */}
           {view === "list" && (
             <motion.div
               key="list-view"
@@ -147,7 +395,6 @@ export default function ITHeadViewDashboard() {
             </motion.div>
           )}
 
-          {/* VIEW 2: STATISTICS & ANALYTICS */}
           {view === "stats" && selectedUser && (
             <motion.div
               key="stats-view"
@@ -161,6 +408,40 @@ export default function ITHeadViewDashboard() {
                 currentStats={currentStats}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
+                userTicketStats={monitoringStats?.userTicketStats}
+                monitoringStats={monitoringStats}
+              />
+            </motion.div>
+          )}
+
+          {view === "activities" && (
+            <motion.div
+              key="activities-view"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ActivityFeed
+                activities={activities}
+                loading={loading}
+                onRefresh={fetchActivities}
+              />
+            </motion.div>
+          )}
+
+          {view === "alerts" && (
+            <motion.div
+              key="alerts-view"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AlertsPanel
+                alerts={alerts}
+                loading={loading}
+                onRefresh={fetchAlerts}
               />
             </motion.div>
           )}
