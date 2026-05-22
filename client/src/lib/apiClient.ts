@@ -1,19 +1,13 @@
 // API client utility with token & dynamic cookie fallback authentication
 import { API_URL } from "../config/api";
 
-// Get auth headers for API requests (Style mo na may Token guard + fallback)
+// Get auth headers for API requests (cookies are used instead of tokens)
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-  }
-
+  // Token is now stored in HttpOnly cookie, no need for Authorization header
   return headers;
 }
 
@@ -56,8 +50,7 @@ export async function getUser(): Promise<any | null> {
       return localUser;
     }
 
-    // Kung kulang ang data sa local storage, itanong natin sa server endpoint gamit ang token/cookies mo
-    const token = localStorage.getItem("token");
+    // Kung kulang ang data sa local storage, itanong natin sa server endpoint gamit ang cookies
     const headers = getAuthHeaders();
 
     const res = await fetch(`${API_URL}/api/auth/validate`, {
@@ -81,17 +74,12 @@ export async function getUser(): Promise<any | null> {
 export function clearAuth(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("user");
-  localStorage.removeItem("token");
-  localStorage.removeItem("myTickets");
-  localStorage.removeItem("ticket_draft");
 }
 
-// Validate token with server
+// Validate token with server (using HttpOnly cookie)
 export async function validateToken(): Promise<boolean> {
   if (typeof window === "undefined") return false;
 
-  const token = localStorage.getItem("token");
-  
   try {
     const res = await fetch(`${API_URL}/api/auth/validate`, {
       headers: getAuthHeaders(),
@@ -110,13 +98,10 @@ export async function validateToken(): Promise<boolean> {
   }
 }
 
-// Store auth data after login
+// Store auth data after login (user data only, token is in HttpOnly cookie)
 export function storeAuth(userData: any): void {
   if (typeof window === "undefined") return;
   
-  // Imememorya natin ang buong object kasama ang mga dinalang role at dept fields mo
+  // Store user data only (token is now in HttpOnly cookie)
   localStorage.setItem("user", JSON.stringify(userData));
-  if (userData.token) {
-    localStorage.setItem("token", userData.token);
-  }
 }

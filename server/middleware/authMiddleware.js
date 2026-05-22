@@ -13,16 +13,30 @@ function generateToken() {
  */
 exports.verifyToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    // Check HttpOnly cookie first, fallback to Authorization header
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    } else {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          success: false,
+          message: "Access denied. No token provided.",
+        });
+      }
+
+      token = authHeader.substring(7); // Remove "Bearer " prefix
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
       });
     }
-
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
 
     // Check if token exists and is not expired (using raw query for complex condition)
     const [rows] = await db.query(
@@ -75,16 +89,30 @@ exports.clearToken = async (userId) => {
  */
 exports.validateSession = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    // Check HttpOnly cookie first, fallback to Authorization header
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    } else {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          success: false,
+          message: "No token provided",
+        });
+      }
+
+      token = authHeader.substring(7);
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "No token provided",
       });
     }
-
-    const token = authHeader.substring(7);
 
     // Check token validity (using raw query for complex condition)
     const [rows] = await db.query(

@@ -109,31 +109,22 @@ export default function ITHeadViewDashboard() {
 
   // Database monitoring functions
   const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''; 
+    // Token is now in HttpOnly cookie, no Authorization header needed
     return {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
     };
   };
 
   // Fetch monitoring stats from database
   const fetchMonitoringStats = async () => {
     try {
-      console.log('🔍 Fetching monitoring stats from:', `${API_URL}/api/monitoring/stats`);
-      
       const response = await fetch(`${API_URL}/api/monitoring/stats`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       });
-      
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
-      
+
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 API Response:', data);
-        console.log('👥 User ticket stats:', data.data?.userTicketStats);
-        
         setMonitoringStats(data.data);
         
         // Update current stats with real ticket data
@@ -164,7 +155,6 @@ export default function ITHeadViewDashboard() {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('👤 User ticket stats response:', data);
         setMonitoringStats(prev => ({
           ...prev,
           userTicketStats: data.data
@@ -178,7 +168,6 @@ export default function ITHeadViewDashboard() {
   // Fallback: Fetch users directly if monitoring doesn't work
   const fetchUsersDirectly = async () => {
     try {
-      console.log('🔄 Fetching users directly from users API...');
       const response = await fetch(`${API_URL}/api/users`, {
         headers: getAuthHeaders(),
         credentials: 'include',
@@ -186,8 +175,6 @@ export default function ITHeadViewDashboard() {
       
       if (response.ok) {
         const users = await response.json();
-        console.log('👥 Direct users response:', users);
-        
         const userTicketStats = users.map((user: any) => ({
           username: user.username,
           role: user.role,
@@ -204,8 +191,7 @@ export default function ITHeadViewDashboard() {
           ...prev,
           userTicketStats
         }));
-        
-        console.log('✅ Users loaded directly:', userTicketStats.length);
+
         return userTicketStats;
       } else {
         console.error('❌ Failed to fetch users directly:', response.status);

@@ -6,13 +6,18 @@ const Ticket = require("../../models/ticket");
  */
 module.exports = async (req, res) => {
   try {
-    const { role, dept, username } = req.query;
+    // Use authenticated user info from middleware instead of query params
+    const user = req.user;
     let results = [];
 
-    if (role === "Head" && dept) {
-      results = await Ticket.getTicketsForHead(dept);
-    } else if (role === "User" && username) {
-      results = await Ticket.getTicketsForUser(username);
+    if (!user) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    if (user.role === "Head" && user.dept) {
+      results = await Ticket.getTicketsForHead(user.dept);
+    } else if (user.role === "User" && user.username) {
+      results = await Ticket.getTicketsForUser(user.username);
     } else {
       results = await Ticket.getAll();
     }

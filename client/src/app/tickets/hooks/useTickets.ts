@@ -65,6 +65,7 @@ export function useTickets() {
 
       const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       });
 
       if (res.ok) {
@@ -90,7 +91,6 @@ export function useTickets() {
         }));
 
         setTickets(transformed);
-        localStorage.setItem("myTickets", JSON.stringify(transformed));
       }
     } catch (error: any) {
       console.error("Connection Failed", error);
@@ -181,6 +181,7 @@ export function useTickets() {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}/remind`, {
         method: "PUT",
         headers: getAuthHeaders(),
+        credentials: "include",
       });
       if (res.ok) {
         const Swal = (await import("sweetalert2")).default;
@@ -246,7 +247,6 @@ export function useTickets() {
 
     // Optimistic Update: Update agad ang UI para instant
     setTickets(updatedTickets);
-    localStorage.setItem("myTickets", JSON.stringify(updatedTickets));
 
     // UI Feedback: Lipat ng tab kung Resolved/Finished
     if (normalizedPayload.status === "Resolved" || normalizedPayload.status === "Finished") {
@@ -264,6 +264,7 @@ export function useTickets() {
       const res = await fetch(`${API_URL}/api/tickets/${globalId}`, {
         method: "PUT",
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(dbPayload),
       });
 

@@ -37,36 +37,17 @@ export function useCreateTicket(
         }
       }
 
-      const savedDraft = localStorage.getItem("ticket_draft");
-      if (savedDraft) {
-        try {
-          const parsed = JSON.parse(savedDraft);
-          setFormData(parsed);
-          Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "info",
-            title: "Draft restored",
-            showConfirmButton: false,
-            timer: 1500,
-          });
-        } catch (e) {
-          console.error("Draft restore failed");
-        }
-      }
+      // Draft restoration removed for security - tickets should not be stored in localStorage
       setStep(1);
     }
   }, [isOpen]);
 
-  // Auto-save draft as user types
+  // Auto-save draft as user types (removed localStorage for security)
   useEffect(() => {
-    if (formData.title || formData.description || formData.category) {
-      localStorage.setItem("ticket_draft", JSON.stringify(formData));
-    }
+    // Draft saving removed for security - tickets should not be stored in localStorage
   }, [formData]);
 
   const handleClearForm = () => {
-    localStorage.removeItem("ticket_draft");
     setFormData({ category: "", title: "", description: "" });
   };
 
@@ -97,13 +78,12 @@ export function useCreateTicket(
         date: mysqlDate,
       };
 
-      const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/tickets`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
         },
+        credentials: "include",
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
@@ -112,8 +92,7 @@ export function useCreateTicket(
 
       if (!res.ok) throw new Error("Failed to create ticket");
 
-      // Clear draft on success
-      localStorage.removeItem("ticket_draft");
+      // Clear form on success
       setFormData({ category: "", title: "", description: "" });
 
       onSuccess();

@@ -94,10 +94,11 @@ export default function TicketsPage() {
       const idsToDelete = Array.from(selectedTickets);
       
       // I-map ang bawat ID para sa DELETE request sa iyong backend controller
-      const deletePromises = idsToDelete.map(globalId => 
-       fetch(`${API_URL}/api/tickets/${globalId}`, { 
+      const deletePromises = idsToDelete.map(globalId =>
+       fetch(`${API_URL}/api/tickets/${globalId}`, {
   method: 'DELETE',
-  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  credentials: 'include'
 })
       );
       

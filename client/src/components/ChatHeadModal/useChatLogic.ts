@@ -42,7 +42,6 @@ export const useChatLogic = () => {
   // Fetch tickets based on user role
   const fetchTickets = async () => {
   if (!user) return;
-  console.log("User data:", { role: user.role, dept: user.dept, username: user.username, id: user.id });
   try {
     setLoading(true);
     let endpoint;
@@ -52,13 +51,11 @@ export const useChatLogic = () => {
     } else {
       endpoint = `/api/tickets?role=User&username=${user.username}`;
     }
-    
-    console.log("Fetching tickets from:", endpoint);
+
     const response = await authFetch(endpoint);
-    
+
     if (response.ok) {
       const data = await response.json();
-      console.log("Tickets received:", data);
       setTickets(data);
       
       // Calculate total unread count

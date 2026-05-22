@@ -36,14 +36,10 @@ export default function RoleBasedDashboard() {
     const parsedUser = JSON.parse(storedUser);
 
     try {
-      const params = new URLSearchParams();
-      if (parsedUser?.role) params.set("role", parsedUser.role);
-      if (parsedUser?.dept) params.set("dept", parsedUser.dept);
-      if (parsedUser?.username) params.set("username", parsedUser.username);
-
-      // (tickets page):
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+      // Backend now uses authenticated user info from cookies, no query params needed
+      const res = await fetch(`${API_URL}/api/tickets`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       });
       if (res.ok) {
         const allTickets = await res.json();
@@ -110,7 +106,6 @@ export default function RoleBasedDashboard() {
 
     // C. Window Focus Refresh
     const handleFocus = () => {
-      console.log("Window focused, refreshing tickets...");
       loadTickets();
     };
 

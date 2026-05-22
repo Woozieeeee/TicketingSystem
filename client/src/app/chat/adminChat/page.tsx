@@ -116,6 +116,7 @@ export default function Page() {
           ...getAuthHeaders(),
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       fetchMessages(selectedTicket.globalId);
@@ -126,12 +127,21 @@ export default function Page() {
     }
   };
 
-  const deleteMessage = (id: number) => {
-    setChatHistory((prev) =>
-      prev.map((msg) =>
-        msg.id === id ? { ...msg, message: "[DELETED]" } : msg
-      )
-    );
+  const deleteMessage = async (id: number) => {
+    try {
+      await fetch(`${API_URL}/api/chat/messages/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      setChatHistory((prev) =>
+        prev.map((msg) =>
+          msg.id === id ? { ...msg, message: "[DELETED]" } : msg
+        )
+      );
+    } catch (error) {
+      console.error("Error deleting message:", error);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,6 +193,7 @@ export default function Page() {
           ...getAuthHeaders(),
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ reader: user?.username || "Admin" }),
       });
     } catch (error) {
@@ -211,6 +222,7 @@ export default function Page() {
           ...getAuthHeaders(),
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ status: "IN_PROGRESS" }),
       });
 
@@ -230,13 +242,10 @@ export default function Page() {
   // ---------------- FETCH FUNCTIONS ----------------
   const fetchTickets = useCallback(async (userData: any) => {
     try {
-      const params = new URLSearchParams();
-      if (userData?.role) params.set("role", userData.role);
-      if (userData?.dept) params.set("dept", userData.dept);
-      if (userData?.username) params.set("username", userData.username);
-
-      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+      // Backend now uses authenticated user info from cookies, no query params needed
+      const res = await fetch(`${API_URL}/api/tickets`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();
@@ -262,7 +271,9 @@ export default function Page() {
 
   const fetchMessages = useCallback(async (ticketId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`);
+      const res = await fetch(`${API_URL}/api/chat/${ticketId}/messages`, {
+        credentials: "include",
+      });
       if (res.ok) {
         const data = await res.json();
         setChatHistory(data);

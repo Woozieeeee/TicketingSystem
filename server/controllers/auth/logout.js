@@ -12,6 +12,14 @@ module.exports = async (req, res) => {
       await User.clearToken(userId);
     }
 
+    // Clear HttpOnly cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
+    });
+
     return res.status(200).json({
       success: true,
       message: "Logged out successfully",

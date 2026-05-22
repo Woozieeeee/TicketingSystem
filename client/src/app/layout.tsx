@@ -50,7 +50,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         return;
       }
 
-      // On protected pages, validate the token
+      // On protected pages, validate the session using HttpOnly cookie
       const isValid = await validateToken();
 
       if (!isValid) {
@@ -60,10 +60,24 @@ export default function RootLayout({ children }: RootLayoutProps) {
         return;
       }
 
-      // Token is valid, reload user data from storage
+      // Session is valid, reload user data from storage or fetch from server
       try {
         const storedUser = localStorage.getItem("user");
-        setUser(storedUser ? JSON.parse(storedUser) : null);
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          // Fetch user data from server using cookie authentication
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/validate`, {
+            credentials: "include",
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user) {
+              localStorage.setItem("user", JSON.stringify(data.user));
+              setUser(data.user);
+            }
+          }
+        }
       } catch (error) {
         setUser(null);
       }

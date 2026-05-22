@@ -21,6 +21,7 @@ export default function LoginForm() {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(form),
       });
 
@@ -28,9 +29,6 @@ export default function LoginForm() {
 
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify(data));
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-        }
 
         const isFirstTime = data.login_count === 1;
         const greetingBase = isFirstTime ? "Welcome to" : "Welcome back to";

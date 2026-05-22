@@ -90,6 +90,7 @@ export default function Navbar({ user }: NavbarProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       }).catch((innerErr) => {
         // Saluhin ang silent error sa background kung maputol man ng browser
         console.log("Background patch status:", innerErr.message);

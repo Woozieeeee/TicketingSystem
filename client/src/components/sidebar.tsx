@@ -79,6 +79,7 @@ export default function Sidebar({ user }: { user: any }) {
         await fetch(`${API_URL}/api/auth/logout`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ userId: userData.id }),
         });
       }
