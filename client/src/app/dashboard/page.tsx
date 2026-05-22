@@ -42,9 +42,9 @@ export default function RoleBasedDashboard() {
       if (parsedUser?.username) params.set("username", parsedUser.username);
 
       // (tickets page):
-const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
-  headers: getAuthHeaders(),
-});
+      const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         const allTickets = await res.json();
         if (!Array.isArray(allTickets)) {
@@ -94,7 +94,7 @@ const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
   }, [lastUpdated]);
 
   // 3. Main Logic: Auth + Initial Load + Focus Refresh
- useEffect(() => {
+  useEffect(() => {
     // A. Check Auth
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -130,18 +130,18 @@ const res = await fetch(`${API_URL}/api/tickets?${params.toString()}`, {
   //  filters and return/interface 
 
   // sort 
-const latestTicket = tickets && tickets.length > 0 
-  ? [...tickets].sort((a, b) => {
-      const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
-      const dateB = b.activityDate ? new Date(b.activityDate).getTime() : 0;
-      return dateB - dateA;
-    })[0]
-  : null;
+  const latestTicket = tickets && tickets.length > 0 
+    ? [...tickets].sort((a, b) => {
+        const dateA = a.activityDate ? new Date(a.activityDate).getTime() : 0;
+        const dateB = b.activityDate ? new Date(b.activityDate).getTime() : 0;
+        return dateB - dateA;
+      })[0]
+    : null;
 
-//  "?" (Optional Chaining)
-const displayDate = latestTicket?.activityDate 
-    ? latestTicket.activityDate 
-    : new Date().toISOString();
+  //  "?" (Optional Chaining)
+  const displayDate = latestTicket?.activityDate 
+      ? latestTicket.activityDate 
+      : new Date().toISOString();
 
   const deptAccent =
     user?.dept === "Nursing"
@@ -160,7 +160,7 @@ const displayDate = latestTicket?.activityDate
           borderTw: "border-green-200",
         };
 
- const stats = useMemo<any>(() => {
+  const stats = useMemo<any>(() => {
     let filtered = tickets || [];
     const now = new Date().getTime();
     const currentYear = time.getFullYear();
@@ -420,14 +420,14 @@ const displayDate = latestTicket?.activityDate
           finishedCount={finishedCount}
         />
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
+        {/* Main Content Grid (Fixes Applied Here) */}
+        <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] gap-4">
           {/* User Sidebar */}
           <UserSidebar user={user} deptAccent={deptAccent} />
 
-          {/* Analytics Panel */}
+          {/* Analytics Panel (Fixes Applied Here) */}
           <div
-            className="card bg-white border border-slate-200 flex flex-col overflow-hidden animate-slideUpFade shadow-sm"
+            className="card bg-white border border-slate-200 flex flex-col min-w-0 w-full overflow-hidden animate-slideUpFade shadow-sm"
             style={{ animationDelay: "0.6s", animationFillMode: "both" }}
           >
             {/* Panel Header with Filter */}
@@ -473,7 +473,7 @@ const displayDate = latestTicket?.activityDate
             </div>
 
             {/* Content Area */}
-            <div className="flex flex-1 flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-slate-100 min-h-0">
+            <div className="flex flex-1 flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-slate-100 min-h-0 w-full overflow-hidden">
               {/* Head Stats (only for Head role) */}
               {user?.role === "Head" ? (
                 <>

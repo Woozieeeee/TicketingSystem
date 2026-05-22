@@ -27,65 +27,80 @@ export default function StatsCards({
 }: StatsCardsProps) {
   const router = useRouter();
 
+  // Explicitly mapping Tailwind color classes ensures they compile correctly
   const cards = [
     {
       label: "Reminders",
       count: remindersCount,
-      color: "rose",
+      bgIcon: "bg-rose-50",
+      textIcon: "text-rose-500",
+      borderTop: "border-t-rose-500",
+      bgHoverStrip: "bg-rose-500",
       desc: "Needs urgent update",
       filter: "Reminders",
     },
     {
       label: "Pending",
       count: pendingCount,
-      color: "amber",
+      bgIcon: "bg-amber-50",
+      textIcon: "text-amber-500",
+      borderTop: "border-t-amber-500",
+      bgHoverStrip: "bg-amber-500",
       desc: "Awaiting reply",
       filter: "Pending",
     },
     {
       label: "In-Progress",
       count: inProgressCount,
-      color: "indigo",
+      bgIcon: "bg-indigo-50",
+      textIcon: "text-indigo-500",
+      borderTop: "border-t-indigo-500",
+      bgHoverStrip: "bg-indigo-500",
       desc: "Currently in work",
       filter: "In Progress",
     },
     {
       label: "Resolved",
       count: resolvedCount,
-      color: "green",
+      bgIcon: "bg-emerald-50",
+      textIcon: "text-emerald-500",
+      borderTop: "border-t-emerald-500",
+      bgHoverStrip: "bg-emerald-500",
       desc: "Fixed (Check if okay)",
       filter: "Resolved",
     },
     {
       label: "Finished",
       count: finishedCount,
-      color: "cyan",
+      bgIcon: "bg-cyan-50",
+      textIcon: "text-cyan-500",
+      borderTop: "border-t-cyan-500",
+      bgHoverStrip: "bg-cyan-500",
       desc: "Completed & Closed",
       filter: "Finished",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5 mb-6">
       {cards.map((card, i) => {
         const isReminder = card.label === "Reminders";
         const isPending = card.label === "Pending";
 
-        // UI FIX: border logic of Reminder at Pending color
-        let borderClasses =
-          "border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+        // Modernized card base with smooth interactive scaling and shadow effects
+        const baseClasses = "relative bg-white p-6 rounded-2xl border border-slate-200/70 shadow-sm transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-md hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.99] animate-slideUpFade";
         
-        if (isReminder) {
-          borderClasses = "border-x border-b border-slate-200 border-t-4 border-t-rose-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
-        } else if (isPending) {
-          borderClasses = "border-x border-b border-slate-200 border-t-4 border-t-amber-500 shadow-sm hover:shadow-xl hover:-translate-y-1 animate-slideUpFade";
+        // Conditional handling to preserve top border logic alongside custom rounded corners
+        let borderModifier = "";
+        if (isReminder || isPending) {
+          borderModifier = `border-t-[5px] ${card.borderTop}`;
         }
 
         return (
           <div
             key={card.label}
             onClick={() => router.push(`/tickets?filter=${card.filter}&glow=true`)}
-            className={`group card bg-white p-6 transition-all duration-300 cursor-pointer overflow-hidden ${borderClasses}`}
+            className={`group ${baseClasses} ${borderModifier}`}
             style={
               isReminder
                 ? {
@@ -97,32 +112,37 @@ export default function StatsCards({
                   }
             }
           >
-            {/* only appeard for 'In-Progress, Resolved, at Finished */}
+            {/* Elegant slide-in accent indicator line for In-Progress, Resolved, & Finished cards */}
             {!isReminder && !isPending && (
               <div
-                className={`absolute top-0 left-0 right-0 h-1 bg-${card.color}-500 group-hover:h-1.5 transition-all`}
+                className={`absolute top-0 left-0 right-0 h-1 ${card.bgHoverStrip} group-hover:h-1.5 transition-all duration-300`}
               />
             )}
 
-            <div className={`w-10 h-10 rounded-lg bg-${card.color}-100 flex items-center justify-center mb-3.5 flex-shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3`}>
-              {i === 0 ? <Bell size={18} className="text-rose-500 animate-wiggle" /> :
-               i === 1 ? <CalendarIcon size={18} className="text-amber-500" /> :
-               i === 2 ? <BarChart3 size={18} className="text-indigo-500" /> :
-               i === 3 ? <CheckCircle size={18} className="text-green-500" /> : 
-               <CheckSquare size={18} className="text-cyan-500" />}
+            {/* Icon Wrapper with a slight dynamic tilt on hover */}
+            <div className={`w-10 h-10 rounded-xl ${card.bgIcon} flex items-center justify-center mb-4 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+              {i === 0 ? <Bell size={18} className={`${card.textIcon} animate-wiggle`} /> :
+               i === 1 ? <CalendarIcon size={18} className={card.textIcon} /> :
+               i === 2 ? <BarChart3 size={18} className={card.textIcon} /> :
+               i === 3 ? <CheckCircle size={18} className={card.textIcon} /> : 
+               <CheckSquare size={18} className={card.textIcon} />}
             </div>
 
-            <p className="text-4xl font-black text-slate-900 mb-2">
+            {/* Metrics Content */}
+            <h3 className="text-4xl font-black text-slate-900 tracking-tight mb-1.5 group-hover:text-black transition-colors">
               {card.count}
-            </p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+            </h3>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
               {card.label}
             </p>
-            <p className="text-[10px] text-slate-400 mb-3.5 whitespace-nowrap">
+            <p className="text-[11px] font-medium text-slate-400 mb-4 whitespace-nowrap">
               {card.desc}
             </p>
-            <div className="flex items-center gap-1 text-[9px] font-black text-slate-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-              View List <ArrowRight size={10} />
+
+            {/* Action text linking animation */}
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-4px] group-hover:translate-x-0">
+              <span>View List</span> 
+              <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
             </div>
           </div>
         );

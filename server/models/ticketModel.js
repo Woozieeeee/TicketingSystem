@@ -6,8 +6,8 @@ const Ticket = {
       // Changed to LEFT JOIN and added dept
       const sql = `
         SELECT t.*, u.username as createdBy, u.dept 
-        FROM ticket t 
-        LEFT JOIN user u ON t.userId = u.id 
+        FROM tickets t 
+        LEFT JOIN users u ON t.userId = u.id 
         ORDER BY t.createdAt DESC
       `;
       // Use query instead of execute for better Pool performance
@@ -23,7 +23,7 @@ const Ticket = {
     const { id, title, description, userId, category, status } = ticketData;
     try {
       const sql = `
-        INSERT INTO ticket (id, title, description, status, userId, assignedToId, createdAt, updatedAt, category) 
+        INSERT INTO tickets (id, title, description, status, userId, assignedToId, createdAt, updatedAt, category) 
         VALUES (?, ?, ?, ?, ?, NULL, NOW(), NOW(), ?)
       `;
       const [result] = await db.query(sql, [
@@ -42,7 +42,7 @@ const Ticket = {
   },
 
   findById: async (id) => {
-    const [rows] = await db.query("SELECT * FROM ticket WHERE id = ?", [id]);
+    const [rows] = await db.query("SELECT * FROM tickets WHERE id = ?", [id]);
     return rows[0];
   },
 
@@ -50,8 +50,8 @@ const Ticket = {
     try {
       const sql = `
         SELECT t.*, u.username as createdBy, u.dept 
-        FROM ticket t 
-        LEFT JOIN user u ON t.userId = u.id 
+        FROM tickets t 
+        LEFT JOIN users u ON t.userId = u.id 
         WHERE u.username = ?
         ORDER BY t.createdAt DESC
       `;

@@ -5,10 +5,6 @@
  * Severity is determined automatically from the event type so callers never
  * have to think about it.  All writes are fire-and-forget; a DB failure will
  * never break the parent request.
- *
- * Usage:
- *   const security = require('../lib/securityAlerts');
- *   await security.raise('FAILED_LOGIN', { username, ip, reason });
  */
 
 const db = require('../config/db');
@@ -69,9 +65,19 @@ const raise = async (type, details = {}) => {
  * escalate to a BRUTE_FORCE_SUSPECTED alert.
  */
 const failedLogin = async ({ username, reason, ip }) => {
+  // 1. I-raise ang standard low-severity alert para sa notification feed
   await raise('FAILED_LOGIN', { username, reason, ip, message: `Failed login for ${username}: ${reason}` });
 
   try {
+    // 🟢 FIX: Siguraduhing naka-record muna ang failed attempt na 'to sa `login_attempts` table
+    // para hindi maging zero (0) ang susunod na count query kung sakaling nakalimutan ng controller.
+    await db.query(
+      `INSERT INTO login_attempts (username, success, ip, reason) 
+       VALUES (?, FALSE, ?, ?)`,
+      [username, ip || 'unknown', reason || 'Wrong credentials']
+    ).catch(e => console.log('[SecurityAlerts] Dynamic attempt logging bypassed:', e.message));
+
+    // 2. I-compute ang kabuuang bilang ng magkakasunod na palpak na login sa loob ng window time
     const [rows] = await db.query(
       `SELECT COUNT(*) AS cnt FROM login_attempts
        WHERE username = ? AND success = FALSE
@@ -79,6 +85,7 @@ const failedLogin = async ({ username, reason, ip }) => {
       [username, BRUTE_FORCE_WINDOW_MINUTES],
     );
 
+    // 3. Kung lumampas o pumatak sa threshold limit, itataas sa CRITICAL brute force status
     if (rows[0].cnt >= BRUTE_FORCE_THRESHOLD) {
       await raise('BRUTE_FORCE_SUSPECTED', {
         username,

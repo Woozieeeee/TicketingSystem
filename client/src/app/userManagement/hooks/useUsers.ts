@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../../config/api';
 import { User, TabFilter } from '../types';
+// 🟢 Inactivate ang authFetch para siyang awtomatikong mag-asikaso ng Bearer Token at Cookies niyo
+import { authFetch } from '../../../lib/apiClient';
 
 const ROWS_OPTIONS = [10, 20, 50];
 
 type DbUser = {
   id: string;
-  username: string;
+  username?: string; // Flexible parameter checks para sa query runtime parity
+  name?: string;     
+  email?: string;    
   role: string;
   dept: string;
   login_count: number;
@@ -22,30 +25,31 @@ const normalizeRole = (role: string): User['role'] => {
 
 const normalizeStatus = (dbUser: DbUser): User['status'] => {
   if (dbUser.status === 'Suspended') return 'Suspended';
+  if (dbUser.status === 'Active') return 'Active'; // 🟢 UPDATE NG CO-WORKER: Explicit active schema status check
   return dbUser.login_count > 0 ? 'Active' : 'Pending';
 };
 
-const buildEmail = (username: string) => {
+const buildEmail = (username: string | null | undefined) => {
+  // 🟢 SAFETY GUARD: Kung walang username, mag-fallback sa temporary email imbis na mag-crash
+  if (!username) {
+    return 'unknown.user@ticketingsystem.local';
+  }
+
   const normalized = username.trim().toLowerCase().replace(/\s+/g, '.');
   return normalized.includes('@') ? normalized : `${normalized}@ticketingsystem.local`;
 };
 
 const mapDbUserToUi = (dbUser: DbUser): User => ({
   id: dbUser.id,
-  name: dbUser.username,
-  email: buildEmail(dbUser.username),
+  name: dbUser.username || dbUser.name || 'Unknown User',
+  // Isasapuso ang totoong email mula sa DB kung meron, kung wala gagamit ng custom resolver transformation
+  email: dbUser.email || buildEmail(dbUser.username || dbUser.name),
   role: normalizeRole(dbUser.role),
   status: normalizeStatus(dbUser),
   joinedDate: 'Unknown',
-  dept: dbUser.dept,
-  loginCount: dbUser.login_count,
+  dept: dbUser.dept || 'General',
+  loginCount: dbUser.login_count || 0,
 });
-
-const getAuthHeaders = () => {
-  return {
-    'Content-Type': 'application/json',
-  };
-};
 
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -61,10 +65,8 @@ export function useUsers() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/users`, {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      // 🟢 FIX: Pinalitan ng authFetch para kusang magpadala ng Authorization Token Headers
+      const response = await authFetch('/api/users');
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -73,7 +75,6 @@ export function useUsers() {
           return;
         }
         if (response.status === 403) {
-          // User lacks permission - clear users and set error without throwing
           setUsers([]);
           setError('Access denied. User management is restricted to IT Department Head only.');
           return;
@@ -102,6 +103,7 @@ export function useUsers() {
     return users.filter((u) => u.role === tab).length;
   };
 
+  // 🟢 UPDATE NG CO-WORKER: May kasama nang Filter sorting matching configuration
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -110,6 +112,10 @@ export function useUsers() {
       activeTab === 'All' ||
       (activeTab === 'Suspended' ? user.status === 'Suspended' : user.role === activeTab);
     return matchesSearch && matchesTab;
+  }).sort((a, b) => {
+    // Inaayos ang hierarchy: Head (Una) -> Admin (Pangalawa) -> User (Huli)
+    const roleOrder: Record<User['role'], number> = { Head: 0, Admin: 1, User: 2 };
+    return roleOrder[a.role] - roleOrder[b.role];
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / rowsPerPage));
@@ -120,12 +126,12 @@ export function useUsers() {
 
   const addUser = async (name: string, email: string, role: User['role'], dept: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/users/register`, {
+      // 🟢 FIX: Ngayong may email column na ang DB natin, ipasa na rin natin ito sa backend registration payload
+      const response = await authFetch('/api/users/register', {
         method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include',
         body: JSON.stringify({
           username: name,
+          email: email, // 👈 Idinagdag para ma-save ang email field sa MySQL table record
           password: 'ChangeMe123!',
           role,
           dept,
@@ -173,10 +179,9 @@ export function useUsers() {
     if (!result.isConfirmed) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/users/${id}`, {
+      // 🟢 FIX: Pinalitan ng authFetch para sa DELETE action
+      const response = await authFetch(`/api/users/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -210,10 +215,9 @@ export function useUsers() {
     if (!result.isConfirmed) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/users/${id}/status`, {
+      // 🟢 FIX: Pinalitan ng authFetch para sa PUT state change ng status toggle
+      const response = await authFetch(`/api/users/${id}/status`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
-        credentials: 'include',
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -237,6 +241,7 @@ export function useUsers() {
     try {
       const payload: any = {
         username: updatedUser.name,
+        email: updatedUser.email, // 🟢 Sinisigurong kasama ang email sa update synchronization payload
         role: updatedUser.role,
         dept: updatedUser.dept ?? 'General',
       };
@@ -244,10 +249,9 @@ export function useUsers() {
         payload.password = newPassword;
       }
 
-      const response = await fetch(`${API_URL}/api/users/${updatedUser.id}`, {
+      // 🟢 FIX: Pinalitan ng authFetch para sa profile information modification
+      const response = await authFetch(`/api/users/${updatedUser.id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 

@@ -54,9 +54,15 @@ export function useEditTicket(
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
-      const res = await fetch(`${API_URL}/api/tickets/${ticket.globalId}`, {
+      // Get token from localStorage
+      const token = localStorage.getItem("token");
+      
+      const res = await fetch(`${API_URL}/api/tickets/${ticket.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token && { "Authorization": `Bearer ${token}` })
+        },
         body: JSON.stringify(formData),
         signal: controller.signal,
       });

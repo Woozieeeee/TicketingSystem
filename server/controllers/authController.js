@@ -1,5 +1,6 @@
 // server/controllers/authController.js
 const db = require("../config/db");
+const bcrypt = require("bcrypt");
 
 // --- REGISTER ---
 exports.register = async (req, res) => {
@@ -25,13 +26,16 @@ exports.register = async (req, res) => {
     // 4. GENERATE ID
     const id = `u_${Date.now()}`;
 
-    // 5. SAVE to database
+    // 5. HASH PASSWORD
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 6. SAVE to database
     const query = `
       INSERT INTO users (id, username, password, dept, role, login_count) 
       VALUES (?, ?, ?, ?, ?, 0)
     `;
 
-    await db.query(query, [id, username, password, cleanDept, assignedRole]);
+    await db.query(query, [id, username, hashedPassword, cleanDept, assignedRole]);
 
     console.log(`✅ User ${username} registered as ${assignedRole} for ${cleanDept}`);
 
@@ -60,8 +64,9 @@ exports.login = async (req, res) => {
 
     const user = rows[0];
 
-    // 2. Check password
-    if (password !== user.password) {
+    // 2. Check password using bcrypt
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 

@@ -33,7 +33,6 @@ const TicketRow: React.FC<TicketRowProps> = ({
   onEdit,
   getStatusData,
   deptAccent,
-  // FIXED: Destructured these missing props
   isSelected,
   onSelectToggle,
   showCheckbox,
@@ -82,83 +81,107 @@ const TicketRow: React.FC<TicketRowProps> = ({
     <tr
       id={`ticket-${ticket.globalId}`}
       onClick={() => onSelect(ticket)}
-      className={`group transition-all duration-300 cursor-pointer border-l-[3px] hover:bg-slate-50 ${borderClass} ${rowAnimationClass} ${
-        hasIConfirmed && ticket.status === "Resolved" ? "opacity-60 bg-slate-50/50" : ""
-      } ${isSelected ? "bg-rose-50/30" : ""}`} // Added a subtle background when selected
+      className={`
+        group cursor-pointer border-l-[4px] bg-white text-slate-700
+        transition-all duration-300 ease-in-out
+        hover:bg-slate-50/90 hover:scale-[1.01] hover:shadow-md hover:relative hover:z-10
+        ${borderClass} 
+        ${rowAnimationClass} 
+        ${hasIConfirmed && ticket.status === "Resolved" ? "opacity-50 bg-slate-50/40" : ""} 
+        ${isSelected ? "bg-rose-50/40 hover:bg-rose-50/60 border-l-rose-400" : ""}
+      `}
     >
-      {/* FIXED: Moved to the very top to match the header order */}
+      {/* CHECKBOX SELECTION */}
       {showCheckbox && (
-        <td className="px-2 sm:px-6 py-2.5 sm:py-3" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onSelectToggle(ticket.globalId)}
-            className="w-4 h-4 rounded border-slate-300 accent-rose-500 cursor-pointer"
-          />
+        <td className="px-3 sm:px-6 py-3 sm:py-4 alignment-middle" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onSelectToggle(ticket.globalId)}
+              className="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded border-slate-300 text-rose-500 focus:ring-rose-400 focus:ring-offset-0 accent-rose-500 cursor-pointer transition-colors duration-150"
+            />
+          </div>
         </td>
       )}
 
+      {/* CREATOR INFO (HEAD ROLE ONLY) */}
       {user.role === "Head" && (
-        <td className="px-2 sm:px-6 py-2.5 sm:py-3">
-          <div className="flex flex-col">
-            <span className="text-[8.5px] sm:text-sm font-black text-slate-800">
+        <td className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight leading-snug group-hover:text-black">
               {ticket.createdBy}
             </span>
-            <span className="text-[7.5px] sm:text-[10px] font-bold text-slate-400">
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-400 tracking-wide font-mono">
               #{ticket.id}
             </span>
           </div>
         </td>
       )}
 
-      <td className="px-2 sm:px-6 py-2.5 sm:py-3">
-        <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full bg-slate-100 text-slate-500 text-[7px] sm:text-[10px] font-black uppercase tracking-widest">
+      {/* CATEGORY BADGE */}
+      <td className="px-3 sm:px-6 py-3 sm:py-4">
+        <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-slate-100 text-slate-600 text-[9px] sm:text-xs font-bold uppercase tracking-wider shadow-sm border border-slate-200/50">
           {ticket.category?.slice(0, 8)}
           {ticket.category && ticket.category.length > 8 ? "..." : ""}
         </span>
       </td>
-      <td className="px-2 sm:px-6 py-2.5 sm:py-3">
-        <div className="flex flex-col max-w-[85px] sm:max-w-[200px]">
-          <span className="text-[9px] sm:text-sm font-black text-slate-800 truncate">
+
+      {/* TICKET TITLE */}
+      <td className="px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex flex-col max-w-[100px] sm:max-w-[260px] gap-0.5">
+          <span className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug group-hover:text-black">
             {ticket.title}
           </span>
           {user.role !== "Head" && (
-            <span className="text-[7.5px] sm:text-[10px] font-bold text-slate-400 mt-0.5">
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-400 font-mono">
               #{ticket.id}
             </span>
           )}
         </div>
       </td>
-      <td className="px-2 sm:px-6 py-2.5 sm:py-3">
-        <div className="flex items-center gap-1">
+
+      {/* TICKET STATUS BADGE */}
+      <td className="px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex items-center">
           <span
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full border text-[7px] sm:text-[9px] font-black uppercase tracking-widest ${statusData.bg} ${statusData.border} ${statusData.text}`}
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border text-[9px] sm:text-xs font-bold uppercase tracking-wider shadow-sm ${statusData.bg} ${statusData.border} ${statusData.text}`}
           >
             <span
-              className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full flex-shrink-0"
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-inner"
               style={{ background: statusData.dot }}
             />
-            <span className="truncate max-w-[45px] sm:max-w-none">
+            <span className="truncate max-w-[55px] sm:max-w-none">
               {displayStatus}
             </span>
           </span>
         </div>
       </td>
-      <td className="px-2 sm:px-6 py-2.5 sm:py-3 text-[8px] sm:text-xs font-bold text-slate-500">
-        {new Date(ticket.date).toLocaleDateString()}
+
+      {/* DATE COMPONENT */}
+      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium text-slate-500 whitespace-nowrap">
+        {new Date(ticket.date).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        })}
       </td>
+
+      {/* ACTION BUTTON WRAPPER */}
       <td
-        className="px-2 sm:px-6 py-2.5 sm:py-3 text-right"
+        className="px-3 sm:px-6 py-3 sm:py-4 text-right"
         onClick={(e) => e.stopPropagation()}
       >
-        <ActionButtons
-          ticket={ticket}
-          user={user}
-          onAction={onAction}
-          onEdit={onEdit}
-          onRemind={onRemind}
-          deptAccent={deptAccent}
-        />
+        <div className="inline-flex justify-end w-full">
+          <ActionButtons
+            ticket={ticket}
+            user={user}
+            onAction={onAction}
+            onEdit={onEdit}
+            onRemind={onRemind}
+            deptAccent={deptAccent}
+          />
+        </div>
       </td>
     </tr>
   );
