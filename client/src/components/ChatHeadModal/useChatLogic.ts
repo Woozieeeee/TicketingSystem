@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { authFetch, getStoredUser } from "../../lib/apiClient";
 
 export const useChatLogic = () => {
@@ -30,6 +30,10 @@ export const useChatLogic = () => {
   // Refs
   const constraintsRef = useRef(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const messagePollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const unreadPollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageIdRef = useRef<number | null>(null);
+  const isUserNearBottomRef = useRef(true);
 
   // Load user on mount
   useEffect(() => {
@@ -82,6 +86,11 @@ export const useChatLogic = () => {
         const data = await response.json();
         setMessages(data);
         
+        // Update last message ID for polling
+        if (data.length > 0) {
+          lastMessageIdRef.current = data[data.length - 1].id;
+        }
+        
         // Mark messages as read
         await authFetch(`/api/chat/${ticketId}/read`, {
           method: 'PUT',
@@ -92,6 +101,93 @@ export const useChatLogic = () => {
       console.error("Failed to fetch messages:", error);
     }
   };
+
+  // Poll for new messages (real-time without Socket.IO)
+  const pollLatestMessages = useCallback(async () => {
+    if (!activeTicket || !user) return;
+    
+    try {
+      const lastId = lastMessageIdRef.current;
+      const response = await authFetch(
+        `/api/chat/${activeTicket.id}/messages/latest?lastMessageId=${lastId || 0}`
+      );
+      
+      if (response.ok) {
+        const newMessages = await response.json();
+        
+        if (newMessages.length > 0) {
+          // Prevent duplicates by filtering out messages we already have
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const uniqueNewMessages = newMessages.filter((m: any) => !existingIds.has(m.id));
+            
+            if (uniqueNewMessages.length > 0) {
+              // Update last message ID
+              const latestId = uniqueNewMessages[uniqueNewMessages.length - 1].id;
+              lastMessageIdRef.current = latestId;
+              
+              return [...prev, ...uniqueNewMessages];
+            }
+            
+            return prev;
+          });
+          
+          // Refresh tickets to update unread counts
+          await fetchTickets();
+        }
+      }
+    } catch (error) {
+      console.error("Failed to poll latest messages:", error);
+    }
+  }, [activeTicket, user]);
+
+  // Poll for unread count
+  const pollUnreadCount = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const response = await authFetch(`/api/chat/unread-count?username=${user.username}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Failed to poll unread count:", error);
+    }
+  }, [user]);
+
+  // Check if user is near bottom of chat
+  const checkScrollPosition = useCallback(() => {
+    if (chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      isUserNearBottomRef.current = isNearBottom;
+    }
+  }, []);
+
+  // Auto-scroll to bottom if user is near bottom
+  useEffect(() => {
+    if (chatContainerRef.current && isUserNearBottomRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
+
+  // Track scroll position
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      checkScrollPosition();
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [checkScrollPosition]);
 
   // Auto-fetch tickets when user changes
   useEffect(() => {
@@ -104,8 +200,44 @@ export const useChatLogic = () => {
   useEffect(() => {
     if (activeTicket) {
       fetchMessages(activeTicket.id);
+      
+      // Start polling for new messages every 2 seconds
+      messagePollingIntervalRef.current = setInterval(() => {
+        pollLatestMessages();
+      }, 2000);
     }
-  }, [activeTicket]);
+    
+    // Cleanup polling interval when ticket changes or unmounts
+    return () => {
+      if (messagePollingIntervalRef.current) {
+        clearInterval(messagePollingIntervalRef.current);
+        messagePollingIntervalRef.current = null;
+      }
+    };
+  }, [activeTicket, pollLatestMessages]);
+
+  // Poll for unread count every 3 seconds when chat is closed
+  useEffect(() => {
+    if (!isOpen && user) {
+      unreadPollingIntervalRef.current = setInterval(() => {
+        pollUnreadCount();
+      }, 3000);
+    }
+    
+    return () => {
+      if (unreadPollingIntervalRef.current) {
+        clearInterval(unreadPollingIntervalRef.current);
+        unreadPollingIntervalRef.current = null;
+      }
+    };
+  }, [isOpen, user, pollUnreadCount]);
+
+  // Mark messages as read when chat opens
+  useEffect(() => {
+    if (isOpen && activeTicket && user) {
+      fetchMessages(activeTicket.id);
+    }
+  }, [isOpen]);
 
   // Timer logic for recording
   useEffect(() => {
