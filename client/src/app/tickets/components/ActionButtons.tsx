@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Bell, CheckCircle, PlayCircle, Star } from "lucide-react";
 import type { Ticket, User, DeptAccent } from "../types/tickets";
 import ReviewModal from "../../../components/ReviewModal";
+import SuccessModal from "../../../components/SuccessModal";
 import { API_URL } from "../../../config/api";
 import { getAuthHeaders } from "../../../lib/apiClient";
 
@@ -28,6 +29,8 @@ export default function ActionButtons({
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [isConfirmingDone, setIsConfirmingDone] = useState(false);
+  const [showReviewSuccessModal, setShowReviewSuccessModal] = useState(false);
+  const [showConfirmSuccessModal, setShowConfirmSuccessModal] = useState(false);
 
   // Check if review exists for this ticket
   useEffect(() => {
@@ -76,8 +79,10 @@ export default function ActionButtons({
       });
 
       if (res.ok) {
-        alert("Ticket confirmed as Finished successfully!");
-        window.location.reload();
+        setShowConfirmSuccessModal(true);
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         const errorData = await res.json();
         alert(errorData.error || "Failed to confirm done");
@@ -92,6 +97,7 @@ export default function ActionButtons({
   const handleReviewSubmitted = () => {
     setReviewSubmitted(true);
     setIsReviewModalOpen(false);
+    setShowReviewSuccessModal(true);
   };
 
   const minutesPast =
@@ -290,6 +296,32 @@ export default function ActionButtons({
         assignedTo="IT Staff"
         department={ticket.dept || "IT"}
         onReviewSubmitted={handleReviewSubmitted}
+      />,
+      document.body
+    )}
+
+    {/* Review Success Modal */}
+    {createPortal(
+      <SuccessModal
+        open={showReviewSuccessModal}
+        title="Review Submitted Successfully ⭐"
+        message="Thank you for helping improve our IT services."
+        icon="star"
+        onClose={() => setShowReviewSuccessModal(false)}
+        autoCloseDelay={2500}
+      />,
+      document.body
+    )}
+
+    {/* Confirm Done Success Modal */}
+    {createPortal(
+      <SuccessModal
+        open={showConfirmSuccessModal}
+        title="Ticket Successfully Finished ✅"
+        message="Thank you! The ticket has been successfully completed and closed."
+        icon="check"
+        onClose={() => setShowConfirmSuccessModal(false)}
+        autoCloseDelay={2000}
       />,
       document.body
     )}
