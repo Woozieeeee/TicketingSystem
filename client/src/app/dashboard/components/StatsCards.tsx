@@ -7,7 +7,8 @@ import {
   BarChart3, 
   ArrowRight, 
   CheckCircle, 
-  CheckSquare 
+  CheckSquare,
+  Star
 } from "lucide-react";
 
 interface StatsCardsProps {
@@ -16,6 +17,8 @@ interface StatsCardsProps {
   inProgressCount: number;
   resolvedCount: number;
   finishedCount: number;
+  averageRating?: number;
+  totalReviews?: number;
 }
 
 export default function StatsCards({
@@ -24,6 +27,8 @@ export default function StatsCards({
   inProgressCount,
   resolvedCount,
   finishedCount,
+  averageRating = 0,
+  totalReviews = 0,
 }: StatsCardsProps) {
   const router = useRouter();
 
@@ -79,13 +84,25 @@ export default function StatsCards({
       desc: "Completed & Closed",
       filter: "Finished",
     },
+    {
+      label: "Avg Rating",
+      count: averageRating.toFixed(1),
+      bgIcon: "bg-purple-50",
+      textIcon: "text-purple-500",
+      borderTop: "border-t-purple-500",
+      bgHoverStrip: "bg-purple-500",
+      desc: `${totalReviews} review${totalReviews !== 1 ? 's' : ''}`,
+      filter: "Reviews",
+      isRating: true,
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 mb-6">
       {cards.map((card, i) => {
         const isReminder = card.label === "Reminders";
         const isPending = card.label === "Pending";
+        const isRatingCard = (card as any).isRating;
 
         // Modernized card base with smooth interactive scaling and shadow effects
         const baseClasses = "relative bg-white p-6 rounded-2xl border border-slate-200/70 shadow-sm transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-md hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.99] animate-slideUpFade";
@@ -124,8 +141,9 @@ export default function StatsCards({
               {i === 0 ? <Bell size={18} className={`${card.textIcon} animate-wiggle`} /> :
                i === 1 ? <CalendarIcon size={18} className={card.textIcon} /> :
                i === 2 ? <BarChart3 size={18} className={card.textIcon} /> :
-               i === 3 ? <CheckCircle size={18} className={card.textIcon} /> : 
-               <CheckSquare size={18} className={card.textIcon} />}
+               i === 3 ? <CheckCircle size={18} className={card.textIcon} /> :
+               i === 4 ? <CheckSquare size={18} className={card.textIcon} /> :
+               <Star size={18} className={card.textIcon} />}
             </div>
 
             {/* Metrics Content */}

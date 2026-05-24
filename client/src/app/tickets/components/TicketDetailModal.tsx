@@ -123,7 +123,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
         {/* Footer Actions */}
         <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row gap-2 justify-end">
-          <button 
+          <button
             onClick={onClose}
             className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black text-sm transition-all active:scale-95"
           >

@@ -1,7 +1,12 @@
 "use client";
 
-import { Bell, CheckCircle, PlayCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Bell, CheckCircle, PlayCircle, Star } from "lucide-react";
 import type { Ticket, User, DeptAccent } from "../types/tickets";
+import ReviewModal from "../../../components/ReviewModal";
+import { API_URL } from "../../../config/api";
+import { getAuthHeaders } from "../../../lib/apiClient";
 
 interface ActionButtonsProps {
   ticket: Ticket;
@@ -20,20 +25,90 @@ export default function ActionButtons({
   onRemind,
   deptAccent,
 }: ActionButtonsProps) {
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [isConfirmingDone, setIsConfirmingDone] = useState(false);
+
+  // Check if review exists for this ticket
+  useEffect(() => {
+    const checkReviewStatus = async () => {
+      if (!ticket || ticket.status !== "Resolved") {
+        setReviewSubmitted(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/api/reviews/ticket/${typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}`, {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        });
+        if (res.ok) {
+          setReviewSubmitted(true);
+        } else {
+          setReviewSubmitted(false);
+        }
+      } catch (error) {
+        setReviewSubmitted(false);
+      }
+    };
+
+    checkReviewStatus();
+  }, [ticket]);
+
+  const handleConfirmDone = async () => {
+    const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!userObj.username) {
+      alert("User not authenticated");
+      return;
+    }
+
+    setIsConfirmingDone(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/reviews/confirm/${typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ username: userObj.username }),
+      });
+
+      if (res.ok) {
+        alert("Ticket confirmed as Finished successfully!");
+        window.location.reload();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || "Failed to confirm done");
+      }
+    } catch (error) {
+      alert("Failed to confirm done. Please try again.");
+    } finally {
+      setIsConfirmingDone(false);
+    }
+  };
+
+  const handleReviewSubmitted = () => {
+    setReviewSubmitted(true);
+    setIsReviewModalOpen(false);
+  };
+
   const minutesPast =
     (new Date().getTime() - new Date(ticket.date).getTime()) / 60000;
 
   // Reusable Tailwind style presets to eliminate repetition while maintaining look & feel
   const baseBtnStyle = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-bold tracking-wider uppercase rounded-lg shadow-sm transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] select-none focus:outline-none focus:ring-2 focus:ring-offset-1";
-  
+
   const iconSizeStyle = "w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0";
 
   return (
-    <div className="flex gap-2 items-center justify-end flex-wrap sm:flex-nowrap">
-      {/* USER ACTIONS: Edit, Nudge, and Confirm Done */}
-      {user?.role === "User" &&
-        String(ticket.createdBy) === String(user?.username) && (
-          <div className="flex gap-2 items-center">
+    <>
+      <div className="flex gap-2 items-center justify-end flex-wrap sm:flex-nowrap">
+        {/* USER ACTIONS: Edit, Nudge, and Confirm Done */}
+        {user?.role === "User" &&
+          String(ticket.createdBy) === String(user?.username) && (
+            <div className="flex gap-2 items-center">
             
             {/* 1. LALABAS LANG PAG PENDING */}
             {ticket.status === "Pending" && (
@@ -80,17 +155,54 @@ export default function ActionButtons({
 
             {/* 2. Only appears when ticket is RESOLVED */}
             {ticket.status === "Resolved" && !ticket.userMarkedDone && (
-              <button 
-                type="button"
-                className={`${baseBtnStyle} bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100 focus:ring-blue-500`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAction(ticket.globalId, { userMarkedDone: true });
-                }}
-              >
-                <CheckCircle className={iconSizeStyle} />
-                <span>Confirm Done</span>
-              </button>
+              <>
+                {!reviewSubmitted ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`${baseBtnStyle} bg-purple-600 hover:bg-purple-700 text-white shadow-purple-100 focus:ring-purple-500`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsReviewModalOpen(true);
+                      }}
+                    >
+                      <Star className={iconSizeStyle} />
+                      <span>Review</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      className={`${baseBtnStyle} bg-slate-100 text-slate-400 cursor-not-allowed opacity-50`}
+                    >
+                      <CheckCircle className={iconSizeStyle} />
+                      <span>Confirm Done</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled
+                      className={`${baseBtnStyle} bg-emerald-100 text-emerald-600 cursor-not-allowed`}
+                    >
+                      <Star className={iconSizeStyle} />
+                      <span>Reviewed ✓</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isConfirmingDone}
+                      className={`${baseBtnStyle} bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleConfirmDone();
+                      }}
+                    >
+                      <CheckCircle className={iconSizeStyle} />
+                      <span>{isConfirmingDone ? "Confirming..." : "Confirm Done"}</span>
+                    </button>
+                  </>
+                )}
+              </>
             )}
           </div>
         )}
@@ -167,5 +279,20 @@ export default function ActionButtons({
         </div>
       )}
     </div>
+
+    {/* Review Modal */}
+    {ticket && isReviewModalOpen && createPortal(
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        ticketId={typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}
+        ticketGlobalId={typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}
+        assignedTo="IT Staff"
+        department={ticket.dept || "IT"}
+        onReviewSubmitted={handleReviewSubmitted}
+      />,
+      document.body
+    )}
+    </>
   );
 }

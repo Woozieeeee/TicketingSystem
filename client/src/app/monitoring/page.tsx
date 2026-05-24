@@ -71,6 +71,7 @@ export default function ITHeadViewDashboard() {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [personnelStats, setPersonnelStats] = useState<any[]>([]);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
@@ -197,9 +198,25 @@ export default function ITHeadViewDashboard() {
         console.error('❌ Failed to fetch users directly:', response.status);
       }
     } catch (error) {
-      console.error('❌ Error fetching users directly:', error);
+      console.error('❌ Failed to fetch users directly:', error);
     }
-    return null;
+  };
+
+  // Fetch personnel performance stats
+  const fetchPersonnelStats = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/reviews/stats/all`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPersonnelStats(data);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch personnel stats:', error);
+    }
   };
 
   // Fetch activities from database
@@ -249,7 +266,8 @@ export default function ITHeadViewDashboard() {
       await Promise.all([
         fetchUserTicketStats(),
         fetchActivities(),
-        fetchAlerts()
+        fetchAlerts(),
+        fetchPersonnelStats()
       ]);
     } catch (error) {
       console.error('❌ Error in loadMonitoringData:', error);
@@ -376,7 +394,8 @@ export default function ITHeadViewDashboard() {
                 onUserClick={(user) => {
                   setSelectedUser(user);
                   setView("stats");
-                }} 
+                }}
+                personnelStats={personnelStats}
               />
             </motion.div>
           )}

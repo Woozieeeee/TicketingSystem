@@ -75,6 +75,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ============================================
+-- 5. TICKET REVIEWS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS ticket_reviews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id VARCHAR(255) NOT NULL,
+    reviewer VARCHAR(255) NOT NULL,
+    reviewer_role VARCHAR(50) NOT NULL,
+    assigned_to VARCHAR(255) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+);
+
+-- ============================================
 -- SAMPLE DATA (Optional - for testing)
 -- ============================================
 

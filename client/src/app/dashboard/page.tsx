@@ -25,6 +25,8 @@ export default function RoleBasedDashboard() {
 
   const [time, setTime] = useState(new Date());
   const [timeFilter, setTimeFilter] = useState("Custom date");
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [totalReviews, setTotalReviews] = useState<number>(0);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -67,8 +69,30 @@ export default function RoleBasedDashboard() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await loadTickets();
+    await loadReviewStats();
     setTimeout(() => setIsRefreshing(false), 600);
   };
+
+  const loadReviewStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/reviews/stats/all`, {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const stats = await res.json();
+        if (Array.isArray(stats) && stats.length > 0) {
+          const totalReviewsCount = stats.reduce((sum: number, s: any) => sum + s.total_reviews, 0);
+          const weightedSum = stats.reduce((sum: number, s: any) => sum + (s.avg_rating * s.total_reviews), 0);
+          const overallAvg = totalReviewsCount > 0 ? weightedSum / totalReviewsCount : 0;
+          setAverageRating(overallAvg);
+          setTotalReviews(totalReviewsCount);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading review stats:", error);
+    }
+  }, []);
 
   // --- USE EFFECTS ---
 
@@ -103,10 +127,12 @@ export default function RoleBasedDashboard() {
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
     loadTickets();
+    loadReviewStats();
 
     // C. Window Focus Refresh
     const handleFocus = () => {
       loadTickets();
+      loadReviewStats();
     };
 
     window.addEventListener("focus", handleFocus);
@@ -114,13 +140,14 @@ export default function RoleBasedDashboard() {
     // D. AUTO-REFRESH POLLING (Every 5 seconds) - Replaces socket.io
     const pollInterval = setInterval(() => {
       loadTickets();
+      loadReviewStats();
     }, 5000);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
       clearInterval(pollInterval);
     };
-  }, [loadTickets]);
+  }, [loadTickets, loadReviewStats]);
 
   //  filters and return/interface 
 
@@ -413,6 +440,8 @@ export default function RoleBasedDashboard() {
           inProgressCount={inProgressCount}
           resolvedCount={resolvedCount}
           finishedCount={finishedCount}
+          averageRating={averageRating}
+          totalReviews={totalReviews}
         />
 
         {/* Main Content Grid (Fixes Applied Here) */}

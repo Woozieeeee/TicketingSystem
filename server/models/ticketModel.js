@@ -62,6 +62,42 @@ const Ticket = {
       throw err;
     }
   },
+
+  getTicketById: async (id) => {
+    try {
+      const [rows] = await db.query("SELECT * FROM tickets WHERE id = ?", [id]);
+      return rows[0];
+    } catch (err) {
+      console.error("❌ Get Ticket By ID Error:", err.message);
+      throw err;
+    }
+  },
+
+  updateTicketStatus: async (id, status) => {
+    try {
+      const [result] = await db.query(
+        "UPDATE tickets SET status = ?, updatedAt = NOW() WHERE id = ?",
+        [status, id]
+      );
+      return result;
+    } catch (err) {
+      console.error("❌ Update Ticket Status Error:", err.message);
+      throw err;
+    }
+  },
+
+  createActivityLog: async (ticketId, message) => {
+    try {
+      const [result] = await db.query(
+        "INSERT INTO notifications (username, message, ticketGlobalId, type, is_read, created_at, updated_at) VALUES (?, ?, ?, 'review', 0, NOW(), NOW())",
+        ['System', message, ticketId]
+      );
+      return result;
+    } catch (err) {
+      console.error("❌ Create Activity Log Error:", err.message);
+      throw err;
+    }
+  },
 };
 
 module.exports = Ticket;

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   ArrowLeft,
   Info,
@@ -15,6 +15,7 @@ import {
   Trash2,
   Ban,
   FileText, // FIXED: Added FileText icon for documents
+  Star,
 } from "lucide-react";
 import { CustomAudioPlayer, formatTime } from "./CustomStyles";
 
@@ -264,6 +265,20 @@ export default function ChatWindow({
             {selectedTicket.status === "Finished" ? (
               <div className="w-full bg-slate-100 text-slate-400 text-xs font-bold text-center py-3 rounded-xl border border-slate-200 uppercase tracking-widest select-none">
                 Ticket is closed.
+              </div>
+            ) : selectedTicket.status === "Resolved" ? (
+              <div className="w-full bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="flex items-center justify-center gap-3">
+                  <Star className="text-green-600 fill-green-600" size={24} />
+                  <div className="flex-1">
+                    <p className="text-green-800 font-semibold text-sm">
+                      Ticket has been resolved
+                    </p>
+                    <p className="text-green-600 text-xs">
+                      Please go to Ticket Management to review and complete this ticket
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-2 w-full">
