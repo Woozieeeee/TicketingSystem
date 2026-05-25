@@ -20,4 +20,10 @@ router.get("/stats/all", reviewController.getAllPersonnelStats);
 // POST Confirm done (change ticket status from Resolved to Finished)
 router.post("/confirm/:ticketId", reviewController.confirmDone);
 
+// GET Get all reviews with filtering (for Reviews Management Page)
+router.get("/all", reviewController.getAllReviews);
+
+// GET Get reviews analytics (for Reviews Management Page)
+router.get("/analytics", reviewController.getReviewsAnalytics);
+
 module.exports = router;

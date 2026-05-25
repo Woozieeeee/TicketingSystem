@@ -71,7 +71,6 @@ export default function ITHeadViewDashboard() {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [personnelStats, setPersonnelStats] = useState<any[]>([]);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
@@ -202,22 +201,6 @@ export default function ITHeadViewDashboard() {
     }
   };
 
-  // Fetch personnel performance stats
-  const fetchPersonnelStats = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/reviews/stats/all`, {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPersonnelStats(data);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch personnel stats:', error);
-    }
-  };
 
   // Fetch activities from database
   const fetchActivities = async () => {
@@ -266,8 +249,7 @@ export default function ITHeadViewDashboard() {
       await Promise.all([
         fetchUserTicketStats(),
         fetchActivities(),
-        fetchAlerts(),
-        fetchPersonnelStats()
+        fetchAlerts()
       ]);
     } catch (error) {
       console.error('❌ Error in loadMonitoringData:', error);
@@ -395,7 +377,6 @@ export default function ITHeadViewDashboard() {
                   setSelectedUser(user);
                   setView("stats");
                 }}
-                personnelStats={personnelStats}
               />
             </motion.div>
           )}

@@ -73,6 +73,7 @@ export function useTickets() {
         const transformed: Ticket[] = serverTickets.map((t: any, idx: number) => ({
           globalId: t.id,
           id: idx + 1,
+          ticket_number: t.ticket_number,
           title: t.title,
           description: t.description,
           category: t.category || "General",
@@ -319,7 +320,8 @@ export function useTickets() {
       ticket.createdBy.toLowerCase().includes(q) ||
       ticket.category?.toLowerCase().includes(q) ||
       String(ticket.id).includes(q) ||
-      String(ticket.globalId).includes(q);
+      String(ticket.globalId).includes(q) ||
+      (ticket.ticket_number && String(ticket.ticket_number).includes(q));
 
     return tabMatch && categoryMatch && searchMatch;
   });

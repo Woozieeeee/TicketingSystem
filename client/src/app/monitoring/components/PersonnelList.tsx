@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { User as UserIcon, Star } from "lucide-react";
+import { User as UserIcon } from "lucide-react";
 import { TeamMember } from "../types/monitoring";
 // 1. In-add ang Framer Motion
 import { motion } from "framer-motion";
@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 interface PersonnelListProps {
   filteredTeam: TeamMember[];
   onUserClick: (user: TeamMember) => void;
-  personnelStats?: any[];
 }
 
 // 2. Variants para sa Staggered effect
@@ -30,7 +29,6 @@ const itemVariants = {
 export default function PersonnelList({
   filteredTeam,
   onUserClick,
-  personnelStats = [],
 }: PersonnelListProps) {
   return (
     // 3. Pinalitan ang main div ng motion.div para sa Staggered Entrance
@@ -41,10 +39,6 @@ export default function PersonnelList({
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
     >
       {filteredTeam.map((user) => {
-        // Get personnel stats for this user
-        const userStats = personnelStats.find((stat: any) => stat.assigned_to === user.name);
-        const avgRating = userStats?.avg_rating || 0;
-        const totalReviews = userStats?.total_reviews || 0;
 
         return (
         // 4. In-add ang motion.div sa bawat card para sa entrance at hover effects
@@ -74,31 +68,6 @@ export default function PersonnelList({
             <p className="text-[10px] sm:text-xs text-slate-400 truncate mb-3">
               {user.dept}
             </p>
-          )}
-          
-          {/* Performance Rating */}
-          {totalReviews > 0 && (
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    size={14}
-                    className={
-                      star <= Math.round(avgRating)
-                        ? "fill-amber-400 text-amber-400"
-                        : "fill-slate-200 text-slate-200"
-                    }
-                  />
-                ))}
-              </div>
-              <span className="text-xs font-bold text-slate-700">
-                {avgRating.toFixed(1)}
-              </span>
-              <span className="text-[10px] text-slate-400">
-                ({totalReviews} review{totalReviews !== 1 ? 's' : ''})
-              </span>
-            </div>
           )}
           
           {/* Real ticket statistics */}

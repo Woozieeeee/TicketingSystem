@@ -3,10 +3,12 @@
 import React from "react";
 import { X } from "lucide-react";
 import { getStatusColor } from "./CustomStyles";
+import { formatTicketNumber } from "../../../../lib/ticketFormatter";
 
 interface Ticket {
   globalId: string;
   id: string;
+  ticket_number?: number;
   title: string;
   status: string;
   category: string;
@@ -81,7 +83,7 @@ export default function TicketDetails({
                 Ticket ID
               </p>
               <p className="text-xs font-semibold text-slate-700 mt-1">
-                #{selectedTicket.id}
+                {selectedTicket.ticket_number ? formatTicketNumber(selectedTicket.ticket_number) : `#${selectedTicket.id}`}
               </p>
             </div>
 

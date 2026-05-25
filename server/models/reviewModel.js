@@ -123,3 +123,109 @@ exports.getAllPersonnelStats = async () => {
     throw error;
   }
 };
+
+exports.getAllReviews = async (filters = {}) => {
+  try {
+    let query = `
+      SELECT 
+        tr.id,
+        tr.ticket_id,
+        tr.reviewer,
+        tr.reviewer_role,
+        tr.assigned_to,
+        tr.department,
+        tr.rating,
+        tr.comment,
+        tr.created_at,
+        t.title as ticket_title,
+        t.category as ticket_category,
+        t.status as ticket_status,
+        t.globalId as ticket_global_id
+      FROM ticket_reviews tr
+      LEFT JOIN tickets t ON tr.ticket_id = t.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (filters.rating) {
+      query += ` AND tr.rating = ?`;
+      params.push(filters.rating);
+    }
+
+    if (filters.department) {
+      query += ` AND tr.department = ?`;
+      params.push(filters.department);
+    }
+
+    if (filters.assigned_to) {
+      query += ` AND tr.assigned_to = ?`;
+      params.push(filters.assigned_to);
+    }
+
+    if (filters.startDate) {
+      query += ` AND tr.created_at >= ?`;
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      query += ` AND tr.created_at <= ?`;
+      params.push(filters.endDate);
+    }
+
+    if (filters.search) {
+      query += ` AND (tr.comment LIKE ? OR tr.reviewer LIKE ? OR t.title LIKE ?)`;
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    query += ` ORDER BY tr.created_at DESC`;
+
+    if (filters.limit) {
+      query += ` LIMIT ?`;
+      params.push(filters.limit);
+    }
+
+    if (filters.offset) {
+      query += ` OFFSET ?`;
+      params.push(filters.offset);
+    }
+
+    const [rows] = await db.query(query, params);
+    return rows;
+  } catch (error) {
+    console.error("DB Error fetching all reviews:", error);
+    throw error;
+  }
+};
+
+exports.getReviewsAnalytics = async () => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        COUNT(*) as total_reviews,
+        AVG(rating) as average_rating,
+        SUM(CASE WHEN rating >= 4 THEN 1 ELSE 0 END) as positive_reviews,
+        SUM(CASE WHEN rating <= 2 THEN 1 ELSE 0 END) as negative_reviews,
+        SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as five_star_reviews,
+        SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as four_star_reviews,
+        SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as three_star_reviews,
+        SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as two_star_reviews,
+        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as one_star_reviews
+      FROM ticket_reviews
+    `);
+    return rows[0] || { 
+      total_reviews: 0, 
+      average_rating: 0, 
+      positive_reviews: 0, 
+      negative_reviews: 0,
+      five_star_reviews: 0,
+      four_star_reviews: 0,
+      three_star_reviews: 0,
+      two_star_reviews: 0,
+      one_star_reviews: 0
+    };
+  } catch (error) {
+    console.error("DB Error fetching reviews analytics:", error);
+    throw error;
+  }
+};

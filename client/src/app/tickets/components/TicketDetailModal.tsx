@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { X, Clock, User as UserIcon, Tag, Calendar } from "lucide-react";
 import type { Ticket, DeptAccent } from "../types/tickets";
+import { formatTicketNumber } from "../../../lib/ticketFormatter";
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -55,7 +56,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <h2 className="text-lg font-black tracking-tight leading-none uppercase">Ticket Details</h2>
             </div>
             <span className="text-white/80 text-[10px] font-bold tracking-widest uppercase">
-              Global ID: {ticket.globalId} • Reference #{ticket.id}
+              {ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `Reference #${ticket.id}`}
             </span>
           </div>
           <button 

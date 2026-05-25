@@ -116,7 +116,7 @@ export default function StatsCards({
         return (
           <div
             key={card.label}
-            onClick={() => router.push(`/tickets?filter=${card.filter}&glow=true`)}
+            onClick={() => router.push((card as any).navigateTo || `/tickets?filter=${card.filter}&glow=true`)}
             className={`group ${baseClasses} ${borderModifier}`}
             style={
               isReminder

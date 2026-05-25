@@ -253,6 +253,7 @@ export default function Page() {
           const transformed = data.map((t: any) => ({
             ...t,
             globalId: t.id,
+            ticket_number: t.ticket_number,
             activityDate: t.last_reminded_at || t.updatedAt || t.createdAt || t.date,
             status:
               t.status === "PENDING" ? "Pending" :

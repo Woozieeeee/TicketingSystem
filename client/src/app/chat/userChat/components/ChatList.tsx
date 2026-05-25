@@ -4,10 +4,12 @@ import React from "react";
 import { getStatusColor } from "./CustomStyles";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { formatTicketNumber } from "../../../../lib/ticketFormatter";
 
 interface Ticket {
   globalId: string;
   id: string;
+  ticket_number?: number;
   title: string;
   status: string;
   preview: string;
@@ -111,7 +113,7 @@ const router = useRouter();
             >
               {/* ID + Status row */}
               <div className="flex justify-between items-center mb-1">
-                <p className="font-bold text-sm text-green-800">#{ticket.id}</p>
+                <p className="font-bold text-sm text-green-800">{ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `#${ticket.id}`}</p>
                 <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
                   ticket.status === 'Open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                 }`}>

@@ -74,24 +74,9 @@ export default function RoleBasedDashboard() {
   };
 
   const loadReviewStats = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/reviews/stats/all`, {
-        headers: getAuthHeaders(),
-        credentials: "include",
-      });
-      if (res.ok) {
-        const stats = await res.json();
-        if (Array.isArray(stats) && stats.length > 0) {
-          const totalReviewsCount = stats.reduce((sum: number, s: any) => sum + s.total_reviews, 0);
-          const weightedSum = stats.reduce((sum: number, s: any) => sum + (s.avg_rating * s.total_reviews), 0);
-          const overallAvg = totalReviewsCount > 0 ? weightedSum / totalReviewsCount : 0;
-          setAverageRating(overallAvg);
-          setTotalReviews(totalReviewsCount);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading review stats:", error);
-    }
+    // DISABLED: Review stats temporarily disabled
+    setAverageRating(0);
+    setTotalReviews(0);
   }, []);
 
   // --- USE EFFECTS ---

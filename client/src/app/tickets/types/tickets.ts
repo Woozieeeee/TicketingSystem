@@ -1,6 +1,7 @@
 export interface Ticket {
   globalId: string | number;
   id: number;
+  ticket_number?: number;
   title: string;
   description: string;
   category?: string;

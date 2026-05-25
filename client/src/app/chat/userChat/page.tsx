@@ -125,6 +125,7 @@ export default function UserChatPage() {
         const formattedTickets = data.map((t: any) => ({
           ...t,
           globalId: t.id,
+          ticket_number: t.ticket_number,
           status: formatStatus(t.status),
           preview: t.description || "No description...",
           category: t.category || "General",

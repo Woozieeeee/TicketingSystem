@@ -3,6 +3,7 @@
 import React from "react";
 import type { Ticket, User, DeptAccent } from "../types/tickets";
 import ActionButtons from "./ActionButtons";
+import { formatTicketNumber } from "../../../lib/ticketFormatter";
 
 interface TicketRowProps {
   ticket: Ticket;
@@ -113,7 +114,7 @@ const TicketRow: React.FC<TicketRowProps> = ({
               {ticket.createdBy}
             </span>
             <span className="text-[10px] sm:text-xs font-semibold text-slate-400 tracking-wide font-mono">
-              #{ticket.id}
+              {ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `#${ticket.id}`}
             </span>
           </div>
         </td>
@@ -135,7 +136,7 @@ const TicketRow: React.FC<TicketRowProps> = ({
           </span>
           {user.role !== "Head" && (
             <span className="text-[10px] sm:text-xs font-semibold text-slate-400 font-mono">
-              #{ticket.id}
+              {ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `#${ticket.id}`}
             </span>
           )}
         </div>

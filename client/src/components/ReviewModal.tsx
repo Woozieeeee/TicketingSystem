@@ -3,12 +3,14 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, X, Send } from "lucide-react";
 import { authFetch, getStoredUser } from "../lib/apiClient";
+import { formatTicketNumber } from "../lib/ticketFormatter";
 
 interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   ticketId: string;
   ticketGlobalId: string;
+  ticket_number?: number;
   assignedTo: string;
   department: string;
   onReviewSubmitted: () => void;
@@ -119,7 +121,7 @@ export default function ReviewModal({
                       Review & Confirm Finish
                     </h2>
                     <p className="text-green-100 text-sm mt-1">
-                      Ticket #{ticketGlobalId}
+                      {ticket_number ? formatTicketNumber(ticket_number) : `Ticket #${ticketGlobalId}`}
                     </p>
                   </div>
                   <button

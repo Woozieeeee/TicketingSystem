@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, CheckCircle, PlayCircle, Star } from "lucide-react";
+import { Bell, CheckCircle, PlayCircle, Star, X } from "lucide-react";
 import type { Ticket, User, DeptAccent } from "../types/tickets";
-import ReviewModal from "../../../components/ReviewModal";
 import SuccessModal from "../../../components/SuccessModal";
 import { API_URL } from "../../../config/api";
 import { getAuthHeaders } from "../../../lib/apiClient";
+import { formatTicketNumber } from "../../../lib/ticketFormatter";
 
 interface ActionButtonsProps {
   ticket: Ticket;
@@ -18,6 +18,8 @@ interface ActionButtonsProps {
   deptAccent?: DeptAccent;
 }
 
+const googleFormLink = "https://forms.gle/PjFRp5fcZ6HFNJUp6";
+
 export default function ActionButtons({
   ticket,
   user,
@@ -26,37 +28,12 @@ export default function ActionButtons({
   onRemind,
   deptAccent,
 }: ActionButtonsProps) {
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [isConfirmingDone, setIsConfirmingDone] = useState(false);
-  const [showReviewSuccessModal, setShowReviewSuccessModal] = useState(false);
   const [showConfirmSuccessModal, setShowConfirmSuccessModal] = useState(false);
+  const [openReviewModal, setOpenReviewModal] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [reviewOpened, setReviewOpened] = useState(false);
 
-  // Check if review exists for this ticket
-  useEffect(() => {
-    const checkReviewStatus = async () => {
-      if (!ticket || ticket.status !== "Resolved") {
-        setReviewSubmitted(false);
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/api/reviews/ticket/${typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}`, {
-          headers: getAuthHeaders(),
-          credentials: "include",
-        });
-        if (res.ok) {
-          setReviewSubmitted(true);
-        } else {
-          setReviewSubmitted(false);
-        }
-      } catch (error) {
-        setReviewSubmitted(false);
-      }
-    };
-
-    checkReviewStatus();
-  }, [ticket]);
 
   const handleConfirmDone = async () => {
     const userObj = JSON.parse(localStorage.getItem("user") || "{}");
@@ -68,25 +45,11 @@ export default function ActionButtons({
     setIsConfirmingDone(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/reviews/confirm/${typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}`, {
-        method: "POST",
-        headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ username: userObj.username }),
-      });
-
-      if (res.ok) {
-        setShowConfirmSuccessModal(true);
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        const errorData = await res.json();
-        alert(errorData.error || "Failed to confirm done");
-      }
+      await onAction(ticket.globalId, { status: "Finished" });
+      setShowConfirmSuccessModal(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       alert("Failed to confirm done. Please try again.");
     } finally {
@@ -94,10 +57,10 @@ export default function ActionButtons({
     }
   };
 
-  const handleReviewSubmitted = () => {
-    setReviewSubmitted(true);
-    setIsReviewModalOpen(false);
-    setShowReviewSuccessModal(true);
+  const handleReviewClick = () => {
+    setOpenReviewModal(true);
+    setIframeLoaded(false);
+    setReviewOpened(true);
   };
 
   const minutesPast =
@@ -162,52 +125,29 @@ export default function ActionButtons({
             {/* 2. Only appears when ticket is RESOLVED */}
             {ticket.status === "Resolved" && !ticket.userMarkedDone && (
               <>
-                {!reviewSubmitted ? (
-                  <>
-                    <button
-                      type="button"
-                      className={`${baseBtnStyle} bg-purple-600 hover:bg-purple-700 text-white shadow-purple-100 focus:ring-purple-500`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsReviewModalOpen(true);
-                      }}
-                    >
-                      <Star className={iconSizeStyle} />
-                      <span>Review</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className={`${baseBtnStyle} bg-slate-100 text-slate-400 cursor-not-allowed opacity-50`}
-                    >
-                      <CheckCircle className={iconSizeStyle} />
-                      <span>Confirm Done</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled
-                      className={`${baseBtnStyle} bg-emerald-100 text-emerald-600 cursor-not-allowed`}
-                    >
-                      <Star className={iconSizeStyle} />
-                      <span>Reviewed ✓</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isConfirmingDone}
-                      className={`${baseBtnStyle} bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleConfirmDone();
-                      }}
-                    >
-                      <CheckCircle className={iconSizeStyle} />
-                      <span>{isConfirmingDone ? "Confirming..." : "Confirm Done"}</span>
-                    </button>
-                  </>
-                )}
+                <button
+                  type="button"
+                  className={`${baseBtnStyle} bg-purple-600 hover:bg-purple-700 text-white shadow-purple-100 focus:ring-purple-500`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReviewClick();
+                  }}
+                >
+                  <Star className={iconSizeStyle} />
+                  <span>Review</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={!reviewOpened || isConfirmingDone}
+                  className={`${baseBtnStyle} ${!reviewOpened ? "bg-slate-400 text-slate-300 cursor-not-allowed opacity-50" : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleConfirmDone();
+                  }}
+                >
+                  <CheckCircle className={iconSizeStyle} />
+                  <span>{isConfirmingDone ? "Confirming..." : "Confirm Done"}</span>
+                </button>
               </>
             )}
           </div>
@@ -286,30 +226,58 @@ export default function ActionButtons({
       )}
     </div>
 
-    {/* Review Modal */}
-    {ticket && isReviewModalOpen && createPortal(
-      <ReviewModal
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
-        ticketId={typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}
-        ticketGlobalId={typeof ticket.globalId === 'string' ? ticket.globalId : String(ticket.globalId)}
-        assignedTo="IT Staff"
-        department={ticket.dept || "IT"}
-        onReviewSubmitted={handleReviewSubmitted}
-      />,
-      document.body
-    )}
 
-    {/* Review Success Modal */}
+    {/* Review Modal with Google Form */}
     {createPortal(
-      <SuccessModal
-        open={showReviewSuccessModal}
-        title="Review Submitted Successfully ⭐"
-        message="Thank you for helping improve our IT services."
-        icon="star"
-        onClose={() => setShowReviewSuccessModal(false)}
-        autoCloseDelay={2500}
-      />,
+      <>
+        {openReviewModal && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] transition-opacity duration-300"
+              onClick={() => setOpenReviewModal(false)}
+            />
+            {/* Modal */}
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-purple-700">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Ticket Review</h2>
+                    <p className="text-purple-100 text-sm mt-1">{ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `Ticket #${ticket.globalId}`}</p>
+                  </div>
+                  <button
+                    onClick={() => setOpenReviewModal(false)}
+                    className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-6">
+                  <p className="text-gray-600 text-sm mb-4 text-center">
+                    Please complete the feedback form before finishing the ticket.
+                  </p>
+                  
+                  {!iframeLoaded && (
+                    <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
+                    </div>
+                  )}
+                  
+                  <iframe
+                    src={googleFormLink}
+                    className="w-full h-full border-0 rounded-lg min-h-[500px]"
+                    onLoad={() => setIframeLoaded(true)}
+                    title="Google Form Review"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </>,
       document.body
     )}
 

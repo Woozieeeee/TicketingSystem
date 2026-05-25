@@ -1,9 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { formatTicketNumber } from "../../lib/ticketFormatter";
 
 interface Ticket {
   globalId: string | number;
   displayId: string;
+  ticket_number?: number;
   title: string;
   user: string;
   status: string;
@@ -57,7 +59,7 @@ export const TicketList = ({ tickets, activeTicket, onSelect, onClose }: TicketL
             >
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[9px] font-black text-green-700 bg-green-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                  {t.displayId}
+                  {t.ticket_number ? formatTicketNumber(t.ticket_number) : t.displayId}
                 </span>
                 <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${getStatusColor(t.status)}`}>
                   {t.status}
