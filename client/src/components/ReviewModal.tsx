@@ -21,6 +21,7 @@ export default function ReviewModal({
   onClose,
   ticketId,
   ticketGlobalId,
+  ticket_number,
   assignedTo,
   department,
   onReviewSubmitted,
