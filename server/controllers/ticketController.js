@@ -13,7 +13,6 @@ exports.getTickets = async (req, res) => {
     const params = [];
 
     if (role === "Head" && dept) {
-      // Head sees unread messages from Users/System
       query = `
         SELECT t.*, 
         (SELECT COUNT(*) FROM chat_messages cm WHERE cm.ticketId = t.id AND cm.sender != 'Support Admin' AND cm.is_read = 0) AS unreadCount 
@@ -21,7 +20,6 @@ exports.getTickets = async (req, res) => {
       `;
       params.push(dept);
     } else if (role === "User" && username) {
-      // User sees unread messages from Admin/System
       query = `
         SELECT t.*, 
         (SELECT COUNT(*) FROM chat_messages cm WHERE cm.ticketId = t.id AND cm.sender != ? AND cm.is_read = 0) AS unreadCount 
@@ -77,7 +75,6 @@ exports.createTicket = async (req, res) => {
       await db.query(notifQuery, [head.username, message, id]);
     }
 
-    // 🟢 REAL-TIME TRIGGER
     const io = req.app.get("io");
     if (io) {
       io.emit("ticket_status_changed", {
@@ -117,7 +114,7 @@ exports.getTicketById = async (req, res) => {
   }
 };
 
-// 🟢 UPDATE TICKET (Add System Message Injection)
+// UPDATE TICKET
 exports.updateTicket = async (req, res) => {
   try {
     const { id } = req.params;
@@ -138,8 +135,7 @@ exports.updateTicket = async (req, res) => {
 
     const ticket = existing[0];
     const newTitle = title !== undefined ? title : ticket.title;
-    const newDesc =
-      description !== undefined ? description : ticket.description;
+    const newDesc = description !== undefined ? description : ticket.description;
     const newCat = category !== undefined ? category : ticket.category;
     let newStatus = status !== undefined ? status : ticket.status;
 
@@ -152,30 +148,22 @@ exports.updateTicket = async (req, res) => {
         ? toBool(headMarkedDone)
         : toBool(ticket.headMarkedDone);
 
-    if (newStatus === "PENDING") {
+    if (newStatus === "PENDING" || newStatus === "Pending") {
       isUserDone = false;
       isHeadDone = false;
     }
 
-    let justFinished = false;
-    let justResolved = false;
-
-    // Only apply done flags logic if done flags are explicitly provided
-    // Otherwise, respect the direct status update from frontend
     const doneFlagsProvided = userMarkedDone !== undefined || headMarkedDone !== undefined;
     
     if (doneFlagsProvided) {
       if (isUserDone && isHeadDone) {
         newStatus = "FINISHED";
-        if (ticket.status !== "FINISHED") justFinished = true;
       } else if (isUserDone || isHeadDone) {
         newStatus = "RESOLVED";
-        if (ticket.status !== "RESOLVED") justResolved = true;
-      } else if (newStatus !== "PENDING") {
+      } else if (newStatus !== "PENDING" && newStatus !== "Pending") {
         newStatus = "IN_PROGRESS";
       }
     }
-    // If doneFlagsProvided is false, keep the status from req.body (direct status update)
 
     const finalUserMarked = isUserDone ? 1 : 0;
     const finalHeadMarked = isHeadDone ? 1 : 0;
@@ -189,31 +177,26 @@ exports.updateTicket = async (req, res) => {
       newTitle,
       newDesc,
       newCat,
-      newStatus,
+      newStatus.toUpperCase(),
       finalUserMarked,
       finalHeadMarked,
       id,
     ]);
 
-    // 🟢 NEW: INJECT SYSTEM MESSAGE INTO CHAT
-    if (newStatus !== ticket.status) {
+    if (newStatus.toUpperCase() !== ticket.status.toUpperCase()) {
       let sysMsg = "";
-      switch (newStatus) {
+      switch (newStatus.toUpperCase()) {
         case "IN_PROGRESS":
-          sysMsg =
-            "⚙️ Status Update: The support team is now actively working on this ticket.";
+          sysMsg = "⚙️ Status Update: The support team is now actively working on this ticket.";
           break;
         case "RESOLVED":
-          sysMsg =
-            "✅ Status Update: This ticket has been marked as Resolved. Please confirm if the issue is fully fixed.";
+          sysMsg = "✅ Status Update: This ticket has been marked as Resolved. Please confirm if the issue is fully fixed.";
           break;
         case "FINISHED":
-          sysMsg =
-            "🔒 Status Update: This ticket has been permanently closed. Thank you for your cooperation!";
+          sysMsg = "🔒 Status Update: This ticket has been permanently closed. Thank you for your cooperation!";
           break;
         case "PENDING":
-          sysMsg =
-            "⏳ Status Update: This ticket has been moved back to Pending.";
+          sysMsg = "⏳ Status Update: This ticket has been moved back to Pending.";
           break;
         default:
           sysMsg = `System: Ticket status updated to ${newStatus}`;
@@ -233,7 +216,7 @@ exports.updateTicket = async (req, res) => {
           message: sysMsg,
           created_at: new Date(),
         });
-        io.emit("ticket_status_changed", { id, status: newStatus });
+        io.emit("ticket_status_changed", { id, status: newStatus.toUpperCase() });
         io.emit("user_typing_lock", { ticketId: id, username: null });
       }
     }
@@ -247,7 +230,7 @@ exports.updateTicket = async (req, res) => {
   }
 };
 
-// 🟢 REMIND TICKET (Add System Message Injection)
+// REMIND TICKET
 exports.remindTicket = async (req, res) => {
   try {
     const { id } = req.params;
@@ -277,7 +260,6 @@ exports.remindTicket = async (req, res) => {
         );
       }
 
-      // 🟢 NEW: INJECT SYSTEM MESSAGE INTO CHAT
       const sysMsg = `SYS_REMINDER|${ticket.createdBy}`;
       const [chatRes] = await db.query(
         "INSERT INTO chat_messages (ticketId, sender, message, created_at, is_read) VALUES (?, 'System', ?, NOW(), 0)",
@@ -300,26 +282,111 @@ exports.remindTicket = async (req, res) => {
         });
       }
     }
-// controllers/ticketController.js
-const ticketModel = require('../models/ticket');
-
-const deleteTicket = async (req, res) => {
-    try {
-        const { id } = req.params;
-        await ticketModel.deleteTicket(id);
-        res.status(200).json({ message: "Ticket deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
-module.exports = {
-    // ... existing controllers
-    deleteTicket
-};
     return res.status(200).json({ success: true, message: "Reminder sent" });
   } catch (error) {
     console.error("❌ Remind Error:", error.message);
     return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// DELETE TICKET
+exports.deleteTicket = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Ginamit ang direktang db.query para pareho sa pattern ng buong file mo
+    await db.query("DELETE FROM tickets WHERE id = ?", [id]);
+    return res.status(200).json({ message: "Ticket deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// ==========================================
+// GOOGLE FORM WEBHOOK CONTROLLER (NEW CODE)
+// ==========================================
+exports.handleGoogleFormWebhook = async (req, res) => {
+  const { ticket_number, userMarkedDone } = req.body;
+
+  if (!ticket_number) {
+    return res.status(400).json({ success: false, message: "Missing ticket_number" });
+  }
+
+  try {
+    // 1. Hanapin muna ang ticket gamit ang ticket_number o id (globalId) para makuha ang system id nito
+    const [rows] = await db.query(
+      "SELECT id, status, headMarkedDone FROM tickets WHERE ticket_number = ? OR id = ?",
+      [ticket_number, ticket_number]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+
+    const targetTicket = rows[0];
+    const ticketId = targetTicket.id;
+
+    // 2. Alamin kung kailangang mag-escalate ang status sa FINISHED (Kapag si Head ay nag-click na rin ng Finish)
+    let finalStatus = "RESOLVED";
+    if (toBool(targetTicket.headMarkedDone)) {
+      finalStatus = "FINISHED";
+    }
+
+    // 3. I-update ang flags at status sa MySQL Database
+    const updateQuery = `
+      UPDATE tickets 
+      SET userMarkedDone = 1, status = ?, updatedAt = NOW() 
+      WHERE id = ?
+    `;
+    await db.query(updateQuery, [finalStatus, ticketId]);
+
+    // 4. Mag-inject ng System Message sa chat para alam ng dalawang panig na may review na naganap
+    const sysMsg = "📝 System: The user has completed the Google Form review and submitted feedback.";
+    const [chatRes] = await db.query(
+      "INSERT INTO chat_messages (ticketId, sender, message, created_at, is_read) VALUES (?, 'System', ?, NOW(), 0)",
+      [ticketId, sysMsg]
+    );
+
+    // 5. REAL-TIME EMIT (Dito na hihilingin sa Next.js na mag-refresh ang state ng button nang kusa!)
+    const io = req.app.get("io");
+    if (io) {
+      // I-update ang chat timeline
+      io.to(ticketId).emit("receive_message", {
+        id: chatRes.insertId,
+        ticketId: ticketId,
+        sender: "System",
+        message: sysMsg,
+        created_at: new Date(),
+      });
+      // Sabihan ang dashboard na nagbago ang data ng ticket na ito
+      io.emit("ticket_status_changed", { id: ticketId, status: finalStatus });
+    }
+
+    console.log(`[Webhook Success] Ticket Number ${ticket_number} updated to UserMarkedDone=1 via Webhook.`);
+    return res.status(200).json({ success: true, message: "Webhook processed successfully!" });
+
+  } catch (error) {
+    console.error("❌ Webhook Controller Error:", error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Kumuha ng survey status ng isang partikular na ticket
+exports.getSurveyStatus = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query(
+      "SELECT userMarkedDone FROM tickets WHERE id = ?",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Ibalik kung true/1 o false/0 ang status
+    return res.status(200).json({ userMarkedDone: rows[0].userMarkedDone });
+  } catch (error) {
+    console.error("Error fetching survey status:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
