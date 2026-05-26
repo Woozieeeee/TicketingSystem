@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Montserrat } from "next/font/google";
 import { useTickets } from "./hooks/useTickets";
 import TicketTable from "./components/TicketTable";
 import TicketPagination from "./components/TicketPagination";
@@ -12,6 +13,11 @@ import { getAuthHeaders } from "../../lib/apiClient";
 import { API_URL } from "../../config/api";
 
 import { Search, RotateCcw, ArrowLeft, Plus } from "lucide-react";
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+});
 
 export default function TicketsPage() {
   const {
@@ -151,7 +157,7 @@ export default function TicketsPage() {
             <button onClick={() => router.push("/dashboard")} className="p-1 sm:p-1.5 border border-slate-200 bg-white rounded-lg hover:bg-slate-100 text-slate-500 transition-all active:scale-95 shadow-sm flex-shrink-0" title="Go back">
               <ArrowLeft size={14} className="sm:w-5 sm:h-5" />
             </button>
-            <h1 className="text-[15px] sm:text-xl lg:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap" style={{ fontFamily: "Syne, sans-serif" }}>
+            <h1 className={`${montserrat.className} text-xl sm:text-2xl font-semibold tracking-wide text-slate-800`}>
               Ticket Management
             </h1>
           </div>

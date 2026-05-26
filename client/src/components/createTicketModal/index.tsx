@@ -1,11 +1,17 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { Montserrat } from "next/font/google";
 import { X, Send, ChevronLeft, Loader2, Trash2 } from "lucide-react";
 import { useCreateTicket } from "./hooks/useCreateTicket";
 import Step1Form from "./components/Step1Form";
 import Step2Review from "./components/Step2Review";
 import type { CreateTicketModalProps } from "./types";
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+});
 
 export default function CreateTicketModal({
   isOpen,
@@ -42,8 +48,7 @@ export default function CreateTicketModal({
         >
           <div className="flex flex-col gap-0.5 sm:gap-1">
             <h2
-              className="text-lg sm:text-2xl font-extrabold text-white tracking-wide"
-              style={{ fontFamily: "Syne, sans-serif" }}
+              className={`${montserrat.className} text-lg sm:text-xl font-semibold tracking-wide text-white leading-tight`}
             >
               {step === 1 ? "Create New Ticket" : "Confirm Details"}
             </h2>

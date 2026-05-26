@@ -2,9 +2,15 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { Montserrat } from "next/font/google";
 import { X, Clock, User as UserIcon, Tag, Calendar } from "lucide-react";
 import type { Ticket, DeptAccent } from "../types/tickets";
 import { formatTicketNumber } from "../../../lib/ticketFormatter";
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -53,7 +59,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tighter shadow-sm ${getStatusColor(displayStatus)}`}>
                 {displayStatus}
               </span>
-              <h2 className="text-lg font-black tracking-tight leading-none uppercase">Ticket Details</h2>
+              <h2 className={`${montserrat.className} text-lg sm:text-xl font-semibold tracking-wide text-white leading-tight`}>Ticket Details</h2>
             </div>
             <span className="text-white/80 text-[10px] font-bold tracking-widest uppercase">
               {ticket.ticket_number ? formatTicketNumber(ticket.ticket_number) : `Reference #${ticket.id}`}
@@ -93,7 +99,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Subject
               </p>
-              <h3 className="text-lg font-black text-slate-900 leading-tight">{ticket.title}</h3>
+              <h3 className={`${montserrat.className} text-base sm:text-lg font-bold tracking-normal text-slate-800 leading-relaxed`}>{ticket.title}</h3>
             </div>
 
             {/* Description */}
