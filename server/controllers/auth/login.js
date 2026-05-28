@@ -1,5 +1,5 @@
 const User = require("../../models/user");
-const { generateAndSaveToken } = require("../../middleware/authMiddleware");
+const authMiddleware = require("../../middleware/authMiddleware");
 
 module.exports = async (req, res) => {
   try {
@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
     }
 
     await User.incrementLoginCount(user.id);
-    const { token, expires } = await generateAndSaveToken(user.id);
+    const { token, expires } = await authMiddleware.generateAndSaveToken(user.id);
     const updatedUser = await User.findById(user.id);
 
     // Set HttpOnly cookie with token

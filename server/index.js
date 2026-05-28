@@ -60,10 +60,6 @@ app.get("/", (req, res) => {
   res.send("Backend Server is Running Successfully!");
 });
 
-app.get("/api/auth/validate", (req, res) => {
-  res.status(200).send("Server is reachable");
-});
-
 // ==========================================
 // 🚀 SERVER GATEWAY CLUSTER INITIALIZATION
 // ==========================================
