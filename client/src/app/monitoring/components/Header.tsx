@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Search, RotateCcw, Clock, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -13,11 +13,6 @@ interface HeaderProps {
   liveTime: string;
   setDisplayDate: (date: string) => void;
   dateInputRef: React.RefObject<HTMLInputElement>;
-  monitoringStats?: any;
-  autoRefresh?: boolean;
-  setAutoRefresh?: (refresh: boolean) => void;
-  loadMonitoringData?: () => void;
-  loading?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -30,14 +25,35 @@ const Header: React.FC<HeaderProps> = ({
   liveTime,
   setDisplayDate,
   dateInputRef,
-  monitoringStats,
-  autoRefresh,
-  setAutoRefresh,
-  loadMonitoringData,
-  loading,
 }) => {
-  // Inilipat sa loob ng component body para hindi mag-error
   const router = useRouter();
+
+  // Live clock state
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [prevTime, setPrevTime] = useState(new Date());
+
+  // Update time every second with smooth transitions
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPrevTime(currentTime);
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentTime]);
+
+  // Format time for display
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Check if seconds changed for animation trigger
+  const secondsChanged = currentTime.getSeconds() !== prevTime.getSeconds();
 
   return (
     <header className="mb-6 sm:mb-8 animate-fadeIn">
@@ -95,118 +111,79 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* SEARCH BAR - Below tabs (only in list view) */}
+            {view === "list" && (
+              <div className="relative w-full lg:w-[700px] mt-3">
+                <Search
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search monitoring activities, logs, sessions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-5 py-3 bg-white border border-slate-200 rounded-xl outline-none transition-all font-semibold text-sm shadow-sm hover:border-slate-300 focus:ring-2 focus:ring-slate-200 focus:border-slate-400"
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT SIDE - SEARCH & DATE */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          {/* SEARCH BAR */}
-          {view === "list" && (
-            <div className="relative flex-1 w-full sm:min-w-[280px] lg:min-w-[320px]">
-              <Search
-                className="search-icon-animated absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={16}
-              />
-              <input
-                type="text"
-                placeholder="Search personnel..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border border-slate-200 rounded-lg outline-none transition-all font-semibold text-sm shadow-sm"
-              />
-            </div>
+        {/* RIGHT SIDE - DATE & TIME SECTION */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+          {displayDate !== todayFormatted && (
+            <button
+              onClick={() => setDisplayDate(todayFormatted)}
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-emerald-600 text-white rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-md hover:bg-emerald-700 transition-all whitespace-nowrap active:scale-95"
+            >
+              <RotateCcw size={12} /> Sync
+            </button>
           )}
 
-          {/* DATE & TIME SECTION */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-            {displayDate !== todayFormatted && (
-              <button
-                onClick={() => setDisplayDate(todayFormatted)}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-emerald-600 text-white rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-md hover:bg-emerald-700 transition-all whitespace-nowrap active:scale-95"
-              >
-                <RotateCcw size={12} /> Sync
-              </button>
-            )}
-
-            <div className="relative flex-shrink-0">
-              <div
-                onClick={() => dateInputRef.current?.click()}
-                className="flex items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm cursor-pointer hover:border-emerald-500 transition-colors whitespace-nowrap"
-              >
-                <input
-                  type="date"
-                  ref={dateInputRef}
-                  onChange={(e) =>
-                    setDisplayDate(
-                      new Date(e.target.value).toLocaleDateString([], {
-                        month: "short",
-                        day: "2-digit",
-                        year: "numeric",
-                      })
-                    )
-                  }
-                  className="hidden"
-                />
-                <div className="px-2 sm:px-3 border-r border-slate-100 flex items-center gap-1.5 sm:gap-2">
-                  <Clock size={14} className="text-emerald-500" />
-                  <span className="font-mono font-bold text-[10px] sm:text-xs tabular-nums">
-                    {liveTime}
-                  </span>
-                </div>
-                <div className="px-2 sm:px-3 flex items-center gap-1.5 sm:gap-2">
-                  <Calendar size={14} className="text-emerald-500" />
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-tight">
-                    {displayDate}
-                  </span>
-                </div>
+          <div className="relative flex-shrink-0">
+            <div
+              onClick={() => dateInputRef.current?.click()}
+              className="flex flex-col items-center bg-white border border-slate-200 p-2 sm:p-3 rounded-lg shadow-sm cursor-pointer hover:border-emerald-500 transition-colors min-w-[100px] sm:min-w-[120px]"
+            >
+              <input
+                type="date"
+                ref={dateInputRef}
+                onChange={(e) =>
+                  setDisplayDate(
+                    new Date(e.target.value).toLocaleDateString([], {
+                      month: "short",
+                      day: "2-digit",
+                      year: "numeric",
+                    })
+                  )
+                }
+                className="hidden"
+              />
+              
+              {/* TIME - Top, bigger, bold with animation */}
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                <Clock size={14} className="text-emerald-500" />
+                <span 
+                  className={`font-mono font-black text-sm sm:text-base lg:text-lg tabular-nums text-slate-800 transition-all duration-300 ease-in-out ${
+                    secondsChanged ? 'scale-105' : 'scale-100'
+                  }`}
+                >
+                  {formatTime(currentTime)}
+                </span>
+              </div>
+              
+              {/* DATE - Bottom, smaller, muted */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Calendar size={12} className="text-slate-400" />
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-tight">
+                  {displayDate}
+                </span>
               </div>
             </div>
           </div>
         </div>
-
-        {/* MONITORING CONTROLS */}
-        {monitoringStats && (
-          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Active Users:</span>
-              <span className="font-semibold text-green-600">{monitoringStats.activeUsers24h?.length || 0}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">24h Activities:</span>
-              <span className="font-semibold text-blue-600">{monitoringStats.recent24h || 0}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Failed Logins:</span>
-              <span className="font-semibold text-red-600">{monitoringStats.failedLogins24h || 0}</span>
-            </div>
-            
-            {/* Auto-refresh toggle */}
-            {setAutoRefresh && (
-              <button
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`px-3 py-1 rounded-lg border transition-colors ${
-                  autoRefresh 
-                    ? 'bg-green-50 border-green-200 text-green-700' 
-                    : 'bg-gray-50 border-gray-200 text-gray-600'
-                }`}
-              >
-                <RotateCcw className={`w-4 h-4 mr-1 ${autoRefresh ? 'animate-spin' : ''}`} />
-                Auto Refresh
-              </button>
-            )}
-            
-            {/* Manual refresh button */}
-            {loadMonitoringData && (
-              <button
-                onClick={loadMonitoringData}
-                disabled={loading}
-                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </header>
   );

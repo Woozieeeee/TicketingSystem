@@ -1,170 +1,80 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { 
-  Bell, 
-  Calendar as CalendarIcon, 
-  BarChart3, 
-  ArrowRight, 
-  CheckCircle, 
-  CheckSquare,
-  Star
-} from "lucide-react";
+import { Bell, Calendar as CalendarIcon, BarChart3, ArrowRight, CheckCircle, CheckSquare } from "lucide-react";
 
-interface StatsCardsProps {
-  remindersCount: number;
-  pendingCount: number;
-  inProgressCount: number;
-  resolvedCount: number;
-  finishedCount: number;
-  averageRating?: number;
-  totalReviews?: number;
-}
-
-export default function StatsCards({
-  remindersCount,
-  pendingCount,
-  inProgressCount,
-  resolvedCount,
-  finishedCount,
-  averageRating = 0,
-  totalReviews = 0,
-}: StatsCardsProps) {
+export default function StatsCards({ remindersCount, pendingCount, inProgressCount, resolvedCount, finishedCount }: any) {
   const router = useRouter();
 
-  // Explicitly mapping Tailwind color classes ensures they compile correctly
   const cards = [
-    {
-      label: "Reminders",
-      count: remindersCount,
-      bgIcon: "bg-rose-50",
-      textIcon: "text-rose-500",
-      borderTop: "border-t-rose-500",
-      bgHoverStrip: "bg-rose-500",
-      desc: "Needs urgent update",
-      filter: "Reminders",
-    },
-    {
-      label: "Pending",
-      count: pendingCount,
-      bgIcon: "bg-amber-50",
-      textIcon: "text-amber-500",
-      borderTop: "border-t-amber-500",
-      bgHoverStrip: "bg-amber-500",
-      desc: "Awaiting reply",
-      filter: "Pending",
-    },
-    {
-      label: "In-Progress",
-      count: inProgressCount,
-      bgIcon: "bg-indigo-50",
-      textIcon: "text-indigo-500",
-      borderTop: "border-t-indigo-500",
-      bgHoverStrip: "bg-indigo-500",
-      desc: "Currently in work",
-      filter: "In Progress",
-    },
-    {
-      label: "Resolved",
-      count: resolvedCount,
-      bgIcon: "bg-emerald-50",
-      textIcon: "text-emerald-500",
-      borderTop: "border-t-emerald-500",
-      bgHoverStrip: "bg-emerald-500",
-      desc: "Fixed (Check if okay)",
-      filter: "Resolved",
-    },
-    {
-      label: "Finished",
-      count: finishedCount,
-      bgIcon: "bg-cyan-50",
-      textIcon: "text-cyan-500",
-      borderTop: "border-t-cyan-500",
-      bgHoverStrip: "bg-cyan-500",
-      desc: "Completed & Closed",
-      filter: "Finished",
-    },
-    {
-      label: "Avg Rating",
-      count: averageRating.toFixed(1),
-      bgIcon: "bg-purple-50",
-      textIcon: "text-purple-500",
-      borderTop: "border-t-purple-500",
-      bgHoverStrip: "bg-purple-500",
-      desc: `${totalReviews} review${totalReviews !== 1 ? 's' : ''}`,
-      filter: "Reviews",
-      isRating: true,
-    },
+    { label: "Reminders", count: remindersCount, filter: "Reminders", desc: "Needs urgent update", icon: <Bell size={18} /> },
+    { label: "Pending", count: pendingCount, filter: "Pending", desc: "Awaiting reply", icon: <CalendarIcon size={18} /> },
+    { label: "In-Progress", count: inProgressCount, filter: "In Progress", desc: "Currently in work", icon: <BarChart3 size={18} /> },
+    { label: "Resolved", count: resolvedCount, filter: "Resolved", desc: "Fixed (Check if okay)", icon: <CheckCircle size={18} /> },
+    { label: "Finished", count: finishedCount, filter: "Finished", desc: "Completed & Closed", icon: <CheckSquare size={18} /> },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 mb-6">
-      {cards.map((card, i) => {
-        const isReminder = card.label === "Reminders";
-        const isPending = card.label === "Pending";
-        const isRatingCard = (card as any).isRating;
-
-        // Modernized card base with smooth interactive scaling and shadow effects
-        const baseClasses = "relative bg-white p-6 rounded-2xl border border-slate-200/70 shadow-sm transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-md hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.99] animate-slideUpFade";
-        
-        // Conditional handling to preserve top border logic alongside custom rounded corners
-        let borderModifier = "";
-        if (isReminder || isPending) {
-          borderModifier = `border-t-[5px] ${card.borderTop}`;
-        }
-
-        return (
-          <div
-            key={card.label}
-            onClick={() => router.push((card as any).navigateTo || `/tickets?filter=${card.filter}&glow=true`)}
-            className={`group ${baseClasses} ${borderModifier}`}
-            style={
-              isReminder
-                ? {
-                    animation: `slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 * (i + 1)}s both`,
-                  }
-                : {
-                    animationDelay: `${0.05 * (i + 1)}s`,
-                    animationFillMode: "both",
-                  }
-            }
-          >
-            {/* Elegant slide-in accent indicator line for In-Progress, Resolved, & Finished cards */}
-            {!isReminder && !isPending && (
-              <div
-                className={`absolute top-0 left-0 right-0 h-1 ${card.bgHoverStrip} group-hover:h-1.5 transition-all duration-300`}
-              />
-            )}
-
-            {/* Icon Wrapper with a slight dynamic tilt on hover */}
-            <div className={`w-10 h-10 rounded-xl ${card.bgIcon} flex items-center justify-center mb-4 flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
-              {i === 0 ? <Bell size={18} className={`${card.textIcon} animate-wiggle`} /> :
-               i === 1 ? <CalendarIcon size={18} className={card.textIcon} /> :
-               i === 2 ? <BarChart3 size={18} className={card.textIcon} /> :
-               i === 3 ? <CheckCircle size={18} className={card.textIcon} /> :
-               i === 4 ? <CheckSquare size={18} className={card.textIcon} /> :
-               <Star size={18} className={card.textIcon} />}
-            </div>
-
-            {/* Metrics Content */}
-            <h3 className="text-4xl font-black text-slate-900 tracking-tight mb-1.5 group-hover:text-black transition-colors">
-              {card.count}
-            </h3>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-              {card.label}
-            </p>
-            <p className="text-[11px] font-medium text-slate-400 mb-4 whitespace-nowrap">
-              {card.desc}
-            </p>
-
-            {/* Action text linking animation */}
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-4px] group-hover:translate-x-0">
-              <span>View List</span> 
-              <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-6">
+      {cards.map((card, i) => (
+        <div
+          key={card.label}
+          onClick={() => router.push(`/tickets?filter=${card.filter}&glow=true`)}
+          className={`group relative bg-white p-6 rounded-2xl border border-slate-200/70 border-t-[5px] border-t-[#0A7848] shadow-sm transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-md hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.99] animate-slideUpFade
+            ${card.label === "Reminders" ? "hover:border-t-amber-500 hover:text-amber-500" : ""}
+            ${card.label === "Pending" ? "hover:border-t-blue-500 hover:text-blue-500" : ""}
+            ${card.label === "In-Progress" ? "hover:border-t-yellow-600 hover:text-yellow-600" : ""}
+            ${card.label === "Resolved" ? "hover:border-t-emerald-500 hover:text-emerald-500" : ""}
+            ${card.label === "Finished" ? "hover:border-t-slate-600 hover:text-slate-600" : ""}
+          `}
+          style={{
+            animationDelay: `${0.05 * (i + 1)}s`,
+            animationFillMode: "both",
+          }}
+        >
+          {/* Icon Wrapper */}
+          <div className={`w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 
+            ${card.label === "Reminders" ? "group-hover:bg-amber-50" : ""}
+            ${card.label === "Pending" ? "group-hover:bg-blue-50" : ""}
+            ${card.label === "In-Progress" ? "group-hover:bg-yellow-50" : ""}
+            ${card.label === "Resolved" ? "group-hover:bg-emerald-50" : ""}
+            ${card.label === "Finished" ? "group-hover:bg-slate-100" : ""}
+          `}>
+            <div className={`text-[#0A7848] transition-colors duration-300 
+              ${card.label === "Reminders" ? "group-hover:text-amber-500 animate-wiggle" : ""}
+              ${card.label === "Pending" ? "group-hover:text-blue-500" : ""}
+              ${card.label === "In-Progress" ? "group-hover:text-yellow-600" : ""}
+              ${card.label === "Resolved" ? "group-hover:text-emerald-500" : ""}
+              ${card.label === "Finished" ? "group-hover:text-slate-600" : ""}
+            `}>
+              {card.icon}
             </div>
           </div>
-        );
-      })}
+
+          {/* Metrics Content */}
+          <h3 className={`text-4xl font-black text-slate-900 transition-colors duration-300 
+            ${card.label === "Reminders" ? "group-hover:text-amber-500" : 
+              card.label === "Pending" ? "group-hover:text-blue-500" : 
+              card.label === "In-Progress" ? "group-hover:text-yellow-600" : 
+              card.label === "Resolved" ? "group-hover:text-emerald-500" : 
+              "group-hover:text-slate-600"}`}>
+            {card.count}
+          </h3>
+          
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">{card.label}</p>
+          <p className="text-[11px] font-medium text-slate-400 mb-4">{card.desc}</p>
+
+          {/* Action text */}
+          <div className={`flex items-center gap-1.5 text-[10px] font-bold text-[#0A7848] opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-0
+             ${card.label === "Reminders" ? "group-hover:text-amber-500" : 
+               card.label === "Pending" ? "group-hover:text-blue-500" : 
+               card.label === "In-Progress" ? "group-hover:text-yellow-600" : 
+               card.label === "Resolved" ? "group-hover:text-emerald-500" : 
+               "group-hover:text-slate-600"}`}>
+             <span>View List</span> <ArrowRight size={12} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

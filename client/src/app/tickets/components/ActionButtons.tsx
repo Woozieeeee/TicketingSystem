@@ -84,7 +84,8 @@ export default function ActionButtons({
     }
   };
 
-  const baseBtnStyle = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-bold tracking-wider uppercase rounded-lg shadow-sm transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] select-none focus:outline-none focus:ring-2 focus:ring-offset-1";
+  
+ const baseBtnStyle = "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-bold tracking-wider uppercase rounded-lg shadow-sm transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] select-none focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer";
   const iconSizeStyle = "w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0";
 
   return (
@@ -137,7 +138,7 @@ export default function ActionButtons({
             <button
               type="button"
               className={`${baseBtnStyle} text-white shadow-sm focus:ring-green-500`}
-              style={{ backgroundColor: deptAccent?.color || "#16a34a" }}
+              style={{ backgroundColor: deptAccent?.color || "#16a34a" ,cursor: "pointer"}}
               onMouseEnter={(e) => {
                 e.currentTarget.style.filter = "brightness(0.9)";
               }}

@@ -23,7 +23,7 @@ export const MessageArea = ({
   return (
     <div
       ref={chatContainerRef}
-      className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full gap-4"
+      className="flex-1 p-3 md:p-6 overflow-y-auto bg-slate-50/50 flex flex-col-reverse smooth-scroll w-full space-y-3"
     >
       {[...messages].reverse().map((msg) => {
         const isSystemMsg = msg.sender === "System";
@@ -60,7 +60,7 @@ export const MessageArea = ({
                 </button>
               )}
             <div
-              className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[80%] md:max-w-md`}
+              className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[75%] md:max-w-md`}
             >
               {!isMe && (
                 <span className="text-[10px] font-bold text-gray-400 ml-1 mb-1">
@@ -70,14 +70,14 @@ export const MessageArea = ({
 
               {isDeleted ? (
                 <div
-                  className={`p-2.5 px-4 rounded-2xl shadow-sm text-[11px] italic flex items-center gap-1.5 ${isMe ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"}`}
+                  className={`px-4 py-2.5 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] text-[11px] italic flex items-center gap-1.5 transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_6px_18px_rgba(0,0,0,0.12)] ${isMe ? "bg-slate-100 text-slate-500 border border-slate-200 rounded-tr-none" : "bg-slate-100 text-slate-500 border border-slate-200 rounded-tl-none"}`}
                 >
                   <Ban size={12} className="opacity-70" />{" "}
                   {isMe ? "You" : msg.sender} deleted a message
                 </div>
               ) : (
                 <div
-                  className={`p-3 rounded-2xl shadow-sm relative leading-relaxed ${isMe ? "bg-green-600 text-white rounded-tr-none" : "bg-white border border-amber-200 text-slate-900 rounded-tl-none"}`}
+                  className={`px-4 py-2.5 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] relative leading-relaxed transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_6px_18px_rgba(0,0,0,0.12)] ${isMe ? "bg-green-600 text-white rounded-tr-none" : "bg-white border border-amber-200 text-slate-900 rounded-tl-none"}`}
                 >
                   {attachType === "image" && attachSrc && (
                     <img

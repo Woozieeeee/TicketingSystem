@@ -67,7 +67,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
           setUser(JSON.parse(storedUser));
         } else {
           // Fetch user data from server using cookie authentication
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/validate`, {
+          const validateUrl = typeof window !== "undefined" ? `/api/auth/validate` : `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001'}/api/auth/validate`;
+          const res = await fetch(validateUrl, {
             credentials: "include",
           });
           if (res.ok) {

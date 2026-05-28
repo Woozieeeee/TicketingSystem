@@ -64,13 +64,12 @@ export default function ITHeadViewDashboard() {
   const [liveTime, setLiveTime] = useState("");
   const [displayDate, setDisplayDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
-  
+
   // Database monitoring state
   const [monitoringStats, setMonitoringStats] = useState<any>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const todayFormatted = new Date().toLocaleDateString([], {
@@ -262,21 +261,18 @@ export default function ITHeadViewDashboard() {
   // Initial load and auto-refresh orchestration
   useEffect(() => {
     loadMonitoringData();
-    
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchMonitoringStats();
-        fetchActivities();
-        fetchAlerts();
-      }, 30000); 
-    }
-    
+
+    const interval = setInterval(() => {
+      fetchMonitoringStats();
+      fetchActivities();
+      fetchAlerts();
+    }, 7000); // Auto-refresh every 7 seconds
+
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh]);
+  }, []);
 
   const filteredTeam = useMemo(() => {
     const realUsers = monitoringStats?.userTicketStats?.map((user: any) => ({
@@ -354,11 +350,6 @@ export default function ITHeadViewDashboard() {
             liveTime={liveTime}
             todayFormatted={todayFormatted}
             dateInputRef={dateInputRef}
-            monitoringStats={monitoringStats}
-            autoRefresh={autoRefresh}
-            setAutoRefresh={setAutoRefresh}
-            loadMonitoringData={loadMonitoringData}
-            loading={loading}
           />
         </motion.div>
 
